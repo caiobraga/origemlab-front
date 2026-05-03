@@ -1,0 +1,534 @@
+import { useState, useEffect } from "react";
+import { useLocation, Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { Spinner } from "@/components/ui/spinner";
+import Header from "@/components/Header";
+import { saveUserProfile } from "@/lib/userProfile";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { translateSupabaseAuthError } from "@/lib/authErrorTranslations";
+import {
+  getStoredReferralCode,
+  clearStoredReferralCode,
+  getReferrerByCode,
+  recordReferralConversion,
+} from "@/lib/referralApi";
+import { recordSignupAttribution } from "@/lib/attribution";
+import { getEmailConfirmRedirectUrl } from "@/lib/authEmailConfirmation";
+
+export default function SignUp() {
+  const [, setLocation] = useLocation();
+  const [userType, setUserType] = useState<"pesquisador" | "pessoa-empresa" | "ambos">("pesquisador");
+  
+  // Campos comuns
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [cpf, setCpf] = useState("");
+  
+  // Campos específicos de pessoa física/empresa
+  const [hasCnpj, setHasCnpj] = useState<string>("nao");
+  const [cnpj, setCnpj] = useState("");
+  
+  // Consentimento de coleta de dados (LGPD)
+  const [dataCollectionConsent, setDataCollectionConsent] = useState(false);
+  
+  const [loading, setLoading] = useState(false);
+  const { signUp, user } = useAuth();
+  const { profile, loading: profileLoading } = useUserProfile();
+  const [location] = useLocation();
+
+  // Se já estiver logado: após carregar perfil, ir ao onboarding (se não completou) ou ao dashboard
+  useEffect(() => {
+    if (!user || profileLoading) return;
+    setLocation(profile?.onboardingCompleted ? "/dashboard" : "/onboarding?new=1");
+  }, [user, profileLoading, profile?.onboardingCompleted, setLocation]);
+
+  // Preencher email da URL se disponível
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const emailParam = urlParams.get("email");
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      return;
+    }
+
+    // Validações específicas
+    if (!cpf) {
+      toast.error("CPF é obrigatório");
+      return;
+    }
+
+    if (userType === "pessoa-empresa" && hasCnpj === "sim" && !cnpj) {
+      toast.error("CNPJ é obrigatório quando você possui CNPJ");
+      return;
+    }
+
+    // Validação de consentimento (LGPD)
+    if (!dataCollectionConsent) {
+      toast.error("É necessário consentir com a coleta de dados para criar uma conta");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Preparar dados do perfil - limpar formatação do CPF e CNPJ
+      const cpfLimpo = cpf.replace(/\D/g, "");
+      const cnpjLimpo = cnpj.replace(/\D/g, "");
+      
+      const profileData = {
+        cpf: cpfLimpo || undefined,
+        cnpj: (userType === "pessoa-empresa" || userType === "ambos") && hasCnpj === "sim" && cnpjLimpo ? cnpjLimpo : undefined,
+        userType: userType,
+        hasCnpj: (userType === "pessoa-empresa" || userType === "ambos") && hasCnpj === "sim",
+        dataCollectionConsent: dataCollectionConsent,
+        consentVersion: "1.0", // Versão atual do termo de consentimento
+      };
+
+      console.log("Dados do perfil a serem salvos:", profileData);
+
+      // Fazer o signUp básico
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: getEmailConfirmRedirectUrl(),
+        },
+      });
+
+      if (signUpError) {
+        console.error("Erro no signup:", signUpError);
+        throw signUpError;
+      }
+
+      if (!signUpData.user) {
+        console.error("Usuário não retornado do signup");
+        toast.error("Erro ao criar conta. Tente novamente.");
+        return;
+      }
+
+      console.log("Usuário criado:", signUpData.user.id);
+
+      // Aguardar um pouco para garantir que o usuário foi criado no banco
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Salvar dados adicionais no perfil do usuário imediatamente após o signup
+      let profileSaved = false;
+      try {
+        console.log("Tentando salvar perfil para userId:", signUpData.user.id);
+        console.log("Dados do perfil:", profileData);
+        
+        await saveUserProfile(signUpData.user.id, profileData);
+        console.log("✅ Perfil salvo com sucesso na tabela profiles");
+        profileSaved = true;
+        toast.success("Conta criada com sucesso! Verifique seu email para confirmar.");
+      } catch (profileError: any) {
+        console.error("❌ Erro ao salvar perfil:", profileError);
+        console.error("Código do erro:", profileError?.code);
+        console.error("Mensagem do erro:", profileError?.message);
+        console.error("Detalhes completos:", JSON.stringify(profileError, null, 2));
+        
+        // Fallback: salvar no user_metadata só se houver sessão (evita AuthSessionMissingError)
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            toast.success("Conta criada! Confirme seu email para acessar. Você poderá completar o perfil após o login.");
+          } else {
+            console.log("Tentando salvar no user_metadata como fallback...");
+            const metadataProfile: any = {
+              userType: profileData.userType,
+              hasCnpj: profileData.hasCnpj || false,
+            };
+            if (profileData.cpf) metadataProfile.cpf = profileData.cpf;
+            if (profileData.cnpj) metadataProfile.cnpj = profileData.cnpj;
+
+            const { error: metadataError } = await supabase.auth.updateUser({
+              data: { profile: metadataProfile },
+            });
+            if (metadataError) {
+              console.error("Erro ao salvar no metadata:", metadataError);
+              toast.warning("Conta criada, mas houve um problema ao salvar o perfil. Você pode atualizar depois.");
+            } else {
+              console.log("✅ Perfil salvo no user_metadata como fallback");
+              toast.success("Conta criada com sucesso! Verifique seu email para confirmar.");
+            }
+          }
+        } catch (metadataError: unknown) {
+          const isSessionMissing = metadataError && typeof (metadataError as Error).name === 'string' && ((metadataError as Error).name === 'AuthSessionMissingError' || (metadataError as Error).message?.includes('session missing'));
+          if (isSessionMissing) {
+            toast.success("Conta criada! Confirme seu email para acessar. Você poderá completar o perfil após o login.");
+          } else {
+            console.error("Erro ao salvar no metadata também:", metadataError);
+            toast.warning("Conta criada, mas houve um problema ao salvar o perfil. Você pode atualizar depois.");
+          }
+        }
+      }
+      
+      // Verificar se o perfil foi realmente salvo
+      if (profileSaved) {
+        try {
+          const { data: verifyProfile, error: verifyError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', signUpData.user.id)
+            .maybeSingle();
+          
+          if (verifyError && verifyError.code !== 'PGRST116') {
+            console.warn("⚠️ Erro ao verificar perfil salvo:", verifyError);
+          } else if (verifyProfile) {
+            console.log("✅ Perfil verificado com sucesso:", verifyProfile);
+          } else {
+            console.warn("⚠️ Perfil não encontrado após salvar. Pode ser necessário confirmar o email primeiro.");
+          }
+        } catch (verifyError) {
+          console.warn("⚠️ Erro ao verificar perfil:", verifyError);
+        }
+      }
+
+      // Registrar referência se veio de um link de indicação
+      const referralCode = getStoredReferralCode();
+      if (referralCode) {
+        try {
+          const referrerId = await getReferrerByCode(referralCode);
+          if (referrerId && referrerId !== signUpData.user.id) {
+            const recorded = await recordReferralConversion(referrerId, signUpData.user.id);
+            if (recorded) {
+              toast.success("Indicação registrada! Você e quem te indicou ganham créditos.");
+            }
+          }
+          clearStoredReferralCode();
+        } catch (refError) {
+          console.warn("Erro ao registrar referência:", refError);
+        }
+      }
+
+      // Afiliados / campanhas: gravar código aff e UTMs capturados na primeira visita
+      await recordSignupAttribution(signUpData.user.id);
+      
+      // Com "Confirm email" ativo no Supabase não há session até confirmar — ir ao login com aviso
+      if (signUpData.session) {
+        setLocation("/onboarding?new=1");
+      } else {
+        setLocation(
+          `/login?precisaConfirmar=1&email=${encodeURIComponent(email)}`,
+        );
+      }
+    } catch (error: any) {
+      console.error("Erro completo no signup:", error);
+      toast.error(translateSupabaseAuthError(error, "Erro ao criar conta. Tente novamente."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+    if (numbers.length <= 11) {
+      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+    return value;
+  };
+
+  const formatCNPJ = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+    if (numbers.length <= 14) {
+      return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    }
+    return value;
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-violet-50 px-4 py-12">
+        <div className="w-full max-w-2xl">
+          <div className="bg-white rounded-lg shadow-xl p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
+                Criar nova conta
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Escolha o tipo de conta e preencha os dados abaixo
+              </p>
+            </div>
+
+            <Tabs value={userType} onValueChange={(value) => setUserType(value as "pesquisador" | "pessoa-empresa" | "ambos")} className="w-full">
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 h-auto p-1 gap-1 sm:gap-0 sm:h-9">
+                <TabsTrigger value="pesquisador" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
+                  Pesquisador
+                </TabsTrigger>
+                <TabsTrigger value="pessoa-empresa" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
+                  Pessoa Física/Empresa
+                </TabsTrigger>
+                <TabsTrigger value="ambos" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
+                  Ambos
+                </TabsTrigger>
+              </TabsList>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Campos comuns */}
+                <div className="space-y-2">
+                  <Label htmlFor="email">
+                    Email <span className="text-red-600" aria-hidden="true">*</span>
+                    <span className="sr-only"> (obrigatório)</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="password">
+                      Senha <span className="text-red-600" aria-hidden="true">*</span>
+                      <span className="sr-only"> (obrigatório)</span>
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      minLength={6}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Mínimo de 6 caracteres</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">
+                      Confirmar Senha <span className="text-red-600" aria-hidden="true">*</span>
+                      <span className="sr-only"> (obrigatório)</span>
+                    </Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      minLength={6}
+                      className="w-full"
+                    />
+                    {password && confirmPassword && password !== confirmPassword && (
+                      <p className="text-xs text-red-500">As senhas não coincidem</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">
+                    CPF <span className="text-red-600" aria-hidden="true">*</span>
+                    <span className="sr-only"> (obrigatório)</span>
+                  </Label>
+                  <Input
+                    id="cpf"
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatCPF(e.target.value))}
+                    required
+                    disabled={loading}
+                    maxLength={14}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Aba Pesquisador */}
+                <TabsContent value="pesquisador" className="space-y-6">
+                  <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil após o cadastro.</p>
+                </TabsContent>
+
+                {/* Aba Pessoa Física/Empresa */}
+                <TabsContent value="pessoa-empresa" className="space-y-6">
+                  <div className="space-y-4">
+                    <Label>Você possui CNPJ?</Label>
+                    <RadioGroup value={hasCnpj} onValueChange={setHasCnpj} disabled={loading}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="sim" id="cnpj-sim" />
+                        <Label htmlFor="cnpj-sim" className="cursor-pointer font-normal">Sim, tenho CNPJ</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="nao" id="cnpj-nao" />
+                        <Label htmlFor="cnpj-nao" className="cursor-pointer font-normal">Não tenho CNPJ</Label>
+                      </div>
+                    </RadioGroup>
+
+                    {hasCnpj === "sim" && (
+                      <div className="space-y-2 mt-4">
+                        <Label htmlFor="cnpj">
+                          CNPJ <span className="text-red-600" aria-hidden="true">*</span>
+                          <span className="sr-only"> (obrigatório)</span>
+                        </Label>
+                        <Input
+                          id="cnpj"
+                          type="text"
+                          placeholder="00.000.000/0000-00"
+                          value={cnpj}
+                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                          required={hasCnpj === "sim"}
+                          disabled={loading}
+                          maxLength={18}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Aba Ambos */}
+                <TabsContent value="ambos" className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Perfil Ambos:</strong> Você poderá visualizar editais tanto para pesquisadores quanto para empresas. 
+                      Use o filtro no dashboard para alternar entre os tipos.
+                    </p>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil.</p>
+
+                  <div className="space-y-4">
+                    <Label>Você possui CNPJ?</Label>
+                    <RadioGroup value={hasCnpj} onValueChange={setHasCnpj} disabled={loading}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="sim" id="cnpj-sim-ambos" />
+                        <Label htmlFor="cnpj-sim-ambos" className="cursor-pointer font-normal">Sim, tenho CNPJ</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="nao" id="cnpj-nao-ambos" />
+                        <Label htmlFor="cnpj-nao-ambos" className="cursor-pointer font-normal">Não tenho CNPJ</Label>
+                      </div>
+                    </RadioGroup>
+
+                    {hasCnpj === "sim" && (
+                      <div className="space-y-2 mt-4">
+                        <Label htmlFor="cnpj-ambos">CNPJ</Label>
+                        <Input
+                          id="cnpj-ambos"
+                          type="text"
+                          placeholder="00.000.000/0000-00"
+                          value={cnpj}
+                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                          disabled={loading}
+                          maxLength={18}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Consentimento de coleta de dados (LGPD) */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="data-consent"
+                      checked={dataCollectionConsent}
+                      onCheckedChange={(checked) => setDataCollectionConsent(checked === true)}
+                      disabled={loading}
+                      className="mt-1"
+                      aria-required="true"
+                    />
+                    <div className="flex-1">
+                      <Label 
+                        htmlFor="data-consent" 
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer"
+                      >
+                        Consentimento para coleta de dados pessoais (LGPD){" "}
+                        <span className="text-red-600" aria-hidden="true">*</span>
+                        <span className="sr-only"> (obrigatório)</span>
+                      </Label>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Eu concordo com a coleta e processamento dos meus dados pessoais (CPF, CNPJ, email, etc.) 
+                        pela Origem.Lab para fins de prestação de serviços, melhoria da plataforma e comunicação. 
+                        Posso revogar este consentimento a qualquer momento através das configurações da minha conta. 
+                        Para mais informações, consulte nossa{" "}
+                        <Link 
+                          href="/politica-privacidade" 
+                          className="text-blue-600 dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                          aria-label="Ler política de privacidade"
+                        >
+                          política de privacidade
+                        </Link>
+                        .
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white mt-6"
+                  disabled={
+                    loading || 
+                    !cpf ||
+                    (password !== confirmPassword && confirmPassword !== "") ||
+                    (userType === "pessoa-empresa" && hasCnpj === "sim" && !cnpj) ||
+                    !dataCollectionConsent
+                  }
+                >
+                  {loading ? (
+                    <>
+                      <Spinner className="mr-2" />
+                      Criando conta...
+                    </>
+                  ) : (
+                    "Criar Conta"
+                  )}
+                </Button>
+              </form>
+
+              <div className="text-center text-sm text-gray-600 mt-6">
+                Já tem uma conta?{" "}
+                <Link href="/login">
+                  <span className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                    Entrar
+                  </span>
+                </Link>
+              </div>
+
+              <div className="text-center mt-4 space-y-2">
+                <Link href="/referencia">
+                  <span className="block text-sm text-green-600 hover:text-green-700 font-medium cursor-pointer">
+                    Indique e Ganhe R$ 50
+                  </span>
+                </Link>
+                <Link href="/">
+                  <span className="block text-sm text-gray-500 hover:text-gray-700 cursor-pointer">
+                    ← Voltar para a página inicial
+                  </span>
+                </Link>
+              </div>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+

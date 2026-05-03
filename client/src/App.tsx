@@ -1,0 +1,108 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import NotFound from "@/pages/NotFound";
+import { Route, Switch } from "wouter";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import Home from "./pages/Home";
+import Inicio from "./pages/Inicio";
+import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
+import EditalDetails from "./pages/EditalDetails";
+import MinhasPropostas from "./pages/MinhasPropostas";
+import EditorProposta from "./pages/EditorProposta";
+import Onboarding from "./pages/Onboarding";
+import Dashboard from "./pages/Dashboard";
+import Demo from "./pages/Demo";
+import Referencia from "./pages/Referencia";
+import RefRedirect from "./pages/RefRedirect";
+import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
+import Sobre from "./pages/Sobre";
+import Contato from "./pages/Contato";
+import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import TermosDeUso from "./pages/TermosDeUso";
+import Cookies from "./pages/Cookies";
+import Planos from "./pages/Planos";
+import AdminDashboard from "./pages/AdminDashboard";
+import CookieBanner from "./components/CookieBanner";
+import { useEffect } from "react";
+import { captureAttributionFromUrl } from "@/lib/attribution";
+
+function AttributionCapture() {
+  useEffect(() => {
+    captureAttributionFromUrl();
+  }, []);
+  return null;
+}
+
+function Router() {
+  return (
+    <Switch>
+      <Route path={"/"} component={Home} />
+      <Route path={"/inicio"} component={Inicio} />
+      <Route path={"/login"} component={Login} />
+      <Route path={"/cadastro"} component={SignUp} />
+      <Route path={"/onboarding"} component={Onboarding} />
+      <Route path={"/dashboard"} component={Dashboard} />
+      <Route path={"/perfil"} component={Profile} />
+      <Route path={"/perfil/editar"} component={EditProfile} />
+      <Route path={"/demo"} component={Demo} />
+      <Route path={"/referencia"} component={Referencia} />
+      <Route path={"/ref/:code"} component={RefRedirect} />
+      <Route path={"/edital/:id"} component={EditalDetails} />
+      <Route path={"/minhas-propostas"} component={MinhasPropostas} />
+      <Route path={"/propostas/:id"} component={EditorProposta} />
+      <Route path={"/sobre"} component={Sobre} />
+      <Route path={"/contato"} component={Contato} />
+      <Route path={"/politica-privacidade"} component={PoliticaPrivacidade} />
+      <Route path={"/termos-de-uso"} component={TermosDeUso} />
+      <Route path={"/cookies"} component={Cookies} />
+      <Route path={"/planos"} component={Planos} />
+      <Route path={"/admin"} component={AdminDashboard} />
+      <Route path={"/404"} component={NotFound} />
+      {/* Final fallback route */}
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos - dados considerados frescos
+      cacheTime: 10 * 60 * 1000, // 10 minutos - mantém cache em memória (v4)
+    },
+  },
+});
+
+// NOTE: About Theme
+// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
+//   to keep consistent foreground/background color across components
+// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ThemeProvider
+          defaultTheme="light"
+          // switchable
+        >
+          <TooltipProvider>
+            <Toaster />
+            <AttributionCapture />
+            <Router />
+            <CookieBanner />
+          </TooltipProvider>
+        </ThemeProvider>
+      </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
