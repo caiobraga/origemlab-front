@@ -1,3 +1,23 @@
+# Static site: npm build → aws s3 sync → optional CloudFront invalidation.
+#
+# GitHub Variables: AWS_REGION, AWS_ROLE_ARN (OIDC deploy role), S3_BUCKET,
+# optional CLOUDFRONT_DISTRIBUTION_ID.
+#
+# IAM (GitHub Actions): anexar .github/aws-iam-deploy-role-policy.json à ROLE OIDC
+# (IAM → Roles → sua role → Permissões → JSON). NÃO colar essa política em “Bucket policy”.
+#
+# Política no BUCKET (não confundir com IAM da role de deploy):
+# - Leitura pública liberal (GetObject + ListBucket para qualquer um): ver
+#   aws-s3-bucket-policy-static-site-example.json (placeholder) ou
+#   aws-s3-bucket-policy-public-liberal-origemlab-front.json (bucket origemlab-front).
+#   No S3 → Permissions → Block public access → Edit → desativar as opções que bloqueiam
+#   políticas públicas e ACLs públicas (risco: bucket listável e objetos legíveis sem auth).
+# - CloudFront + OAC: aws-s3-bucket-policy-cloudfront-oac-example.json (sem Principal *).
+#
+# URL https://bucket.s3.region.amazonaws.com/ mostra XML na raiz — é o endpoint REST do S3,
+# não serve index.html em /. Usa /index.html ou, melhor, CloudFront com Default root object
+# = index.html e (SPA) Custom error responses 403/404 → /index.html com 200.
+
 name: deploy
 
 on:

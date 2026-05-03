@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DeploySyncToStaticBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::REPLACE_WITH_FRONT_BUCKET_NAME"
+    },
+    {
+      "Sid": "DeployObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::REPLACE_WITH_FRONT_BUCKET_NAME/*"
+    },
+    {
+      "Sid": "InvalidateCloudFrontAfterDeploy",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::REPLACE_WITH_AWS_ACCOUNT_ID:distribution/REPLACE_WITH_CLOUDFRONT_DISTRIBUTION_ID"
+    }
+  ]
+}
