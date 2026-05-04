@@ -13,7 +13,7 @@ cp .env.example .env.local
 # Preencha VITE_SUPABASE_*, VITE_API_BASE_URL, etc.
 npm install
 npm run dev
-```
+``` 
 
 ## Build (igual ao CI)
 
