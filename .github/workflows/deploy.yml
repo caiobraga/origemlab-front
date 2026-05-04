@@ -56,7 +56,7 @@ jobs:
       - name: Verify deployment variables
         run: |
           set -euo pipefail
-          for v in AWS_REGION AWS_ROLE_ARN S3_BUCKET; do
+          for v in AWS_REGION AWS_ROLE_ARN S3_BUCKET CLOUDFRONT_DISTRIBUTION_ID; do
             eval "val=\${$v:-}"
             if [ -z "${val}" ]; then
               echo "::error::Missing GitHub Actions variable: $v"
@@ -157,9 +157,16 @@ jobs:
             --content-type "text/plain"
 
       - name: Invalidate CloudFront
-        if: ${{ steps.deploy_decision.outputs.should_deploy == 'true' && env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        if: ${{ steps.deploy_decision.outputs.should_deploy == 'true' }}
         run: |
-          aws cloudfront create-invalidation \
+          set -euo pipefail
+          INVALIDATION_ID="$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --paths "/*"
+            --paths "/*" \
+            --query 'Invalidation.Id' --output text)"
+
+          echo "Created invalidation: ${INVALIDATION_ID}"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --id "${INVALIDATION_ID}"
 
