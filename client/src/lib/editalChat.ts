@@ -9,7 +9,6 @@ export interface ChatMessage {
 
 const CHAT_ENDPOINT =
   import.meta.env.VITE_CHAT_ENDPOINT ||
-  import.meta.env.VITE_N8N_WEBHOOK_URL ||
   "https://n8n.srv652789.hstgr.cloud/webhook/basic";
 
 function isProbablyOllamaEndpoint(url: string) {

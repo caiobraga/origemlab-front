@@ -23,7 +23,13 @@ name: deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Optional note (no effect on logic)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   id-token: write
@@ -38,12 +44,25 @@ env:
   AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
   S3_BUCKET: ${{ vars.S3_BUCKET }}
   CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+  # Where we store the last deployed env hash (in the same bucket).
+  DEPLOY_META_PREFIX: ".deploy-meta"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify deployment variables
+        run: |
+          set -euo pipefail
+          for v in AWS_REGION AWS_ROLE_ARN S3_BUCKET; do
+            eval "val=\${$v:-}"
+            if [ -z "${val}" ]; then
+              echo "::error::Missing GitHub Actions variable: $v"
+              exit 1
+            fi
+          done
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -57,13 +76,60 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
 
-      - name: Install + build
+      - name: Decide whether to deploy (env hash)
+        id: deploy_decision
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_OAUTH_PORTAL_URL: ${{ vars.VITE_OAUTH_PORTAL_URL }}
           VITE_APP_ID: ${{ vars.VITE_APP_ID }}
+          VITE_CHAT_ENDPOINT: ${{ vars.VITE_CHAT_ENDPOINT }}
+          VITE_OLLAMA_MODEL: ${{ vars.VITE_OLLAMA_MODEL }}
+          VITE_APP_TITLE: ${{ vars.VITE_APP_TITLE }}
+          VITE_APP_LOGO: ${{ vars.VITE_APP_LOGO }}
+        run: |
+          set -euo pipefail
+          # No schedule: always deploy on push and manual runs.
+          echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          echo "reason=${GITHUB_EVENT_NAME}" >> "$GITHUB_OUTPUT"
+
+          # Hash build-time envs without logging values.
+          python3 <<'PY'
+          import hashlib, os
+
+          keys = [
+              "VITE_SUPABASE_URL",
+              "VITE_SUPABASE_ANON_KEY",
+              "VITE_API_BASE_URL",
+              "VITE_OAUTH_PORTAL_URL",
+              "VITE_APP_ID",
+              "VITE_CHAT_ENDPOINT",
+              "VITE_OLLAMA_MODEL",
+              "VITE_APP_TITLE",
+              "VITE_APP_LOGO",
+          ]
+          parts = []
+          for k in keys:
+              v = (os.environ.get(k) or "").strip()
+              parts.append(f"{k}={v}")
+          digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+          with open("env.sha256", "w", encoding="utf-8") as f:
+              f.write(digest + "\n")
+          PY
+
+      - name: Install + build
+        if: ${{ steps.deploy_decision.outputs.should_deploy == 'true' }}
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_OAUTH_PORTAL_URL: ${{ vars.VITE_OAUTH_PORTAL_URL }}
+          VITE_APP_ID: ${{ vars.VITE_APP_ID }}
+          VITE_CHAT_ENDPOINT: ${{ vars.VITE_CHAT_ENDPOINT }}
+          VITE_OLLAMA_MODEL: ${{ vars.VITE_OLLAMA_MODEL }}
+          VITE_APP_TITLE: ${{ vars.VITE_APP_TITLE }}
+          VITE_APP_LOGO: ${{ vars.VITE_APP_LOGO }}
         run: |
           if [ -f package-lock.json ] || [ -f package.json ]; then
             npm ci
@@ -74,11 +140,24 @@ jobs:
           fi
 
       - name: Upload to S3
+        if: ${{ steps.deploy_decision.outputs.should_deploy == 'true' }}
         run: |
           aws s3 sync dist "s3://${S3_BUCKET}" --delete
 
+      - name: Write deployed env hash to S3
+        if: ${{ steps.deploy_decision.outputs.should_deploy == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ ! -f ./env.sha256 ]; then
+            echo "::error::env.sha256 not found (deploy decision step failed?)"
+            exit 1
+          fi
+          aws s3 cp ./env.sha256 "s3://${S3_BUCKET}/${DEPLOY_META_PREFIX}/env.sha256" \
+            --cache-control "no-cache" \
+            --content-type "text/plain"
+
       - name: Invalidate CloudFront
-        if: ${{ env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        if: ${{ steps.deploy_decision.outputs.should_deploy == 'true' && env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
