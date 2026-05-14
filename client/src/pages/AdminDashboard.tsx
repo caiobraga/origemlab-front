@@ -18,10 +18,12 @@ import {
   adminPatchUser,
   adminUpdateEdital,
   adminUpdateProposta,
+  adminGetEditalDocuments,
   type AdminUserRow,
   type BillingPlanRow,
   type EditalAdminRow,
   type PropostaAdminRow,
+  type AdminEditalDocumentsResponse,
 } from "@/lib/adminApi";
 import { toast } from "sonner";
 
@@ -122,6 +124,11 @@ export default function AdminDashboard() {
   const [editaisAtivoFiltro, setEditaisAtivoFiltro] = useState<"__all__" | "dashboard" | "1" | "0">("dashboard");
   const [selectedEdital, setSelectedEdital] = useState<EditalAdminRow | null>(null);
   const [editalDialogOpen, setEditalDialogOpen] = useState(false);
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const [docBusy, setDocBusy] = useState(false);
+  const [docData, setDocData] = useState<AdminEditalDocumentsResponse | null>(null);
+  const [docOffset, setDocOffset] = useState(0);
+  const docLimit = 30;
 
   const filteredUsers = useMemo(() => {
     const q = userQuery.trim().toLowerCase();
@@ -210,6 +217,41 @@ export default function AdminDashboard() {
       toast.error(e instanceof Error ? e.message : "Erro ao carregar editais");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function openEditalDocuments(editalId: string) {
+    setDocDialogOpen(true);
+    setDocBusy(true);
+    setDocData(null);
+    setDocOffset(0);
+    try {
+      const out = await adminGetEditalDocuments(editalId, { limit: docLimit, offset: 0 });
+      setDocData(out);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao carregar documentos do edital");
+      setDocDialogOpen(false);
+    } finally {
+      setDocBusy(false);
+    }
+  }
+
+  async function loadMoreEditalDocuments() {
+    if (!docData) return;
+    if (docBusy) return;
+    setDocBusy(true);
+    try {
+      const nextOffset = docOffset + docLimit;
+      const out = await adminGetEditalDocuments(docData.edital_id, { limit: docLimit, offset: nextOffset });
+      setDocOffset(nextOffset);
+      setDocData((prev) => {
+        if (!prev) return out;
+        return { ...out, documents_rows: [...prev.documents_rows, ...(out.documents_rows || [])] };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao carregar mais documentos");
+    } finally {
+      setDocBusy(false);
     }
   }
 
@@ -528,6 +570,9 @@ export default function AdminDashboard() {
                         >
                           Ver/editar
                         </Button>
+                        <Button size="sm" variant="outline" onClick={() => void openEditalDocuments(e.id)}>
+                          Documentos
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => setLocation(`/edital/${e.id}`)}>
                           Abrir no site
                         </Button>
@@ -634,6 +679,152 @@ export default function AdminDashboard() {
                   </Button>
                 </div>
                 <div className="text-xs text-gray-500 break-all">id: {selectedEdital.id}</div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600">Selecione um edital.</div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={docDialogOpen} onOpenChange={setDocDialogOpen}>
+          <DialogContent className="max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>Documentos do edital</DialogTitle>
+            </DialogHeader>
+            {docBusy && !docData ? (
+              <div className="text-sm text-gray-600">Carregando…</div>
+            ) : docData ? (
+              <div className="space-y-4">
+                <Card className="p-4 space-y-2">
+                  <div className="text-sm font-semibold text-gray-900">Status de processamento</div>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <Badge variant="secondary">
+                      PDFs: {docData.pdfs_processed}/{docData.pdfs_total} processados
+                    </Badge>
+                    <Badge variant={docData.documents_missing_embeddings > 0 ? "destructive" : "secondary"}>
+                      Chunks: {docData.documents_total} (faltam embeddings: {docData.documents_missing_embeddings})
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-gray-500 break-all">edital_id: {docData.edital_id}</div>
+                </Card>
+
+                <Card className="p-4 space-y-2">
+                  <div className="text-sm font-semibold text-gray-900">Última extração (process-edital-service)</div>
+                  {docData.extraction ? (
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <div>
+                        <span className="text-gray-500">informacoes_processadas_em:</span>{" "}
+                        {docData.extraction.informacoes_processadas_em
+                          ? new Date(docData.extraction.informacoes_processadas_em).toLocaleString("pt-BR")
+                          : "—"}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
+                        <div><span className="text-gray-500">valor_projeto:</span> {docData.extraction.valor_projeto || "—"}</div>
+                        <div><span className="text-gray-500">prazo_inscricao:</span> {docData.extraction.prazo_inscricao || "—"}</div>
+                        <div><span className="text-gray-500">localizacao:</span> {docData.extraction.localizacao || "—"}</div>
+                        <div><span className="text-gray-500">vagas:</span> {docData.extraction.vagas || "—"}</div>
+                        <div><span className="text-gray-500">is_researcher:</span> {String(docData.extraction.is_researcher ?? "—")}</div>
+                        <div><span className="text-gray-500">is_company:</span> {String(docData.extraction.is_company ?? "—")}</div>
+                      </div>
+                      <div className="pt-2">
+                        <div className="text-gray-500 text-xs mb-1">sobre_programa</div>
+                        <div className="text-sm whitespace-pre-wrap">{docData.extraction.sobre_programa || "—"}</div>
+                      </div>
+                      <div className="pt-2">
+                        <div className="text-gray-500 text-xs mb-1">criterios_elegibilidade</div>
+                        <div className="text-sm whitespace-pre-wrap">{docData.extraction.criterios_elegibilidade || "—"}</div>
+                      </div>
+                      <div className="pt-2">
+                        <div className="text-gray-500 text-xs mb-1">timeline_estimada</div>
+                        <pre className="text-xs bg-gray-50 border rounded-md p-2 overflow-auto max-h-[220px]">
+                          {docData.extraction.timeline_estimada ? JSON.stringify(docData.extraction.timeline_estimada, null, 2) : "—"}
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-600">Sem dados de extração em `editais` para este id.</div>
+                  )}
+                </Card>
+
+                <Card className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-sm font-semibold text-gray-900">PDFs</div>
+                    <div className="text-xs text-gray-500">{docData.pdfs.length} arquivo(s)</div>
+                  </div>
+                  <div className="overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-left text-gray-600">
+                        <tr className="border-b">
+                          <th className="py-2 pr-3">Arquivo</th>
+                          <th className="py-2 pr-3">Storage</th>
+                          <th className="py-2 pr-3">Processado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {docData.pdfs.map((p) => (
+                          <tr key={p.id} className="border-b">
+                            <td className="py-2 pr-3">
+                              <div className="font-medium text-gray-900">{p.nome_arquivo || "(sem nome)"}</div>
+                              <div className="text-xs text-gray-500 break-all">{p.file_id || p.id}</div>
+                            </td>
+                            <td className="py-2 pr-3 text-xs text-gray-700 break-all">{p.caminho_storage || "-"}</td>
+                            <td className="py-2 pr-3">
+                              {p.is_processed === true ? (
+                                <Badge variant="secondary">sim</Badge>
+                              ) : p.is_processed === false ? (
+                                <Badge variant="destructive">não</Badge>
+                              ) : (
+                                <Badge variant="outline">—</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {docData.pdfs.length === 0 && (
+                          <tr>
+                            <td className="py-6 text-gray-600" colSpan={3}>
+                              Nenhum PDF encontrado em `edital_pdfs`.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+
+                <Card className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-sm font-semibold text-gray-900">Chunks (`documents`)</div>
+                    <div className="text-xs text-gray-500">
+                      mostrando {docData.documents_rows.length} de {docData.documents_total}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {docData.documents_rows.map((d) => (
+                      <Card key={d.id} className="p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs text-gray-600 break-all">
+                            id: <span className="font-mono">{d.id}</span>
+                            {d.file_id ? (
+                              <>
+                                {" "}file_id: <span className="font-mono">{String(d.file_id).slice(0, 16)}…</span>
+                              </>
+                            ) : null}
+                          </div>
+                          {d.has_embedding ? <Badge variant="secondary">embedding</Badge> : <Badge variant="destructive">sem embedding</Badge>}
+                        </div>
+                        <div className="mt-2 text-sm text-gray-800 whitespace-pre-wrap">{d.content_preview || "(vazio)"}</div>
+                      </Card>
+                    ))}
+                    {docData.documents_rows.length === 0 && (
+                      <div className="text-sm text-gray-600">Nenhum chunk encontrado para este edital.</div>
+                    )}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" disabled={docBusy || docData.documents_rows.length >= docData.documents_total} onClick={() => void loadMoreEditalDocuments()}>
+                      {docBusy ? "Carregando…" : "Carregar mais"}
+                    </Button>
+                  </div>
+                </Card>
               </div>
             ) : (
               <div className="text-sm text-gray-600">Selecione um edital.</div>

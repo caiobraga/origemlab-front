@@ -228,3 +228,60 @@ export async function adminUpdateEdital(id: string, patch: Partial<EditalAdminRo
   return await r.json();
 }
 
+export type AdminEditalPdfRow = {
+  id: string;
+  file_id: string | null;
+  edital_id: string;
+  caminho_storage: string | null;
+  nome_arquivo: string | null;
+  url_original: string | null;
+  tamanho_bytes: number | null;
+  tipo_mime: string | null;
+  is_processed: boolean | null;
+};
+
+export type AdminEditalDocumentRow = {
+  id: string;
+  file_id: string | null;
+  metadata: any | null;
+  has_embedding: boolean;
+  content_preview: string;
+};
+
+export type AdminEditalDocumentsResponse = {
+  edital_id: string;
+  pdfs: AdminEditalPdfRow[];
+  pdfs_total: number;
+  pdfs_processed: number;
+  documents_total: number;
+  documents_missing_embeddings: number;
+  documents_rows: AdminEditalDocumentRow[];
+  extraction: {
+    id: string;
+    informacoes_processadas_em: string | null;
+    atualizado_em: string | null;
+    valor_projeto: string | null;
+    prazo_inscricao: string | null;
+    localizacao: string | null;
+    vagas: string | null;
+    is_researcher: boolean | null;
+    is_company: boolean | null;
+    sobre_programa: string | null;
+    criterios_elegibilidade: string | null;
+    timeline_estimada: any | null;
+  } | null;
+};
+
+export async function adminGetEditalDocuments(editalId: string, params?: { limit?: number; offset?: number }) {
+  const token = await getBearer();
+  if (!token) throw new Error("Faça login para acessar o admin.");
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const r = await fetch(apiUrl(`/api/admin/editais/${encodeURIComponent(editalId)}/documents?${qs.toString()}`), {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Erro ao buscar documentos do edital");
+  return (await r.json()) as AdminEditalDocumentsResponse;
+}

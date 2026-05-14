@@ -144,6 +144,7 @@ export default function Footer() {
             <h3 className="font-semibold mb-4">Produto</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><a href="#como-funciona" className="hover:text-white transition-colors">Como Funciona</a></li>
+              <li><a href="#faq" className="hover:text-white transition-colors">FAQ</a></li>
               <li><a href="#planos" className="hover:text-white transition-colors">Planos</a></li>
               <li><Link href="/demo" className="hover:text-white transition-colors">Demonstração</Link></li>
               <li><Link href="/referencia" className="hover:text-white transition-colors">Programa de Referência</Link></li>

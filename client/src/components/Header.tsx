@@ -120,6 +120,13 @@ export default function Header() {
                 Depoimentos
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" aria-hidden="true"></span>
               </a>
+              <a 
+                href="#faq" 
+                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-all duration-200 hover:scale-105 relative group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+              >
+                FAQ
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" aria-hidden="true"></span>
+              </a>
             </nav>
           )}
 
@@ -323,6 +330,12 @@ export default function Header() {
                         className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
                       >
                         Depoimentos
+                      </a>
+                      <a 
+                        href="#faq" 
+                        className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                      >
+                        FAQ
                       </a>
                     </nav>
                   )}
