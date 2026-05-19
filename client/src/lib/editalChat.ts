@@ -139,7 +139,7 @@ export async function sendChatMessage(
 
     const body = useOllama
       ? {
-          model: import.meta.env.VITE_OLLAMA_MODEL || "qwen2.5:14b",
+          model: import.meta.env.VITE_OLLAMA_MODEL || "qwen2.5:7b",
           stream: false,
           messages: [
             {
