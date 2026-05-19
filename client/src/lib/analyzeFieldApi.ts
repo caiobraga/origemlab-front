@@ -13,6 +13,7 @@ export interface AnalyzeFieldParams {
 
 export interface AnalyzeFieldResponse {
   analysis_markdown: string;
+  needs_scientific_grounding?: boolean;
 }
 
 const API_BASE = String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -21,7 +22,7 @@ function apiUrl(path: string) {
   return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export async function analyzeField(params: AnalyzeFieldParams): Promise<string> {
+export async function analyzeField(params: AnalyzeFieldParams): Promise<AnalyzeFieldResponse> {
   const body: Record<string, unknown> = {
     field_id: params.field_id ?? null,
     field_name: params.field_name,
@@ -38,9 +39,16 @@ export async function analyzeField(params: AnalyzeFieldParams): Promise<string> 
     throw new Error("É necessário edital_id ou proposta_id para analisar o campo.");
   }
 
+  const { supabase } = await import("./supabase");
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token || null;
+
   const response = await fetch(apiUrl("/api/analyze-field"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify(body),
   });
 
@@ -50,6 +58,9 @@ export async function analyzeField(params: AnalyzeFieldParams): Promise<string> 
   }
 
   const data: AnalyzeFieldResponse = await response.json();
-  return String(data.analysis_markdown || "").trim();
+  return {
+    analysis_markdown: String(data.analysis_markdown || "").trim(),
+    needs_scientific_grounding: Boolean(data.needs_scientific_grounding),
+  };
 }
 

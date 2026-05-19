@@ -11,6 +11,8 @@ import {
   PencilLine,
   Copy,
   ScanText,
+  Globe,
+  BookOpen,
 } from "lucide-react";
 import { improveText, countWords } from "@/lib/improveTextApi";
 import { generateFieldText } from "@/lib/generateFieldTextApi";
@@ -18,6 +20,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { analyzeField } from "@/lib/analyzeFieldApi";
+import {
+  groundFieldWithReferences,
+  fieldSuggestsScientificGrounding,
+  type WebReference,
+} from "@/lib/groundFieldWithReferencesApi";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +78,11 @@ export default function TextFieldWithAI({
   const [showPreview, setShowPreview] = useState(true);
   const [confirmRegenerateOpen, setConfirmRegenerateOpen] = useState(false);
   const [analysisMarkdown, setAnalysisMarkdown] = useState<string>("");
+  const [needsScientificGrounding, setNeedsScientificGrounding] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [isGrounding, setIsGrounding] = useState(false);
+  const [references, setReferences] = useState<WebReference[]>([]);
+  const [referencesOpen, setReferencesOpen] = useState(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
@@ -83,6 +94,11 @@ export default function TextFieldWithAI({
   const isOverLimit = isOverWordLimit || isOverCharLimit;
   const isEmpty = !value || !value.trim();
   const canImprove = !!(editalId || propostaId);
+  const suggestsGrounding = useMemo(
+    () => fieldSuggestsScientificGrounding(fieldDescription),
+    [fieldDescription],
+  );
+  const showGroundingAction = suggestsGrounding || needsScientificGrounding;
   const minFieldHeightPx = useMemo(() => Math.max(120, rows * 24), [rows]);
 
   const handleImprove = async () => {
@@ -275,7 +291,10 @@ export default function TextFieldWithAI({
         form_data: allFormData ?? null,
         target_language: inferTargetLanguage(),
       });
-      setAnalysisMarkdown(out);
+      setAnalysisMarkdown(out.analysis_markdown);
+      setNeedsScientificGrounding(
+        Boolean(out.needs_scientific_grounding) || fieldSuggestsScientificGrounding(fieldDescription),
+      );
       setAnalysisOpen(true);
       toast.success("Análise pronta!");
     } catch (error: any) {
@@ -327,6 +346,47 @@ export default function TextFieldWithAI({
       toast.error(error?.message || "Erro ao refazer com base na análise. Tente novamente.");
     } finally {
       setIsRegeneratingFromAnalysis(false);
+    }
+  };
+
+  const handleGroundWithReferences = async () => {
+    if (!canImprove) {
+      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
+      return;
+    }
+
+    setIsGrounding(true);
+    try {
+      const out = await groundFieldWithReferences({
+        edital_id: editalId,
+        proposta_id: propostaId,
+        field_id: id,
+        field_name: label,
+        field_description: fieldDescription,
+        current_text: String(value || ""),
+        word_limit: wordLimit ?? null,
+        char_limit: charLimit ?? null,
+        form_data: allFormData ?? null,
+        target_language: inferTargetLanguage(),
+      });
+      if (!out.grounded_text?.trim()) {
+        toast.error("A IA não retornou texto embasado. Tente novamente.");
+        return;
+      }
+      onChange(out.grounded_text);
+      setReferences(out.references || []);
+      if (out.references?.length) setReferencesOpen(true);
+      setShowPreview(true);
+      toast.success(
+        out.references?.length
+          ? `Texto embasado com ${out.references.length} referência(s).`
+          : "Texto revisado (sem referências externas necessárias).",
+      );
+    } catch (error: any) {
+      console.error("Erro ao embasar com referências:", error);
+      toast.error(error?.message || "Erro ao embasar com referências. Tente novamente.");
+    } finally {
+      setIsGrounding(false);
     }
   };
 
@@ -398,6 +458,24 @@ export default function TextFieldWithAI({
         >
           {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanText className="w-4 h-4" />}
         </Button>
+        {showGroundingAction && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleGroundWithReferences}
+            disabled={isGrounding || !canImprove}
+            className="h-8 px-2 text-emerald-800 hover:text-emerald-900 hover:bg-emerald-50"
+            aria-label="Embasar com referências (pesquisa web)"
+            title="Pesquisar referências na internet e reescrever o campo"
+          >
+            {isGrounding ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Globe className="w-4 h-4" />
+            )}
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"
@@ -536,6 +614,29 @@ export default function TextFieldWithAI({
         )}
       </Button>
 
+      {showGroundingAction && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleGroundWithReferences}
+          disabled={isGrounding || !canImprove}
+          className="w-full border-emerald-300 text-emerald-900 hover:bg-emerald-50 hover:text-emerald-950 hover:border-emerald-400"
+        >
+          {isGrounding ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Pesquisando referências e reescrevendo…
+            </>
+          ) : (
+            <>
+              <Globe className="w-4 h-4 mr-2" />
+              Embasar com referências (web)
+            </>
+          )}
+        </Button>
+      )}
+
       <Button
         type="button"
         variant="outline"
@@ -603,6 +704,49 @@ export default function TextFieldWithAI({
           <div className="prose prose-sm max-w-none select-text">
             <ReactMarkdown>{analysisMarkdown || "Sem análise disponível."}</ReactMarkdown>
           </div>
+          {needsScientificGrounding && (
+            <p className="mt-3 text-xs text-emerald-800">
+              A análise indica que este campo se beneficia de embasamento com referências. Use
+              &quot;Embasar com referências (web)&quot; acima.
+            </p>
+          )}
+        </div>
+      )}
+
+      {referencesOpen && references.length > 0 && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50/50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-semibold text-sm text-emerald-950 flex items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              Referências usadas
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setReferencesOpen(false)}
+              className="h-8 px-2"
+            >
+              Fechar
+            </Button>
+          </div>
+          <ul className="space-y-2 text-sm">
+            {references.map((ref, i) => (
+              <li key={`${ref.url}-${i}`} className="border-b border-emerald-100 pb-2 last:border-0">
+                <a
+                  href={ref.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-emerald-900 hover:underline"
+                >
+                  {ref.title || ref.url}
+                </a>
+                {ref.snippet ? (
+                  <p className="text-xs text-gray-700 mt-1 line-clamp-3">{ref.snippet}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
