@@ -26,6 +26,7 @@ import {
   type AdminEditalDocumentsResponse,
 } from "@/lib/adminApi";
 import { toast } from "sonner";
+import { formatValorProjeto } from "@/lib/editalFormatters";
 
 type Tab = "propostas" | "editais" | "usuarios" | "pagamentos";
 
@@ -719,7 +720,10 @@ export default function AdminDashboard() {
                           : "—"}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
-                        <div><span className="text-gray-500">valor_projeto:</span> {docData.extraction.valor_projeto || "—"}</div>
+                        <div className="min-w-0 break-words">
+                          <span className="text-gray-500">valor_projeto:</span>{" "}
+                          {formatValorProjeto(docData.extraction.valor_projeto as string | null).display || "—"}
+                        </div>
                         <div><span className="text-gray-500">prazo_inscricao:</span> {docData.extraction.prazo_inscricao || "—"}</div>
                         <div><span className="text-gray-500">localizacao:</span> {docData.extraction.localizacao || "—"}</div>
                         <div><span className="text-gray-500">vagas:</span> {docData.extraction.vagas || "—"}</div>

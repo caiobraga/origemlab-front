@@ -324,9 +324,9 @@ export default function IntelligentPanel() {
                       const valorFormatado = formatValorProjeto(edital.valor_projeto || null);
                       if (valorFormatado.display !== 'Não informado') {
                         return (
-                          <div className="flex items-center gap-2 text-sm">
-                            <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="font-semibold text-gray-900">{valorFormatado.display}</span>
+                          <div className="flex items-start gap-2 text-sm min-w-0">
+                            <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="font-semibold text-gray-900 break-words min-w-0">{valorFormatado.display}</span>
                           </div>
                         );
                       }

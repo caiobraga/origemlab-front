@@ -694,7 +694,7 @@ export default function EditalDetails() {
                     {(() => {
                       const valorFormatado = formatValorProjeto(edital?.valor_projeto);
                       return (
-                        <div className="text-lg font-bold text-gray-900">
+                        <div className="text-lg font-bold text-gray-900 min-w-0 max-w-full break-words">
                           {valorFormatado.display === 'Não informado' ? (
                             <span className="text-gray-500">Não informado</span>
                           ) : (
@@ -765,7 +765,7 @@ export default function EditalDetails() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex items-start gap-3">
                         <DollarSign className="w-5 h-5 text-blue-600 mt-1" />
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="text-sm text-gray-600">Valor por Projeto</div>
                           {(() => {
                             const valorFormatado = formatValorProjeto(edital?.valor_projeto);
@@ -774,14 +774,14 @@ export default function EditalDetails() {
                             }
                             return (
                               <>
-                                <div className="font-bold text-lg">{valorFormatado.display}</div>
+                                <div className="font-bold text-lg break-words max-w-full">{valorFormatado.display}</div>
                                 {valorFormatado.details && valorFormatado.details.length > 1 && (
-                                  <div className="space-y-1 mt-2">
+                                  <div className="space-y-1 mt-2 min-w-0">
                                     <div className="text-xs text-gray-500 font-medium">
                                       {valorFormatado.details.length} valores disponíveis:
                                     </div>
                                     {valorFormatado.details.map((valor, idx) => (
-                                      <div key={idx} className="text-sm text-gray-600 border-l-2 border-blue-500 pl-2">
+                                      <div key={idx} className="text-sm text-gray-600 border-l-2 border-blue-500 pl-2 break-words">
                                         {valor}
                                       </div>
                                     ))}

@@ -6,6 +6,17 @@ export interface FormattedValor {
   display: string;
   details?: string[];
   raw?: any;
+  /** true quando o texto foi cortado para caber na UI */
+  truncated?: boolean;
+}
+
+const VALOR_DISPLAY_MAX_CHARS = 160;
+
+function truncateValorLine(text: string, max = VALOR_DISPLAY_MAX_CHARS): { text: string; truncated: boolean } {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (!t) return { text: "", truncated: false };
+  if (t.length <= max) return { text: t, truncated: false };
+  return { text: `${t.slice(0, max - 1)}…`, truncated: true };
 }
 
 export interface PrazoDetailItem {
@@ -27,7 +38,9 @@ export interface FormattedPrazo {
  * Normaliza e formata o valor do projeto
  * Aceita JSON string, objeto ou string simples
  */
-export function formatValorProjeto(valor_projeto: string | null | undefined): FormattedValor {
+export function formatValorProjeto(
+  valor_projeto: string | Record<string, unknown> | null | undefined,
+): FormattedValor {
   if (!valor_projeto || valor_projeto === 'Não informado') {
     return { display: 'Não informado' };
   }
@@ -41,8 +54,8 @@ export function formatValorProjeto(valor_projeto: string | null | undefined): Fo
     } else if (typeof valor_projeto === 'object') {
       parsed = valor_projeto;
     } else {
-      // Se for string simples, retornar como está
-      return { display: valor_projeto };
+      const { text, truncated } = truncateValorLine(valor_projeto);
+      return { display: text || valor_projeto, truncated };
     }
 
     // Filtrar valores null - se for {"valor": null} ou {"valor": null} em qualquer formato
@@ -85,10 +98,12 @@ export function formatValorProjeto(valor_projeto: string | null | undefined): Fo
         }
         
         if (valoresFormatados.length === 1) {
-          return { 
-            display: valoresFormatados[0],
-            details: valoresFormatados,
-            raw: parsed
+          const one = truncateValorLine(valoresFormatados[0]);
+          return {
+            display: one.text,
+            truncated: one.truncated,
+            details: valoresFormatados.map((v) => truncateValorLine(v).text),
+            raw: parsed,
           };
         }
         
@@ -98,10 +113,12 @@ export function formatValorProjeto(valor_projeto: string | null | undefined): Fo
           return { original: v, numeric: parseFloat(numStr) || 0 };
         }).sort((a: { original: string; numeric: number }, b: { original: string; numeric: number }) => b.numeric - a.numeric);
         
+        const main = truncateValorLine(valoresNumericos[0].original);
         return {
-          display: valoresNumericos[0].original,
-          details: valoresFormatados,
-          raw: parsed
+          display: main.text,
+          truncated: main.truncated,
+          details: valoresFormatados.map((v) => truncateValorLine(v).text),
+          raw: parsed,
         };
       }
       
@@ -150,20 +167,20 @@ export function formatValorProjeto(valor_projeto: string | null | undefined): Fo
           return { display: 'Não informado' };
         }
         
+        const main = truncateValorLine(valoresFormatados[0]);
         return {
-          display: valoresFormatados[0],
-          details: valoresFormatados,
-          raw: parsed
+          display: main.text,
+          truncated: main.truncated,
+          details: valoresFormatados.map((v) => truncateValorLine(v).text),
+          raw: parsed,
         };
       }
     }
     
     // Se for objeto com chave "valor" que é string (não array)
     if (parsed.valor && typeof parsed.valor === 'string' && parsed.valor.trim().length > 0) {
-      return {
-        display: parsed.valor.trim(),
-        raw: parsed
-      };
+      const { text, truncated } = truncateValorLine(parsed.valor);
+      return { display: text, truncated, raw: parsed };
     }
     
     // Se for objeto com outras estruturas
@@ -193,19 +210,23 @@ export function formatValorProjeto(valor_projeto: string | null | undefined): Fo
       extractValues(parsed);
       
       if (valores.length > 0) {
+        const main = truncateValorLine(valores[0]);
         return {
-          display: valores[0],
-          details: valores,
-          raw: parsed
+          display: main.text,
+          truncated: main.truncated,
+          details: valores.map((v) => truncateValorLine(v).text),
+          raw: parsed,
         };
       }
     }
     
-    // Se não conseguiu extrair, retornar string do JSON
-    return { display: JSON.stringify(parsed) };
+    const { text, truncated } = truncateValorLine(
+      typeof parsed === "object" && parsed !== null ? JSON.stringify(parsed) : String(parsed),
+    );
+    return { display: text || "Valor não formatado", truncated, raw: parsed };
   } catch (e) {
-    // Se não for JSON válido, retornar como string simples
-    return { display: valor_projeto };
+    const { text, truncated } = truncateValorLine(valor_projeto);
+    return { display: text || "Não informado", truncated };
   }
 }
 
