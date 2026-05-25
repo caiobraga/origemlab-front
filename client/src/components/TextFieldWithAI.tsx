@@ -541,7 +541,7 @@ export default function TextFieldWithAI({
                 ),
                 a: ({ node, ...props }) => (
                   <a
-                    className="text-blue-600 hover:text-blue-800 underline"
+                    className="text-primary hover:text-primary/80 underline"
                     target="_blank"
                     rel="noopener noreferrer"
                     {...props}
@@ -643,7 +643,7 @@ export default function TextFieldWithAI({
         size="sm"
         onClick={handleGenerateFromScratch}
         disabled={isImproving || isGenerating || !canImprove}
-        className="w-full border-violet-300 text-violet-800 hover:bg-violet-50 hover:text-violet-900 hover:border-violet-400"
+        className="w-full border-border text-primary hover:bg-secondary hover:text-primary hover:border-primary"
       >
         {isGenerating ? (
           <>

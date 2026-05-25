@@ -255,11 +255,11 @@ export default function SignUp() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-violet-50 px-4 py-12">
+      <div className="flex-1 flex items-center justify-center bg-[color:var(--background)] px-4 py-12">
         <div className="w-full max-w-2xl">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-primary">
                 Criar nova conta
               </h1>
               <p className="text-gray-600 mt-2">
@@ -470,7 +470,7 @@ export default function SignUp() {
                         Para mais informações, consulte nossa{" "}
                         <Link 
                           href="/politica-privacidade" 
-                          className="text-blue-600 dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                          className="text-primary dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
                           aria-label="Ler política de privacidade"
                         >
                           política de privacidade
@@ -483,7 +483,7 @@ export default function SignUp() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white mt-6"
+                  className="w-full bg-primary hover:bg-primary/90 text-white mt-6"
                   disabled={
                     loading || 
                     !cpf ||
@@ -506,7 +506,7 @@ export default function SignUp() {
               <div className="text-center text-sm text-gray-600 mt-6">
                 Já tem uma conta?{" "}
                 <Link href="/login">
-                  <span className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                  <span className="text-primary hover:text-primary/80 font-medium cursor-pointer">
                     Entrar
                   </span>
                 </Link>
@@ -514,8 +514,8 @@ export default function SignUp() {
 
               <div className="text-center mt-4 space-y-2">
                 <Link href="/referencia">
-                  <span className="block text-sm text-green-600 hover:text-green-700 font-medium cursor-pointer">
-                    Indique e Ganhe R$ 50
+                  <span className="block text-sm text-primary hover:text-primary/80 font-medium cursor-pointer">
+                    Rede de acesso
                   </span>
                 </Link>
                 <Link href="/">

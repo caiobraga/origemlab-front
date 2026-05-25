@@ -197,15 +197,15 @@ export default function Onboarding() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <div className="flex-1 bg-gradient-to-br from-blue-50 via-white to-violet-50 flex items-center justify-center p-4">
+        <div className="flex-1 bg-[color:var(--background)] flex items-center justify-center p-4">
           <div className="w-full max-w-2xl">
             <div className="mb-8">
               <h1 className="text-2xl font-bold text-gray-900 mb-1">Complete seu perfil</h1>
               <p className="text-gray-600">Informações opcionais para recomendações melhores.</p>
               <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-blue-600 to-violet-600 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
               </div>
-              <Badge className="mt-2 bg-blue-100 text-blue-700">Passo {idx + 1} de {steps.length}</Badge>
+              <Badge className="mt-2 bg-secondary text-primary border-border">Passo {idx + 1} de {steps.length}</Badge>
             </div>
 
             <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 space-y-6">
@@ -281,7 +281,7 @@ export default function Onboarding() {
                         href="https://www.lattes.cnpq.br/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800 hover:underline mb-2"
+                        className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 hover:underline mb-2"
                       >
                         <ExternalLink className="w-4 h-4" />
                         Abrir Plataforma Lattes (CNPq) para baixar ou imprimir seu currículo em PDF
@@ -316,7 +316,7 @@ export default function Onboarding() {
                         <div className="w-full p-4 bg-green-50 border border-green-200 rounded-lg">
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2 min-w-0">
-                              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
                               <span className="text-sm font-medium text-green-800 truncate">
                                 {uploadedFileName ? uploadedFileName : "Currículo cadastrado"}
                               </span>
@@ -359,7 +359,7 @@ export default function Onboarding() {
                     href="https://www.lattes.cnpq.br/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-violet-600 hover:text-violet-800 hover:underline mb-4"
+                    className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 hover:underline mb-4"
                   >
                     <ExternalLink className="w-4 h-4" />
                     Abrir Plataforma Lattes (CNPq) para baixar ou imprimir seu currículo em PDF
@@ -394,7 +394,7 @@ export default function Onboarding() {
                     <div className="w-full mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
-                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                          <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
                           <span className="text-sm font-medium text-green-800 truncate">
                             {uploadedFileName ? uploadedFileName : "Currículo cadastrado"}
                           </span>
@@ -442,7 +442,7 @@ export default function Onboarding() {
                         key={a.id}
                         type="button"
                         onClick={() => setData((d) => ({ ...d, area: a.id }))}
-                        className={`p-4 border-2 rounded-lg text-left font-medium transition-all ${data.area === a.id ? "border-violet-600 bg-violet-50" : "border-gray-200 hover:border-blue-300"}`}
+                        className={`p-4 border rounded-sm text-left font-medium transition-colors ${data.area === a.id ? "border-primary bg-secondary text-primary" : "border-gray-200 hover:border-primary"}`}
                       >
                         {a.label}
                       </button>
@@ -457,18 +457,18 @@ export default function Onboarding() {
               {stepCompletar === "concluido" && (
                 <>
                   <div className="flex justify-center">
-                    <CheckCircle2 className="w-16 h-16 text-green-600" />
+                    <CheckCircle2 className="w-16 h-16 text-primary" />
                   </div>
                   <p className="text-center text-gray-700">Tudo certo! Você pode completar mais dados depois na página de perfil.</p>
                   <p className="text-center text-sm text-gray-600">
                     Para pagar com cartão e ativar o <strong>Pro</strong> ou <strong>Empresas</strong>, abra os planos após entrar no painel (menu <strong>Planos</strong>) ou agora:
                   </p>
                   <Link href="/planos">
-                    <Button type="button" variant="outline" className="w-full border-violet-300 text-violet-700 hover:bg-violet-50">
+                    <Button type="button" variant="outline" className="w-full border-border text-primary hover:bg-secondary">
                       Ver planos e checkout com cartão
                     </Button>
                   </Link>
-                  <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleSalvarPerfil} disabled={loading}>
+                  <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleSalvarPerfil} disabled={loading}>
                     {loading ? "Salvando..." : "Ir ao painel"}
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
@@ -519,7 +519,7 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex-1 bg-gradient-to-br from-blue-50 via-white to-violet-50 flex items-center justify-center p-4">
+      <div className="flex-1 bg-[color:var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -528,9 +528,9 @@ export default function Onboarding() {
               {stepConhecer === "result" && "Editais para você"}
             </h1>
             <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-600 to-violet-600 rounded-full transition-all" style={{ width: `${progressVisitante}%` }} />
+              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progressVisitante}%` }} />
             </div>
-            <Badge className="mt-2 bg-blue-100 text-blue-700">Passo {idxVisitante + 1} de {stepsVisitante.length}</Badge>
+            <Badge className="mt-2 bg-secondary text-primary border-border">Passo {idxVisitante + 1} de {stepsVisitante.length}</Badge>
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
@@ -548,7 +548,7 @@ export default function Onboarding() {
                       key={t.id}
                       type="button"
                       onClick={() => handleUserTypeSelect(t.id)}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${data.userType === t.id ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"}`}
+                      className={`p-4 border rounded-sm text-left transition-colors ${data.userType === t.id ? "border-primary bg-secondary text-primary" : "border-gray-200 hover:border-primary"}`}
                     >
                       <div className="font-semibold text-gray-900">{t.label}</div>
                       <div className="text-sm text-gray-600">{t.desc}</div>
@@ -574,7 +574,7 @@ export default function Onboarding() {
                       key={a.id}
                       type="button"
                       onClick={() => handleAreaSelectConhecer(a.id)}
-                      className={`p-4 border-2 rounded-lg font-medium transition-all ${data.area === a.id ? "border-violet-600 bg-violet-50" : "border-gray-200 hover:border-violet-300"}`}
+                      className={`p-4 border rounded-sm font-medium transition-colors ${data.area === a.id ? "border-primary bg-secondary text-primary" : "border-gray-200 hover:border-primary"}`}
                     >
                       {a.label}
                     </button>
@@ -586,34 +586,34 @@ export default function Onboarding() {
             {stepConhecer === "result" && (
               <div className="space-y-6 text-center">
                 <div className="flex justify-center">
-                  <CheckCircle2 className="w-20 h-20 text-green-600" />
+                  <CheckCircle2 className="w-20 h-20 text-primary" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Encontramos <span className="text-green-600">{editaisStats?.naArea ?? editaisStats?.total ?? "—"} editais</span> para você!
+                  Encontramos <span className="text-primary">{editaisStats?.naArea ?? editaisStats?.total ?? "—"} editais</span> para você!
                 </h2>
                 <div className="grid grid-cols-3 gap-4 bg-gray-50 rounded-lg p-6 text-left">
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">{editaisStats?.naArea ?? editaisStats?.total ?? "—"}</div>
+                    <div className="text-2xl font-bold text-primary">{editaisStats?.naArea ?? editaisStats?.total ?? "—"}</div>
                     <div className="text-xs text-gray-600">Na sua área</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-violet-600">{editaisStats ? formatValorMilhoes(editaisStats.valorTotal) : "—"}</div>
+                    <div className="text-2xl font-bold text-primary">{editaisStats ? formatValorMilhoes(editaisStats.valorTotal) : "—"}</div>
                     <div className="text-xs text-gray-600">Valor total</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-green-600">{editaisStats?.prazoMedioDias ?? "—"} dias</div>
+                    <div className="text-2xl font-bold text-primary">{editaisStats?.prazoMedioDias ?? "—"} dias</div>
                     <div className="text-xs text-gray-600">Prazo médio</div>
                   </div>
                 </div>
                 <div className="text-left bg-blue-50 rounded-lg p-6 space-y-2">
                   <h3 className="font-semibold text-gray-900">Você pode ver:</h3>
                   <ul className="space-y-1 text-gray-700">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-600" /> Editais completos e elegibilidade</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-600" /> Indicações personalizadas no dashboard</li>
-                    <li className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-violet-600" /> Upgrade Pro: todos os editais + IA Redatora</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Editais completos e elegibilidade</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Indicações personalizadas no dashboard</li>
+                    <li className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Upgrade Pro: todos os editais + IA Redatora</li>
                   </ul>
                 </div>
-                <Button size="lg" className="w-full bg-green-600 hover:bg-green-700" onClick={handleIrAoPainel}>
+                <Button size="lg" className="w-full bg-primary hover:bg-primary/90" onClick={handleIrAoPainel}>
                   {user ? "Explorar painel" : "Criar conta grátis"}
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>

@@ -89,7 +89,7 @@ export default function AuthModal({ open, onOpenChange, defaultMode = "signin" }
 
           <Button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+            className="w-full bg-primary hover:bg-primary/90"
             disabled={loading}
           >
             {loading ? (
@@ -110,7 +110,7 @@ export default function AuthModal({ open, onOpenChange, defaultMode = "signin" }
               <button
                 type="button"
                 onClick={switchMode}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-primary hover:text-primary/80 font-medium"
               >
                 Criar conta
               </button>
@@ -121,7 +121,7 @@ export default function AuthModal({ open, onOpenChange, defaultMode = "signin" }
               <button
                 type="button"
                 onClick={switchMode}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-primary hover:text-primary/80 font-medium"
               >
                 Entrar
               </button>

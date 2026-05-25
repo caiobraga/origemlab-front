@@ -63,7 +63,7 @@ const faqItems: { id: string; question: string; answer: ReactNode }[] = [
       <p className="text-gray-600 leading-relaxed">
         Os limites e recursos variam por plano (créditos de IA, número de propostas, painéis,
         etc.). Confira a comparação completa na{" "}
-        <a href="#planos" className="font-medium text-blue-600 underline-offset-2 hover:underline">
+        <a href="#planos" className="font-medium text-primary underline-offset-2 hover:underline">
           seção Planos
         </a>{" "}
         desta página ou na página dedicada a planos.
@@ -77,7 +77,7 @@ const faqItems: { id: string; question: string; answer: ReactNode }[] = [
       <p className="text-gray-600 leading-relaxed">
         Tratamos suas informações com cuidado e boas práticas de produto. Detalhes sobre
         coleta, uso e direitos estão na{" "}
-        <Link href="/politica-privacidade" className="font-medium text-blue-600 underline-offset-2 hover:underline">
+        <Link href="/politica-privacidade" className="font-medium text-primary underline-offset-2 hover:underline">
           Política de Privacidade
         </Link>
         .
@@ -101,12 +101,12 @@ export default function FaqSection() {
   return (
     <section
       id="faq"
-      className="py-24 bg-white border-t border-gray-100"
+      className="py-24 bg-white border-t border-[color:var(--institutional-line)]"
       aria-labelledby="faq-heading"
     >
       <div className="container max-w-3xl">
         <ScrollReveal className="text-center mb-12">
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600 mb-2">
+          <p className="institutional-kicker mb-2">
             Para saber mais
           </p>
           <h2
@@ -121,7 +121,7 @@ export default function FaqSection() {
         </ScrollReveal>
 
         <ScrollReveal delay={0.08}>
-          <Accordion type="single" collapsible className="w-full border border-gray-200 rounded-xl px-4 md:px-6 bg-gray-50/50">
+          <Accordion type="single" collapsible className="w-full border border-[color:var(--institutional-line)] rounded-md px-4 md:px-6 bg-[color:var(--institutional-paper)]/60">
             {faqItems.map((item) => (
               <AccordionItem key={item.id} value={item.id} className="border-gray-200">
                 <AccordionTrigger className="text-left text-base font-semibold text-gray-900 hover:no-underline py-5">
@@ -136,7 +136,7 @@ export default function FaqSection() {
         <ScrollReveal delay={0.12} className="text-center mt-10">
           <p className="text-gray-600">
             Não achou o que precisa?{" "}
-            <Link href="/contato" className="font-medium text-blue-600 underline-offset-2 hover:underline">
+            <Link href="/contato" className="font-medium text-primary underline-offset-2 hover:underline">
               Fale conosco
             </Link>
             .

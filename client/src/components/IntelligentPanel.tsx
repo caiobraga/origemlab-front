@@ -192,15 +192,15 @@ export default function IntelligentPanel() {
   const filteredEditais = getFilteredEditais();
 
   return (
-    <section className="py-20 bg-[radial-gradient(900px_circle_at_50%_-10%,color-mix(in_oklab,var(--attention)_10%,transparent),transparent_60%)] bg-gray-50">
+    <section className="py-20 institutional-section">
       <div className="container">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-white text-gray-900 px-4 py-2 rounded-full text-sm font-semibold mb-4 border border-gray-200 shadow-sm">
-            <Sparkles className="w-4 h-4" />
-            Painel inteligente em ação
+          <div className="inline-flex items-center gap-2 bg-white text-gray-900 px-4 py-2 rounded-sm text-sm font-semibold mb-4 border border-[color:var(--institutional-line)] shadow-sm">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="institutional-kicker">Painel institucional</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Veja como a plataforma destaca oportunidades relevantes para você
+            Editais apresentados com critérios claros de relevância
           </h2>
         </div>
 
@@ -208,20 +208,20 @@ export default function IntelligentPanel() {
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           <button
             onClick={() => setActiveFilter("todos")}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 ${
+            className={`px-6 py-2.5 rounded-sm font-semibold transition-colors ${
               activeFilter === "todos"
-                ? "bg-gray-950 text-white shadow-sm"
-                : "bg-white text-gray-800 border-2 border-gray-200 hover:border-gray-950 hover:bg-gray-50"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white text-gray-800 border border-[color:var(--institutional-line)] hover:border-primary hover:bg-secondary"
             }`}
           >
             Todos os editais
           </button>
           <button
             onClick={() => setActiveFilter("alta-aderencia")}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
+            className={`px-6 py-2.5 rounded-sm font-semibold transition-colors flex items-center gap-2 ${
               activeFilter === "alta-aderencia"
-                ? "bg-green-600 text-white shadow-md hover:shadow-lg"
-                : "bg-white text-gray-800 border-2 border-gray-200 hover:border-gray-950 hover:bg-gray-50"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white text-gray-800 border border-[color:var(--institutional-line)] hover:border-primary hover:bg-secondary"
             }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -229,10 +229,10 @@ export default function IntelligentPanel() {
           </button>
           <button
             onClick={() => setActiveFilter("prazo-proximo")}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
+            className={`px-6 py-2.5 rounded-sm font-semibold transition-colors flex items-center gap-2 ${
               activeFilter === "prazo-proximo"
-                ? "bg-orange-600 text-white shadow-md hover:shadow-lg"
-                : "bg-white text-gray-800 border-2 border-gray-200 hover:border-gray-950 hover:bg-gray-50"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white text-gray-800 border border-[color:var(--institutional-line)] hover:border-primary hover:bg-secondary"
             }`}
           >
             <Clock className="w-4 h-4" />
@@ -240,10 +240,10 @@ export default function IntelligentPanel() {
           </button>
           <button
             onClick={() => setActiveFilter("alto-valor")}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
+            className={`px-6 py-2.5 rounded-sm font-semibold transition-colors flex items-center gap-2 ${
               activeFilter === "alto-valor"
-                ? "bg-purple-600 text-white shadow-md hover:shadow-lg"
-                : "bg-white text-gray-800 border-2 border-gray-200 hover:border-gray-950 hover:bg-gray-50"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white text-gray-800 border border-[color:var(--institutional-line)] hover:border-primary hover:bg-secondary"
             }`}
           >
             <DollarSign className="w-4 h-4" />
@@ -254,7 +254,7 @@ export default function IntelligentPanel() {
         {/* Lista de Editais */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <span className="ml-3 text-gray-600">Carregando editais...</span>
           </div>
         ) : filteredEditais.length === 0 ? (
@@ -266,7 +266,7 @@ export default function IntelligentPanel() {
             {filteredEditais.map((edital) => (
               <Card
                 key={edital.id}
-                className="p-6 hover:shadow-lg transition-all duration-200 border border-gray-200"
+                className="p-6 institutional-surface"
               >
                 <div className="flex flex-col h-full">
                   {/* Header */}
@@ -285,21 +285,21 @@ export default function IntelligentPanel() {
                         
                         if (isResearcher && isCompany) {
                           return (
-                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                            <Badge variant="outline" className="bg-secondary text-primary border-border text-xs">
                               <Users className="w-3 h-3 mr-1" />
                               Pesquisadores e Empresas
                             </Badge>
                           );
                         } else if (isResearcher) {
                           return (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                            <Badge variant="outline" className="bg-secondary text-primary border-border text-xs">
                               <GraduationCap className="w-3 h-3 mr-1" />
                               Pesquisadores
                             </Badge>
                           );
                         } else if (isCompany) {
                           return (
-                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
+                            <Badge variant="outline" className="bg-secondary text-primary border-border text-xs">
                               <Building2 className="w-3 h-3 mr-1" />
                               Empresas
                             </Badge>
@@ -354,7 +354,7 @@ export default function IntelligentPanel() {
                     )}
                   </div>
 
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="mb-4 p-3 bg-secondary rounded-sm border border-border">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Indicações</span>
                       <div className="flex items-center gap-2">
@@ -368,7 +368,7 @@ export default function IntelligentPanel() {
                   {/* Botão */}
                   <Button 
                     variant="outline" 
-                    className="w-full transition-colors duration-200 hover:bg-gray-50 group"
+                    className="w-full transition-colors hover:bg-secondary group"
                     onClick={() => {
                       if (!user) {
                         toast.info("Faça login para ver os detalhes completos do edital");
@@ -380,12 +380,12 @@ export default function IntelligentPanel() {
                   >
                     {user ? (
                       <>
-                        <Eye className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
+                        <Eye className="w-4 h-4 mr-2" />
                         Ver detalhes
                       </>
                     ) : (
                       <>
-                        <Lock className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
+                        <Lock className="w-4 h-4 mr-2" />
                         Fazer login para ver detalhes
                       </>
                     )}
@@ -402,7 +402,7 @@ export default function IntelligentPanel() {
             <Button 
               size="lg"
               variant="attention"
-              className="px-8 py-6 text-lg"
+              className="px-8 py-6 text-lg rounded-sm"
             >
               Ver todos os editais
               <ArrowRight className="ml-2 w-5 h-5" />

@@ -130,20 +130,20 @@ export default function Demo() {
   }, [searchTerm, selectedArea, selectedValue, selectedDeadline]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--background)]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-[color:var(--background)]/95 border-b border-[color:var(--institutional-line)] sticky top-0 z-10 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">Voltar</span>
           </Link>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
+          <h1 className="text-xl font-bold text-primary">
             Origem.Lab - Demo Interativa
           </h1>
           <Button
             onClick={() => setShowScheduleForm(true)}
-            className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+            className="bg-primary hover:bg-primary/90"
           >
             Agendar Demonstração
           </Button>
@@ -152,7 +152,7 @@ export default function Demo() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Intro */}
-        <div className="bg-gradient-to-r from-blue-50 to-violet-50 rounded-lg p-6 mb-8 border border-blue-200">
+        <div className="bg-secondary rounded-md p-6 mb-8 border border-border">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Explore a Plataforma Origem.Lab
           </h2>
@@ -162,7 +162,7 @@ export default function Demo() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="institutional-surface rounded-md p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
@@ -206,7 +206,7 @@ export default function Demo() {
               <select
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-sm focus:ring-2 focus:ring-ring focus:border-primary bg-white"
               >
                 {areas.map((area) => (
                   <option key={area.id} value={area.id}>
@@ -224,7 +224,7 @@ export default function Demo() {
               <select
                 value={selectedValue}
                 onChange={(e) => setSelectedValue(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-sm focus:ring-2 focus:ring-ring focus:border-primary bg-white"
               >
                 {valueRanges.map((range) => (
                   <option key={range.id} value={range.id}>
@@ -242,7 +242,7 @@ export default function Demo() {
               <select
                 value={selectedDeadline}
                 onChange={(e) => setSelectedDeadline(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-sm focus:ring-2 focus:ring-ring focus:border-primary bg-white"
               >
                 {deadlineOptions.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -261,13 +261,13 @@ export default function Demo() {
               {filteredEditais.length} editais encontrados
             </h3>
             <div className="text-sm text-gray-600">
-              Ordenado por: <span className="font-medium text-blue-600">Maior aderência</span>
+              Ordenado por: <span className="font-medium text-primary">Maior aderência</span>
             </div>
           </div>
 
           <div className="space-y-4">
             {filteredEditais.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
+              <div className="institutional-surface rounded-md p-12 text-center">
                 <p className="text-gray-600 mb-4">Nenhum edital encontrado com esses filtros.</p>
                 <Button
                   variant="outline"
@@ -285,7 +285,7 @@ export default function Demo() {
               filteredEditais.map((edital) => (
               <div
                 key={edital.id}
-                className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-200"
+                className="institutional-surface rounded-md p-6"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -297,10 +297,10 @@ export default function Demo() {
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2 ml-4">
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                    <Badge className="bg-secondary text-primary border-border">
                       {edital.match}% match
                     </Badge>
-                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                    <Badge className="bg-secondary text-primary border-border">
                       {edital.probability}% aprovação
                     </Badge>
                   </div>
@@ -328,7 +328,7 @@ export default function Demo() {
                 <div className="flex gap-3">
                   <Button
                     variant="default"
-                    className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+                    className="bg-primary hover:bg-primary/90"
                     onClick={() => setSelectedEdital(edital)}
                   >
                     Ver Detalhes
@@ -358,7 +358,7 @@ export default function Demo() {
           onClick={() => setSelectedEdital(null)}
         >
           <div
-            className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-2xl bg-white rounded-md shadow-xl border border-border p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -369,8 +369,8 @@ export default function Demo() {
               <ArrowLeft className="w-5 h-5 text-gray-600 rotate-180" />
             </button>
             <div className="flex gap-3 mb-4">
-              <Badge className="bg-green-100 text-green-800">{selectedEdital.match}% match</Badge>
-              <Badge className="bg-blue-100 text-blue-800">{selectedEdital.probability}% aprovação</Badge>
+              <Badge className="bg-secondary text-primary border-border">{selectedEdital.match}% match</Badge>
+              <Badge className="bg-secondary text-primary border-border">{selectedEdital.probability}% aprovação</Badge>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedEdital.title}</h2>
             <p className="text-gray-600 mb-6">{selectedEdital.description}</p>
@@ -393,7 +393,7 @@ export default function Demo() {
               </div>
             </div>
             <Button
-              className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+              className="w-full bg-primary hover:bg-primary/90"
               onClick={() => {
                 setSelectedEdital(null);
                 toast.success("Crie sua conta para acessar o painel completo!");
@@ -408,7 +408,7 @@ export default function Demo() {
       {/* Schedule Form Modal */}
       {showScheduleForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg mx-4 bg-white rounded-lg shadow-2xl p-6">
+          <div className="relative w-full max-w-lg mx-4 bg-white rounded-md shadow-xl border border-border p-6">
             <button
               onClick={() => setShowScheduleForm(false)}
               className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -453,7 +453,7 @@ export default function Demo() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tipo de perfil
                 </label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select className="w-full px-3 py-2 border border-border rounded-sm focus:ring-2 focus:ring-ring focus:border-primary">
                   <option>Startup</option>
                   <option>Pesquisador</option>
                   <option>Empresa</option>
@@ -468,7 +468,7 @@ export default function Demo() {
                   Mensagem (opcional)
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-sm focus:ring-2 focus:ring-ring focus:border-primary"
                   rows={3}
                   placeholder="Conte-nos sobre suas necessidades..."
                 />
@@ -476,7 +476,7 @@ export default function Demo() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+                className="w-full bg-primary hover:bg-primary/90"
                 onClick={(e) => {
                   e.preventDefault();
                   alert("Obrigado! Nossa equipe entrará em contato em breve.");

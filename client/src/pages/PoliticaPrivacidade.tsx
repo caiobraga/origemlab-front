@@ -58,7 +58,7 @@ export default function PoliticaPrivacidade() {
           <p className="text-gray-600 leading-relaxed mb-4">
             De acordo com a LGPD, você tem direito a: acesso, correção, exclusão, portabilidade, 
             revogação do consentimento e oposição. Para exercer seus direitos, entre em contato 
-            em <a href="mailto:contato@origemlab.ai" className="text-blue-600 hover:underline">contato@origemlab.ai</a>.
+            em <a href="mailto:contato@origemlab.ai" className="text-primary hover:underline">contato@origemlab.ai</a>.
           </p>
         </section>
 
@@ -74,7 +74,7 @@ export default function PoliticaPrivacidade() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-3">8. Contato</h2>
           <p className="text-gray-600 leading-relaxed">
-            Para dúvidas sobre esta política: <a href="mailto:contato@origemlab.ai" className="text-blue-600 hover:underline">contato@origemlab.ai</a>.
+            Para dúvidas sobre esta política: <a href="mailto:contato@origemlab.ai" className="text-primary hover:underline">contato@origemlab.ai</a>.
           </p>
         </section>
       </main>

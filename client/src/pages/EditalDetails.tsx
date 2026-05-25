@@ -549,9 +549,9 @@ export default function EditalDetails() {
 
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-gray-600">Redirecionando para login...</p>
         </div>
       </div>
@@ -559,9 +559,9 @@ export default function EditalDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--background)]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-[color:var(--background)]/95 border-b border-[color:var(--institutional-line)] sticky top-0 z-10 backdrop-blur-sm">
         <div className="container py-3 md:py-4">
           <div className="flex items-start gap-2 md:gap-4">
             <Link href="/dashboard">
@@ -581,7 +581,7 @@ export default function EditalDetails() {
             {/* Ações no Header */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button 
-                className="bg-gradient-to-r from-blue-600 to-violet-600 hidden sm:flex"
+                className="bg-primary hover:bg-primary/90 hidden sm:flex"
                 onClick={handleGerarProposta}
                 disabled={gerandoProposta || !user}
                 size="sm"
@@ -604,12 +604,12 @@ export default function EditalDetails() {
                 onClick={handleCompartilhar}
                 className="hidden sm:flex"
               >
-                <Send className={`w-4 h-4 ${linkCopiado ? "text-green-600" : ""}`} />
+                <Send className={`w-4 h-4 ${linkCopiado ? "text-primary" : ""}`} />
               </Button>
               {/* Menu mobile - botões menores */}
               <div className="flex gap-1 sm:hidden">
                 <Button 
-                  className="bg-gradient-to-r from-blue-600 to-violet-600"
+                  className="bg-primary hover:bg-primary/90"
                   onClick={handleGerarProposta}
                   disabled={gerandoProposta || !user}
                   size="sm"
@@ -625,7 +625,7 @@ export default function EditalDetails() {
                   size="sm"
                   onClick={handleCompartilhar}
                 >
-                  <Send className={`w-4 h-4 ${linkCopiado ? "text-green-600" : ""}`} />
+                  <Send className={`w-4 h-4 ${linkCopiado ? "text-primary" : ""}`} />
                 </Button>
               </div>
             </div>
@@ -639,17 +639,17 @@ export default function EditalDetails() {
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Resumo Executivo - Informações Críticas para Decisão */}
             {!loading && edital && (
-              <div className="bg-gradient-to-br from-blue-50 to-violet-50 rounded-xl p-6 md:p-8 shadow-lg border-2 border-blue-200">
+              <div className="institutional-surface rounded-md p-6 md:p-8">
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <Target className="w-6 h-6 text-blue-600" />
+                    <Target className="w-6 h-6 text-primary" />
                     <h2 className="text-xl md:text-2xl font-bold text-gray-900">Resumo Executivo</h2>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   {/* Prazo - Mais Urgente */}
-                  <div className="bg-white rounded-lg p-4 border-l-4 border-red-500">
+                  <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock className="w-5 h-5 text-red-600" />
                       <span className="text-sm font-semibold text-gray-700">Prazo de Inscrição</span>
@@ -686,9 +686,9 @@ export default function EditalDetails() {
                   </div>
 
                   {/* Valor */}
-                  <div className="bg-white rounded-lg p-4 border-l-4 border-green-500">
+                  <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
                     <div className="flex items-center gap-2 mb-2">
-                      <DollarSign className="w-5 h-5 text-green-600" />
+                      <DollarSign className="w-5 h-5 text-primary" />
                       <span className="text-sm font-semibold text-gray-700">Valor do Projeto</span>
                     </div>
                     {(() => {
@@ -706,14 +706,14 @@ export default function EditalDetails() {
                   </div>
 
                   {/* Tipo de Edital */}
-                  <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                  <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
                     <div className="flex items-center gap-2 mb-2">
-                      <Users className="w-5 h-5 text-blue-600" />
+                      <Users className="w-5 h-5 text-primary" />
                       <span className="text-sm font-semibold text-gray-700">Tipo de Edital</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {edital.is_researcher && (
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                        <Badge className="bg-secondary text-primary border-border">
                           <GraduationCap className="w-3 h-3 mr-1" />
                           Pesquisadores
                         </Badge>
@@ -732,9 +732,9 @@ export default function EditalDetails() {
 
                   {/* Localização */}
                   {edital.localizacao && edital.localizacao !== 'Não informado' && (
-                    <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500">
+                    <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
                       <div className="flex items-center gap-2 mb-2">
-                        <MapPin className="w-5 h-5 text-purple-600" />
+                        <MapPin className="w-5 h-5 text-primary" />
                         <span className="text-sm font-semibold text-gray-700">Localização</span>
                       </div>
                       <div className="text-lg font-bold text-gray-900">{edital.localizacao}</div>
@@ -748,10 +748,10 @@ export default function EditalDetails() {
             {/* Informações Detalhadas - Organizadas em Accordion */}
             <Accordion type="multiple" defaultValue={["essenciais", "descricao", "elegibilidade"]} className="space-y-4">
               {/* Informações Essenciais */}
-              <AccordionItem value="essenciais" className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <AccordionItem value="essenciais" className="bg-white rounded-md shadow-sm border border-border">
                 <AccordionTrigger className="px-4 md:px-6 py-4 hover:no-underline">
                   <div className="flex items-center gap-3">
-                    <Info className="w-5 h-5 text-blue-600" />
+                    <Info className="w-5 h-5 text-primary" />
                     <h2 className="text-lg md:text-xl font-bold text-gray-900">Informações Essenciais</h2>
                   </div>
                 </AccordionTrigger>
@@ -759,12 +759,12 @@ export default function EditalDetails() {
               
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex items-start gap-3">
-                        <DollarSign className="w-5 h-5 text-blue-600 mt-1" />
+                        <DollarSign className="w-5 h-5 text-primary mt-1" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm text-gray-600">Valor por Projeto</div>
                           {(() => {
@@ -781,7 +781,7 @@ export default function EditalDetails() {
                                       {valorFormatado.details.length} valores disponíveis:
                                     </div>
                                     {valorFormatado.details.map((valor, idx) => (
-                                      <div key={idx} className="text-sm text-gray-600 border-l-2 border-blue-500 pl-2 break-words">
+                                      <div key={idx} className="text-sm text-gray-600 border-l-2 border-primary pl-2 break-words">
                                         {valor}
                                       </div>
                                     ))}
@@ -794,7 +794,7 @@ export default function EditalDetails() {
                       </div>
 
                       <div className="flex items-start gap-3">
-                        <Calendar className="w-5 h-5 text-blue-600 mt-1" />
+                        <Calendar className="w-5 h-5 text-primary mt-1" />
                         <div className="flex-1">
                           <div className="text-sm text-gray-600">Prazo de Inscrição</div>
                           {(() => {
@@ -830,13 +830,13 @@ export default function EditalDetails() {
                                   {prazoResumo.details.map((prazo, idx) => {
                                     if (typeof prazo === "string") {
                                       return (
-                                        <div key={idx} className="text-sm text-gray-600 border-l-2 border-blue-500 pl-2">
+                                        <div key={idx} className="text-sm text-gray-600 border-l-2 border-primary pl-2">
                                           {prazo}
                                         </div>
                                       );
                                     }
                                     return (
-                                      <div key={idx} className="text-sm text-gray-600 border-l-2 border-blue-500 pl-2">
+                                      <div key={idx} className="text-sm text-gray-600 border-l-2 border-primary pl-2">
                                         {prazo.chamada && (
                                           <div className="font-semibold text-gray-900">{prazo.chamada}</div>
                                         )}
@@ -859,7 +859,7 @@ export default function EditalDetails() {
 
                       {edital?.localizacao && edital.localizacao !== 'Não informado' && (
                         <div className="flex items-start gap-3">
-                          <MapPin className="w-5 h-5 text-blue-600 mt-1" />
+                          <MapPin className="w-5 h-5 text-primary mt-1" />
                           <div className="flex-1">
                             <div className="text-sm text-gray-600">Localização</div>
                             <div className="font-bold text-lg">{edital.localizacao}</div>
@@ -869,7 +869,7 @@ export default function EditalDetails() {
 
                       {edital?.vagas && edital.vagas !== 'Não informado' && (
                         <div className="flex items-start gap-3">
-                          <Users className="w-5 h-5 text-blue-600 mt-1" />
+                          <Users className="w-5 h-5 text-primary mt-1" />
                           <div className="flex-1">
                             <div className="text-sm text-gray-600">Vagas</div>
                             <div className="font-bold text-lg">{edital.vagas}</div>
@@ -882,17 +882,17 @@ export default function EditalDetails() {
               </AccordionItem>
 
               {/* Descrição */}
-              <AccordionItem value="descricao" className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <AccordionItem value="descricao" className="bg-white rounded-md shadow-sm border border-border">
                 <AccordionTrigger className="px-4 md:px-6 py-4 hover:no-underline">
                   <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                    <FileText className="w-5 h-5 text-primary" />
                     <h2 className="text-lg md:text-xl font-bold text-gray-900">Descrição</h2>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 md:px-6 pb-6">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : edital?.descricao && edital.descricao !== "Não informado" ? (
                     <div className="prose prose-sm prose-blue max-w-none text-gray-700">
@@ -911,10 +911,10 @@ export default function EditalDetails() {
                             <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono" {...props} />
                           ),
                           blockquote: ({ node, ...props }) => (
-                            <blockquote className="border-l-4 border-blue-500 pl-4 italic my-4" {...props} />
+                            <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />
                           ),
                           a: ({ node, ...props }) => (
-                            <a className="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer" {...props} />
+                            <a className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer" {...props} />
                           ),
                         }}
                       >
@@ -928,17 +928,17 @@ export default function EditalDetails() {
               </AccordionItem>
 
               {/* Critérios de Elegibilidade */}
-              <AccordionItem value="elegibilidade" className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <AccordionItem value="elegibilidade" className="bg-white rounded-md shadow-sm border border-border">
                 <AccordionTrigger className="px-4 md:px-6 py-4 hover:no-underline">
                   <div className="flex items-center gap-3">
-                    <Shield className="w-5 h-5 text-blue-600" />
+                    <Shield className="w-5 h-5 text-primary" />
                     <h2 className="text-lg md:text-xl font-bold text-gray-900">Critérios de Elegibilidade</h2>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 md:px-6 pb-6">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : edital?.criterios_elegibilidade && edital.criterios_elegibilidade !== 'Não informado' ? (
                     <div className="prose prose-sm prose-blue max-w-none text-gray-700">
@@ -954,8 +954,8 @@ export default function EditalDetails() {
                           strong: ({node, ...props}) => <strong className="font-semibold text-gray-900" {...props} />,
                           em: ({node, ...props}) => <em className="italic" {...props} />,
                           code: ({node, ...props}) => <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono" {...props} />,
-                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic my-4" {...props} />,
-                          a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,
+                          a: ({node, ...props}) => <a className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer" {...props} />,
                         }}
                       >
                         {normalizeJsonLikeToMarkdown(edital.criterios_elegibilidade as any)}
@@ -970,17 +970,17 @@ export default function EditalDetails() {
               </AccordionItem>
 
               {/* Sobre o Programa */}
-              <AccordionItem value="sobre-programa" className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <AccordionItem value="sobre-programa" className="bg-white rounded-md shadow-sm border border-border">
                 <AccordionTrigger className="px-4 md:px-6 py-4 hover:no-underline">
                   <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                    <FileText className="w-5 h-5 text-primary" />
                     <h2 className="text-lg md:text-xl font-bold text-gray-900">Sobre o Programa</h2>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 md:px-6 pb-6">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : edital?.sobre_programa && edital.sobre_programa !== 'Não informado' ? (
                     <div className="prose prose-sm prose-blue max-w-none text-gray-700">
@@ -996,8 +996,8 @@ export default function EditalDetails() {
                           strong: ({node, ...props}) => <strong className="font-semibold text-gray-900" {...props} />,
                           em: ({node, ...props}) => <em className="italic" {...props} />,
                           code: ({node, ...props}) => <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono" {...props} />,
-                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic my-4" {...props} />,
-                          a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,
+                          a: ({node, ...props}) => <a className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer" {...props} />,
                         }}
                       >
                         {normalizeJsonLikeToMarkdown(edital.sobre_programa as any)}
@@ -1012,17 +1012,17 @@ export default function EditalDetails() {
               </AccordionItem>
 
               {/* Arquivos do Edital */}
-              <AccordionItem value="arquivos" className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <AccordionItem value="arquivos" className="bg-white rounded-md shadow-sm border border-border">
                 <AccordionTrigger className="px-4 md:px-6 py-4 hover:no-underline">
                   <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                    <FileText className="w-5 h-5 text-primary" />
                     <h2 className="text-lg md:text-xl font-bold text-gray-900">Arquivos do Edital</h2>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 md:px-6 pb-6">
                   {loadingPdfs ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : pdfs.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
@@ -1050,7 +1050,7 @@ export default function EditalDetails() {
                           className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-gray-900 truncate">
                                 {pdf.nome_arquivo}
@@ -1085,11 +1085,11 @@ export default function EditalDetails() {
             {editalId && <EditalChat editalId={editalId} />}
 
             {/* Actions */}
-            <div className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-gray-200">
+            <div className="bg-white rounded-md p-4 md:p-6 shadow-sm border border-border">
               <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4">Ações</h3>
               <div className="space-y-3">
                 <Button 
-                  className="w-full bg-gradient-to-r from-blue-600 to-violet-600"
+                  className="w-full bg-primary hover:bg-primary/90"
                   onClick={handleGerarProposta}
                   disabled={gerandoProposta || !user}
                 >
@@ -1112,7 +1112,7 @@ export default function EditalDetails() {
                     className="w-full"
                     onClick={handleCompartilhar}
                   >
-                    <Send className={`w-4 h-4 mr-2 flex-shrink-0 ${linkCopiado ? "text-green-600" : ""}`} />
+                    <Send className={`w-4 h-4 mr-2 flex-shrink-0 ${linkCopiado ? "text-primary" : ""}`} />
                     {linkCopiado ? "Link copiado!" : "Compartilhar"}
                   </Button>
                   {linkCopiado && (
@@ -1120,7 +1120,7 @@ export default function EditalDetails() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 text-green-600 border-green-200 hover:bg-green-50"
+                        className="flex-1 text-primary border-border hover:bg-secondary"
                         onClick={handleCompartilharWhatsApp}
                       >
                         WhatsApp
@@ -1128,7 +1128,7 @@ export default function EditalDetails() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                        className="flex-1 text-primary border-border hover:bg-secondary"
                         onClick={handleCompartilharEmail}
                       >
                         Email

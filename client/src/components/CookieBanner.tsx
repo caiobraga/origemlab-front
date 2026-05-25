@@ -79,7 +79,7 @@ export default function CookieBanner() {
           <div className="flex items-start gap-3 flex-1">
             <div className="flex-shrink-0 mt-1">
               <Cookie 
-                className="w-6 h-6 text-blue-600 dark:text-blue-400" 
+                className="w-6 h-6 text-primary dark:text-blue-400" 
                 aria-hidden="true"
               />
             </div>
@@ -92,7 +92,7 @@ export default function CookieBanner() {
                 Ao continuar navegando, você concorda com nossa{" "}
                 <a
                   href="/politica-privacidade"
-                  className="text-blue-600 dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  className="text-primary dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
                   aria-label="Ler política de privacidade"
                 >
                   política de privacidade
@@ -116,7 +116,7 @@ export default function CookieBanner() {
             <Button
               onClick={handleAccept}
               size="sm"
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white"
               aria-label="Aceitar cookies"
             >
               Aceitar todos

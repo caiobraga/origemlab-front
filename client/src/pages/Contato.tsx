@@ -32,7 +32,7 @@ export default function Contato() {
         <div className="flex flex-col sm:flex-row gap-6 mb-10">
           <a
             href={`mailto:${CONTATO_EMAIL}`}
-            className="inline-flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+            className="inline-flex items-center gap-3 px-4 py-3 rounded-sm bg-secondary text-primary hover:bg-secondary transition-colors"
           >
             <Mail className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">{CONTATO_EMAIL}</span>
@@ -80,7 +80,7 @@ export default function Contato() {
               required
             />
           </div>
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+          <Button type="submit" className="bg-primary hover:bg-primary/90">
             Enviar mensagem
           </Button>
         </form>

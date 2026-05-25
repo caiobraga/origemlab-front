@@ -87,9 +87,9 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
 
           {/* Tab: Match Breakdown */}
           <TabsContent value="match" className="space-y-4">
-            <div className="bg-gradient-to-r from-blue-50 to-violet-50 p-6 rounded-lg">
+            <div className="bg-secondary p-6 rounded-md border border-border">
               <div className="flex items-center gap-3 mb-4">
-                <Target className="w-8 h-8 text-blue-600" />
+                <Target className="w-8 h-8 text-primary" />
                 <div>
                   <h3 className="text-xl font-bold">Match de {edital.match}%</h3>
                   <p className="text-sm text-gray-600">Baseado em 50+ variáveis analisadas</p>
@@ -127,7 +127,7 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
 
               <div className="mt-4 p-4 bg-white rounded-lg">
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-blue-600">91/100</div>
+                  <div className="text-4xl font-bold text-primary">91/100</div>
                   <div className="text-sm text-gray-600 mt-1">Pontuação Total</div>
                   <div className="text-xs text-gray-500 mt-2">
                     Arredondado para {edital.match}% para facilitar visualização
@@ -139,9 +139,9 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
 
           {/* Tab: Timeline */}
           <TabsContent value="timeline" className="space-y-4">
-            <div className="bg-gradient-to-r from-blue-50 to-violet-50 p-6 rounded-lg">
+            <div className="bg-secondary p-6 rounded-md border border-border">
               <div className="flex items-center gap-3 mb-6">
-                <Calendar className="w-8 h-8 text-blue-600" />
+                <Calendar className="w-8 h-8 text-primary" />
                 <div>
                   <h3 className="text-xl font-bold">Timeline do Processo</h3>
                   <p className="text-sm text-gray-600">Estimativa de 270 dias (9 meses)</p>
@@ -186,13 +186,13 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
               {/* Pontos Fortes */}
               <div className="bg-green-50 p-6 rounded-lg">
                 <div className="flex items-center gap-3 mb-4">
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                  <CheckCircle2 className="w-6 h-6 text-primary" />
                   <h3 className="text-lg font-bold text-green-900">Pontos Fortes</h3>
                 </div>
                 <ul className="space-y-2">
                   {pontosFortes.map((ponto, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm text-green-900">{ponto}</span>
                     </li>
                   ))}
@@ -220,7 +220,7 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
                 <h3 className="text-lg font-bold text-blue-900 mb-4">Informações do Edital</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-3">
-                    <DollarSign className="w-5 h-5 text-blue-600" />
+                    <DollarSign className="w-5 h-5 text-primary" />
                     <div>
                       <div className="text-sm text-gray-600">Valor por Projeto</div>
                       <div className="font-bold">Até R$ 139.600</div>
@@ -228,7 +228,7 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-blue-600" />
+                    <MapPin className="w-5 h-5 text-primary" />
                     <div>
                       <div className="text-sm text-gray-600">Localização</div>
                       <div className="font-bold">Espírito Santo</div>
@@ -236,7 +236,7 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-blue-600" />
+                    <Users className="w-5 h-5 text-primary" />
                     <div>
                       <div className="text-sm text-gray-600">Equipe</div>
                       <div className="font-bold">Até 5 membros</div>
@@ -244,7 +244,7 @@ export default function EditalDetailModal({ open, onOpenChange, edital }: Edital
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Lightbulb className="w-5 h-5 text-blue-600" />
+                    <Lightbulb className="w-5 h-5 text-primary" />
                     <div>
                       <div className="text-sm text-gray-600">Estágio</div>
                       <div className="font-bold">Ideia a MVP</div>

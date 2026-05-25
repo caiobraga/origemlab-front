@@ -11,7 +11,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-5xl mx-4 bg-white rounded-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-5xl mx-4 bg-white rounded-md shadow-xl max-h-[90vh] overflow-y-auto border border-border">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-2xl font-bold text-gray-900">
@@ -33,9 +33,9 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
             <h3 className="text-xl font-semibold text-gray-900 mb-4">
               Vídeo Explicativo
             </h3>
-            <div className="aspect-video bg-gradient-to-br from-blue-500 to-violet-600 rounded-lg flex items-center justify-center">
+            <div className="aspect-video bg-primary rounded-md flex items-center justify-center">
               <div className="text-center text-white">
-                <div className="w-20 h-20 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <div className="w-20 h-20 mx-auto mb-4 bg-white/15 rounded-sm flex items-center justify-center backdrop-blur-sm">
                   <svg
                     className="w-10 h-10"
                     fill="currentColor"
@@ -94,7 +94,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
               ].map((item, index) => (
                 <div
                   key={index}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 transition-colors"
+                  className="p-4 border border-border rounded-sm hover:border-primary transition-colors"
                 >
                   <h4 className="font-semibold text-gray-900 mb-2">
                     {item.title}
@@ -126,7 +126,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                 },
               ].map((screenshot, index) => (
                 <div key={index} className="space-y-2">
-                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
+                  <div className="aspect-video bg-secondary rounded-sm flex items-center justify-center border border-border">
                     <div className="text-center text-gray-500">
                       <svg
                         className="w-12 h-12 mx-auto mb-2"
@@ -158,7 +158,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
           </div>
 
           {/* CTA */}
-          <div className="bg-gradient-to-r from-blue-50 to-violet-50 rounded-lg p-6 text-center border border-blue-200">
+          <div className="bg-secondary rounded-md p-6 text-center border border-border">
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               Quer ver a plataforma em ação?
             </h3>
@@ -170,7 +170,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                 onClose();
                 window.location.href = "/demo";
               }}
-              className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+              className="bg-primary hover:bg-primary/90"
             >
               Agendar Demonstração Personalizada
             </Button>

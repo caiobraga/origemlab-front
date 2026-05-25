@@ -10,14 +10,20 @@ export function useEditaisIndicacoes(userId: string | undefined, opts?: { limit?
     enabled: !!userId,
     queryFn: async () => {
       if (!userId) return [];
+      let refreshError: unknown = null;
       if (autoRefresh) {
         try {
           await refreshMyIndicacoes(limit);
-        } catch {
-          // Se a RPC falhar (permissão/indisponível), ainda tenta ler o cache existente.
+        } catch (err) {
+          // Se a RPC falhar, ainda tenta ler o cache existente; se estiver vazio, expõe o erro na UI.
+          refreshError = err;
         }
       }
-      return fetchMyIndicacoes(userId, limit);
+      const rows = await fetchMyIndicacoes(userId, limit);
+      if (refreshError && rows.length === 0) {
+        throw refreshError;
+      }
+      return rows;
     },
     staleTime: 60 * 1000,
     cacheTime: 5 * 60 * 1000,

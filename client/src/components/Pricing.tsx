@@ -75,10 +75,10 @@ const plans: Array<{
     name: "Institucional",
     price: "Sob consulta",
     period: "",
-    description: "White label para universidades e FAPs",
+    description: "Para órgãos, fundações e redes de apoio à inovação",
     features: [
       "Inclui todos os recursos",
-      "White label customizado",
+      "Portal customizado",
       "Usuários ilimitados",
       "Infraestrutura dedicada",
       "SLA garantido",
@@ -122,9 +122,10 @@ export default function Pricing() {
   };
 
   return (
-    <section id="planos" className="py-24 bg-gray-50">
+    <section id="planos" className="py-24 bg-[color:var(--background)]">
       <div className="container">
         <div className="text-center mb-16">
+          <p className="institutional-kicker mb-3">Planos de acesso</p>
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
             Planos para cada etapa
           </h2>
@@ -137,11 +138,11 @@ export default function Pricing() {
           {plans.map((plan, index) => (
             <Card
               key={index}
-              className={`relative p-8 ${plan.popular ? "border-2 border-gray-950 shadow-lg" : "border border-gray-200"} bg-white hover:shadow-md transition-shadow`}
+              className={`relative p-8 institutional-surface ${plan.popular ? "border-primary" : ""}`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <div className="flex items-center gap-1 px-4 py-1 rounded-full bg-gray-950 text-white text-sm font-medium shadow-sm">
+                  <div className="flex items-center gap-1 px-4 py-1 rounded-sm bg-primary text-white text-sm font-medium shadow-sm">
                     <Sparkles className="w-4 h-4" />
                     Mais Popular
                   </div>
@@ -169,7 +170,7 @@ export default function Pricing() {
               {plan.action.kind === "contact" ? (
                 <Link href={plan.action.href}>
                   <Button
-                    className={`w-full ${plan.popular ? "bg-gray-950 hover:bg-gray-800 text-white" : "bg-white border-2 border-gray-300 text-gray-900 hover:border-gray-950 hover:bg-gray-50"}`}
+                    className={`w-full ${plan.popular ? "bg-primary hover:bg-primary/90 text-white" : "bg-white border border-border text-gray-900 hover:border-primary hover:bg-secondary"}`}
                   >
                     {plan.cta}
                   </Button>
@@ -182,7 +183,7 @@ export default function Pricing() {
                     loadingPlan === plan.action.planKey
                   }
                   variant={plan.popular ? "attention" : "outline"}
-                  className={`w-full ${plan.popular ? "" : "border-2 border-gray-300 text-gray-900 hover:border-gray-950 hover:bg-gray-50"}`}
+                  className={`w-full ${plan.popular ? "" : "border border-border text-gray-900 hover:border-primary hover:bg-secondary"}`}
                   onClick={() => void handlePlanClick(plan.action)}
                 >
                   {plan.action.kind === "checkout" && loadingPlan === plan.action.planKey ? (
@@ -206,11 +207,11 @@ export default function Pricing() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link
+            <Link
             href="/referencia"
-            className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 font-medium transition-colors"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
           >
-            <span>Indique amigos e ganhe R$ 50 em créditos</span>
+            <span>Compartilhe a plataforma com sua rede institucional</span>
             <span>→</span>
           </Link>
         </div>

@@ -31,11 +31,11 @@ export default function Sobre() {
 
         <p className="text-gray-600 leading-relaxed">
           Quer saber mais? Conheça{" "}
-          <Link href="/inicio#como-funciona" className="text-blue-600 hover:text-blue-700 font-medium underline underline-offset-2">
+          <Link href="/inicio#como-funciona" className="text-primary hover:text-primary/80 font-medium underline underline-offset-2">
             como funciona
           </Link>{" "}
           ou entre em{" "}
-          <a href="mailto:contato@origemlab.ai" className="text-blue-600 hover:text-blue-700 font-medium underline underline-offset-2">
+          <a href="mailto:contato@origemlab.ai" className="text-primary hover:text-primary/80 font-medium underline underline-offset-2">
             contato
           </a>
           .

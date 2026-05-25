@@ -71,15 +71,15 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-gray-900 text-white" role="contentinfo">
+    <footer className="bg-primary text-white" role="contentinfo">
       {/* CTA Section */}
-      <div className="py-16 bg-[radial-gradient(1200px_circle_at_50%_-20%,color-mix(in_oklab,var(--attention)_35%,transparent),transparent_60%),linear-gradient(180deg,#030712,#0b1020)]">
+      <div className="py-16 border-b border-white/10 bg-primary">
         <div className="container text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Pronto para transformar suas ideias em realidade?
+            Estruture sua próxima submissão com mais rigor.
           </h2>
           <p className="text-xl mb-8 text-gray-200">
-            Comece gratuitamente e descubra oportunidades de fomento feitas para você
+            Cadastre-se para acompanhar editais e organizar propostas com apoio documental.
           </p>
           
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto" aria-label="Formulário de cadastro de email">
@@ -88,7 +88,7 @@ export default function Footer() {
               id="footer-email"
               type="email" 
               placeholder="Seu melhor email" 
-              className="bg-white text-gray-900 border-0 h-12"
+              className="bg-white text-gray-900 border-0 h-12 rounded-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading || success}
@@ -101,7 +101,7 @@ export default function Footer() {
               type="submit"
               size="lg" 
               variant="attention"
-              className="px-8 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              className="px-8 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 rounded-sm"
               disabled={loading || success}
               aria-label={loading ? "Processando cadastro" : success ? "Redirecionando para cadastro" : "Cadastrar gratuitamente"}
             >
@@ -116,7 +116,7 @@ export default function Footer() {
                   Redirecionando...
                 </>
               ) : (
-                "Cadastrar Grátis"
+                "Cadastrar"
               )}
             </Button>
           </form>
@@ -129,8 +129,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[linear-gradient(135deg,var(--attention),#ffffff)]">
-                <span className="text-gray-950 font-bold text-sm">O</span>
+              <div className="w-8 h-8 rounded-sm flex items-center justify-center bg-white">
+                <span className="text-primary font-bold text-sm">O</span>
               </div>
               <span className="text-xl font-bold">{APP_TITLE}</span>
             </div>
@@ -147,7 +147,7 @@ export default function Footer() {
               <li><a href="#faq" className="hover:text-white transition-colors">FAQ</a></li>
               <li><a href="#planos" className="hover:text-white transition-colors">Planos</a></li>
               <li><Link href="/demo" className="hover:text-white transition-colors">Demonstração</Link></li>
-              <li><Link href="/referencia" className="hover:text-white transition-colors">Programa de Referência</Link></li>
+              <li><Link href="/referencia" className="hover:text-white transition-colors">Rede de acesso</Link></li>
             </ul>
           </div>
 

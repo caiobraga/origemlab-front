@@ -168,13 +168,14 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-violet-50">
+    <div className="min-h-screen flex flex-col bg-[color:var(--background)]">
       <Header />
       
       <div className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-6">
+        <div className="mb-6 border-b border-[color:var(--institutional-line)] pb-6">
+          <p className="institutional-kicker mb-2">Dados institucionais</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Meu Perfil</h1>
-          <p className="text-gray-600">Visualize suas informações e dados de APIs externas</p>
+          <p className="text-gray-600">Visualize informações de cadastro, currículo e assinatura.</p>
         </div>
 
         {/* Informações Básicas */}
@@ -465,20 +466,20 @@ export default function Profile() {
         </Card>
 
         {/* Programa de Referência */}
-        <Card className="mb-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+        <Card className="mb-6 institutional-surface">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-green-600" />
-              Indique e Ganhe
+              <Share2 className="w-5 h-5 text-primary" />
+              Programa de referência
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-700 mb-4">
-              Compartilhe a Origem.Lab com amigos e ganhe R$ 50 em créditos por cada cadastro. 
+              Compartilhe a Origem.Lab com sua rede e acompanhe os créditos por novos cadastros.
               Use seu link exclusivo para começar.
             </p>
             <Link href="/referencia">
-              <Button className="bg-green-600 hover:bg-green-700 text-white">
+              <Button className="bg-primary hover:bg-primary/90 text-white">
                 <Share2 className="w-4 h-4 mr-2" />
                 Ver meu link de referência
               </Button>
@@ -556,12 +557,12 @@ export default function Profile() {
                       <label className="text-sm font-medium text-gray-500">Status Acadêmico Atual</label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {lattesData.statusAcademico.doutorando && (
-                          <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+                          <Badge className="bg-secondary text-primary border-border">
                             Doutorando
                           </Badge>
                         )}
                         {lattesData.statusAcademico.mestrando && (
-                          <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                          <Badge className="bg-secondary text-primary border-border">
                             Mestrando
                           </Badge>
                         )}
@@ -584,7 +585,7 @@ export default function Profile() {
                       <label className="text-sm font-medium text-gray-500">Formação</label>
                       <div className="space-y-2 mt-2">
                         {lattesData.formacao.map((formacao, idx) => (
-                          <div key={idx} className="border-l-2 border-blue-500 pl-4">
+                          <div key={idx} className="border-l-2 border-primary pl-4">
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-gray-900">{formacao.nivel}</p>
                               {formacao.emAndamento && (
@@ -608,7 +609,7 @@ export default function Profile() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           {lattesData.elegibilidade.podeParticiparEditais ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <CheckCircle2 className="w-4 h-4 text-primary" />
                           ) : (
                             <AlertCircle className="w-4 h-4 text-red-600" />
                           )}
@@ -620,7 +621,7 @@ export default function Profile() {
                         <div className="grid grid-cols-2 gap-2 mt-3">
                           <div className="flex items-center gap-2">
                             {lattesData.elegibilidade.possuiDoutorado ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <CheckCircle2 className="w-4 h-4 text-primary" />
                             ) : (
                               <AlertCircle className="w-4 h-4 text-gray-400" />
                             )}
@@ -628,7 +629,7 @@ export default function Profile() {
                           </div>
                           <div className="flex items-center gap-2">
                             {lattesData.elegibilidade.possuiMestrado ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <CheckCircle2 className="w-4 h-4 text-primary" />
                             ) : (
                               <AlertCircle className="w-4 h-4 text-gray-400" />
                             )}
@@ -636,7 +637,7 @@ export default function Profile() {
                           </div>
                           <div className="flex items-center gap-2">
                             {lattesData.elegibilidade.possuiGraduacao ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <CheckCircle2 className="w-4 h-4 text-primary" />
                             ) : (
                               <AlertCircle className="w-4 h-4 text-gray-400" />
                             )}
@@ -644,7 +645,7 @@ export default function Profile() {
                           </div>
                           {lattesData.elegibilidade.anosExperiencia && (
                             <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-blue-600" />
+                              <Calendar className="w-4 h-4 text-primary" />
                               <span className="text-xs text-gray-600">{lattesData.elegibilidade.anosExperiencia} anos de experiência</span>
                             </div>
                           )}
@@ -830,7 +831,7 @@ export default function Profile() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           {cnpjData.elegibilidade.podeParticiparEditais ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <CheckCircle2 className="w-4 h-4 text-primary" />
                           ) : (
                             <AlertCircle className="w-4 h-4 text-red-600" />
                           )}
@@ -841,7 +842,7 @@ export default function Profile() {
 
                         {cnpjData.elegibilidade.tempoAtividade && (
                           <div className="flex items-center gap-2 mt-2">
-                            <Calendar className="w-4 h-4 text-blue-600" />
+                            <Calendar className="w-4 h-4 text-primary" />
                             <span className="text-sm text-gray-600">
                               {cnpjData.elegibilidade.tempoAtividade} meses de atividade
                             </span>
@@ -933,7 +934,7 @@ export default function Profile() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           {cpfData.elegibilidade.podeParticiparEditais ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <CheckCircle2 className="w-4 h-4 text-primary" />
                           ) : (
                             <AlertCircle className="w-4 h-4 text-red-600" />
                           )}
@@ -967,7 +968,7 @@ export default function Profile() {
 
         <div className="mt-6 flex justify-between">
           <Link href="/perfil/editar">
-            <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+            <Button variant="outline" className="border-primary text-primary hover:bg-secondary">
               Editar Perfil
             </Button>
           </Link>

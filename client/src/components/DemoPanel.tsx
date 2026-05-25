@@ -81,7 +81,7 @@ export default function DemoPanel() {
   });
 
   return (
-    <section className="py-24 bg-gradient-to-br from-violet-50 via-white to-blue-50">
+    <section className="py-24 institutional-section">
       <div className="container">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
@@ -99,7 +99,7 @@ export default function DemoPanel() {
               variant={activeFilter === "all" ? "secondary" : "outline"}
               className={`px-4 py-2 text-sm cursor-pointer transition-colors ${
                 activeFilter === "all"
-                  ? "bg-violet-100 hover:bg-violet-200"
+                  ? "bg-secondary hover:bg-secondary"
                   : "hover:bg-blue-50"
               }`}
               onClick={() => setActiveFilter("all")}
@@ -110,7 +110,7 @@ export default function DemoPanel() {
               variant={activeFilter === "high-match" ? "secondary" : "outline"}
               className={`px-4 py-2 text-sm cursor-pointer transition-colors ${
                 activeFilter === "high-match"
-                  ? "bg-violet-100 hover:bg-violet-200"
+                  ? "bg-secondary hover:bg-secondary"
                   : "hover:bg-blue-50"
               }`}
               onClick={() => setActiveFilter("high-match")}
@@ -121,7 +121,7 @@ export default function DemoPanel() {
               variant={activeFilter === "near-deadline" ? "secondary" : "outline"}
               className={`px-4 py-2 text-sm cursor-pointer transition-colors ${
                 activeFilter === "near-deadline"
-                  ? "bg-violet-100 hover:bg-violet-200"
+                  ? "bg-secondary hover:bg-secondary"
                   : "hover:bg-blue-50"
               }`}
               onClick={() => setActiveFilter("near-deadline")}
@@ -132,7 +132,7 @@ export default function DemoPanel() {
               variant={activeFilter === "high-value" ? "secondary" : "outline"}
               className={`px-4 py-2 text-sm cursor-pointer transition-colors ${
                 activeFilter === "high-value"
-                  ? "bg-violet-100 hover:bg-violet-200"
+                  ? "bg-secondary hover:bg-secondary"
                   : "hover:bg-blue-50"
               }`}
               onClick={() => setActiveFilter("high-value")}
@@ -154,14 +154,14 @@ export default function DemoPanel() {
               </div>
             ) : (
               filteredEditais.map((edital, index) => (
-                <Card key={index} className="p-6 border-2 border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer">
+                <Card key={index} className="p-6 institutional-surface cursor-pointer">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-start gap-3 mb-3">
-                        <div className={`flex-shrink-0 w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold ${
+                        <div className={`flex-shrink-0 w-16 h-16 rounded-sm flex items-center justify-center text-2xl font-bold ${
                           edital.match >= 90 ? 'bg-green-100 text-green-700' :
-                          edital.match >= 85 ? 'bg-blue-100 text-blue-700' :
-                          'bg-violet-100 text-violet-700'
+                          edital.match >= 85 ? 'bg-secondary text-primary' :
+                          'bg-secondary text-primary'
                         }`}>
                           {edital.match}%
                         </div>
@@ -184,15 +184,15 @@ export default function DemoPanel() {
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                         <div className="flex items-center gap-2 text-sm">
-                          <DollarSign className="w-4 h-4 text-green-600" />
+                          <DollarSign className="w-4 h-4 text-primary" />
                           <span className="text-gray-700">{edital.value}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <Calendar className="w-4 h-4 text-primary" />
                           <span className="text-gray-700">{edital.deadline}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <Target className="w-4 h-4 text-violet-600" />
+                          <Target className="w-4 h-4 text-primary" />
                           <span className="text-gray-700">Match: {edital.match}%</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
@@ -203,7 +203,7 @@ export default function DemoPanel() {
                     </div>
 
                     <div className="flex-shrink-0">
-                      <Button className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+                      <Button className="w-full md:w-auto bg-primary hover:bg-primary/90">
                         Iniciar Submissão
                       </Button>
                     </div>

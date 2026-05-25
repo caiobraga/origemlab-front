@@ -140,7 +140,7 @@ export default function EditalChat({ editalId }: EditalChatProps) {
       {/* Floating Chat Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95"
+        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 bg-primary text-white rounded-sm shadow-md transition-colors flex items-center justify-center z-50"
         aria-label="Abrir chat"
       >
         {isOpen ? (
@@ -167,12 +167,12 @@ export default function EditalChat({ editalId }: EditalChatProps) {
             aria-hidden="true"
           />
           
-          <div className="fixed bottom-0 right-0 left-0 md:bottom-24 md:right-6 md:left-auto w-full md:w-96 h-[85vh] md:h-[600px] max-h-[700px] bg-white rounded-t-2xl md:rounded-xl border border-gray-200 shadow-2xl z-50 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300 overflow-hidden">
+          <div className="fixed bottom-0 right-0 left-0 md:bottom-24 md:right-6 md:left-auto w-full md:w-96 h-[85vh] md:h-[600px] max-h-[700px] bg-white rounded-t-md md:rounded-md border border-border shadow-xl z-50 flex flex-col animate-in fade-in-0 zoom-in-95 duration-300 overflow-hidden">
             {/* Header */}
-            <div className="flex-shrink-0 p-3 md:p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-violet-50 rounded-t-2xl md:rounded-t-xl">
+            <div className="flex-shrink-0 p-3 md:p-4 border-b border-border bg-secondary rounded-t-md">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-sm bg-primary flex items-center justify-center flex-shrink-0">
                     <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -197,8 +197,8 @@ export default function EditalChat({ editalId }: EditalChatProps) {
               <div className="space-y-3 md:space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center text-gray-500 py-8 md:py-12">
-                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-100 to-violet-100 flex items-center justify-center">
-                      <Bot className="w-8 h-8 md:w-10 md:h-10 text-blue-600" />
+                    <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 rounded-sm bg-secondary border border-border flex items-center justify-center">
+                      <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />
                     </div>
                     <p className="text-sm md:text-base font-medium mb-2">
                       Olá! Como posso ajudá-lo?
@@ -216,15 +216,15 @@ export default function EditalChat({ editalId }: EditalChatProps) {
                       }`}
                     >
                       {message.role === "assistant" && (
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-r from-blue-100 to-violet-100 flex items-center justify-center flex-shrink-0 mt-1">
-                          <Bot className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-600" />
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-sm bg-secondary border border-border flex items-center justify-center flex-shrink-0 mt-1">
+                          <Bot className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
                         </div>
                       )}
 
                       <div
                         className={`max-w-[85%] md:max-w-[80%] rounded-2xl px-3 md:px-4 py-2.5 md:py-3 shadow-sm ${
                           message.role === "user"
-                            ? "bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-br-sm"
+                            ? "bg-primary text-white rounded-br-sm"
                             : "bg-gray-50 text-gray-900 border border-gray-100 rounded-bl-sm"
                         }`}
                       >
@@ -246,7 +246,7 @@ export default function EditalChat({ editalId }: EditalChatProps) {
                       </div>
 
                       {message.role === "user" && (
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-r from-gray-300 to-gray-400 flex items-center justify-center flex-shrink-0 mt-1">
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-sm bg-gray-400 flex items-center justify-center flex-shrink-0 mt-1">
                           <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
                         </div>
                       )}
@@ -256,12 +256,12 @@ export default function EditalChat({ editalId }: EditalChatProps) {
 
                 {isLoading && (
                   <div className="flex gap-2 md:gap-3 justify-start">
-                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-r from-blue-100 to-violet-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Bot className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-600" />
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-sm bg-secondary border border-border flex items-center justify-center flex-shrink-0 mt-1">
+                      <Bot className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
                     </div>
                     <div className="bg-gray-50 rounded-2xl rounded-bl-sm px-3 md:px-4 py-2.5 md:py-3 border border-gray-100 shadow-sm">
                       <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         <span className="text-sm text-gray-600">Pensando...</span>
                       </div>
                     </div>
@@ -281,12 +281,12 @@ export default function EditalChat({ editalId }: EditalChatProps) {
                   onKeyDown={handleKeyDown}
                   placeholder="Digite sua pergunta..."
                   disabled={isLoading}
-                  className="flex-1 text-sm md:text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  className="flex-1 text-sm md:text-base border-gray-300 focus:border-primary focus:ring-ring"
                 />
                 <Button
                   onClick={handleSend}
                   disabled={isLoading || !input.trim()}
-                  className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white px-3 md:px-4 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-primary hover:bg-primary/90 text-white px-3 md:px-4 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   size="default"
                 >
                   {isLoading ? (

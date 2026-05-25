@@ -672,15 +672,15 @@ export default function EditorProposta() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!proposta) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -699,7 +699,7 @@ export default function EditorProposta() {
       rascunho: { label: "Rascunho", className: "bg-gray-100 text-gray-700" },
       em_redacao: {
         label: "Em Redação",
-        className: "bg-blue-100 text-blue-700",
+        className: "bg-secondary text-primary border-border",
       },
       revisao: {
         label: "Em Revisão",
@@ -707,7 +707,7 @@ export default function EditorProposta() {
       },
       submetida: {
         label: "Submetida",
-        className: "bg-purple-100 text-purple-700",
+        className: "bg-secondary text-primary border-border",
       },
       aprovada: {
         label: "Aprovada",
@@ -733,7 +733,7 @@ export default function EditorProposta() {
     rascunho: { label: "📝 Rascunho", className: "bg-gray-100 text-gray-700" },
     em_redacao: {
       label: "✍️ Em Redação",
-      className: "bg-blue-100 text-blue-700",
+      className: "bg-secondary text-primary border-border",
     },
     revisao: {
       label: "🔍 Em Revisão",
@@ -741,7 +741,7 @@ export default function EditorProposta() {
     },
     submetida: {
       label: "📤 Submetida",
-      className: "bg-purple-100 text-purple-700",
+      className: "bg-secondary text-primary border-border",
     },
     aprovada: {
       label: "✅ Aprovada",
@@ -754,9 +754,9 @@ export default function EditorProposta() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--background)]">
       {/* Header - Sempre visível no topo */}
-      <header className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-sm">
+      <header className="bg-[color:var(--background)]/95 border-b border-[color:var(--institutional-line)] fixed top-0 left-0 right-0 z-50 shadow-sm backdrop-blur-sm">
         <div className="container py-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-4">
@@ -800,7 +800,7 @@ export default function EditorProposta() {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-gradient-to-r from-blue-600 to-violet-600"
+                className="bg-primary hover:bg-primary/90"
                 size="sm"
               >
                 {saving ? (
@@ -824,9 +824,9 @@ export default function EditorProposta() {
       <div className="h-[88px]"></div>
 
       {/* Barra Lateral de Navegação - Tópicos */}
-      <div className="fixed top-[200px] left-6 z-40 bg-white rounded-xl p-4 shadow-lg border border-gray-200 w-64 hidden lg:block">
+      <div className="fixed top-[200px] left-6 z-40 bg-white rounded-md p-4 shadow-sm border border-border w-64 hidden lg:block">
         <div className="flex items-center gap-2 mb-4">
-          <List className="w-4 h-4 text-blue-600" />
+          <List className="w-4 h-4 text-primary" />
           <h3 className="font-bold text-gray-900 text-sm">Navegação</h3>
         </div>
         <nav className="space-y-1">
@@ -836,7 +836,7 @@ export default function EditorProposta() {
               onClick={() => scrollToSection(section.id)}
               className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                 activeSection === section.id
-                  ? "bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-600"
+                  ? "bg-secondary text-primary font-semibold border-l-2 border-primary"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
@@ -848,7 +848,7 @@ export default function EditorProposta() {
 
       {/* Card Fixo - Status, Progresso e Ver Edital - Sempre visível */}
       <div
-        className={`fixed top-[200px] right-6 z-40 bg-white rounded-xl shadow-lg border border-gray-200 transition-all duration-200 hidden lg:block ${
+        className={`fixed top-[200px] right-6 z-40 bg-white rounded-md shadow-sm border border-border transition-all duration-200 hidden lg:block ${
           statusPanelCollapsed ? "w-12 h-40 p-1" : "w-56 p-5"
         }`}
       >
@@ -907,12 +907,12 @@ export default function EditorProposta() {
             <div className="border-t border-gray-200 pt-4">
               <h3 className="font-bold text-gray-900 mb-3 text-sm">Progresso</h3>
               <div className="space-y-2">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-primary">
                   {proposta.progresso}%
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    className="bg-primary h-2 rounded-full transition-all"
                     style={{ width: `${proposta.progresso}%` }}
                   />
                 </div>
@@ -935,9 +935,9 @@ export default function EditorProposta() {
         <div className={`grid gap-6 ${proposta.observacoes ? 'grid-cols-4' : 'grid-cols-1'}`}>
           {/* Formulário Principal */}
           <div className={`${proposta.observacoes ? 'col-span-3' : 'col-span-1'} space-y-6`}>
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="institutional-surface rounded-md p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
+                <FileText className="w-5 h-5 text-primary" />
                 Campos do Formulário
               </h2>
 
@@ -963,7 +963,7 @@ export default function EditorProposta() {
           {proposta.observacoes && (
             <div className="col-span-1">
               <div className="sticky top-[88px]">
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="institutional-surface rounded-md p-6">
                   <h3 className="font-bold text-gray-900 mb-4">Observações</h3>
                   <p className="text-sm text-gray-600">{proposta.observacoes}</p>
                 </div>

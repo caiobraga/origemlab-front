@@ -81,9 +81,9 @@ export default function TermosDeUso() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-3">9. Contato</h2>
           <p className="text-gray-600 leading-relaxed">
-            Dúvidas: <a href="mailto:contato@origemlab.ai" className="text-blue-600 hover:underline">contato@origemlab.ai</a>. 
+            Dúvidas: <a href="mailto:contato@origemlab.ai" className="text-primary hover:underline">contato@origemlab.ai</a>. 
             Consulte também nossa{" "}
-            <Link href="/politica-privacidade" className="text-blue-600 hover:underline">
+            <Link href="/politica-privacidade" className="text-primary hover:underline">
               Política de Privacidade
             </Link>.
           </p>

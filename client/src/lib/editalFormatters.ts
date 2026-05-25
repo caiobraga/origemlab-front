@@ -88,7 +88,7 @@ export function formatValorProjeto(
       
       // Se for array de strings simples
       if (valores.every((v: any) => typeof v === 'string')) {
-        const valoresFormatados = valores.map((v: string) => {
+        const valoresFormatados: string[] = valores.map((v: string) => {
           // Extrair número do valor (ex: "R$ 1.000.000,00" -> "R$ 1.000.000,00")
           return v.trim();
         }).filter((v: string) => v.length > 0); // Filtrar strings vazias
@@ -225,7 +225,7 @@ export function formatValorProjeto(
     );
     return { display: text || "Valor não formatado", truncated, raw: parsed };
   } catch (e) {
-    const { text, truncated } = truncateValorLine(valor_projeto);
+    const { text, truncated } = truncateValorLine(String(valor_projeto ?? ""));
     return { display: text || "Não informado", truncated };
   }
 }

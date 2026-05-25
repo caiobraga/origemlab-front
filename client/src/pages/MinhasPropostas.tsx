@@ -31,11 +31,11 @@ export default function MinhasPropostas() {
       case "rascunho":
         return <Badge variant="outline" className="bg-gray-100">📝 Rascunho</Badge>;
       case "em_redacao":
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">✍️ Em Redação</Badge>;
+        return <Badge className="bg-secondary text-primary border-border">✍️ Em Redação</Badge>;
       case "revisao":
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">🔍 Em Revisão</Badge>;
       case "submetida":
-        return <Badge className="bg-purple-100 text-purple-700 border-purple-200">📤 Submetida</Badge>;
+        return <Badge className="bg-secondary text-primary border-border">📤 Submetida</Badge>;
       case "aprovada":
         return <Badge className="bg-green-100 text-green-700 border-green-200">✅ Aprovada</Badge>;
       case "rejeitada":
@@ -50,13 +50,13 @@ export default function MinhasPropostas() {
       case "rascunho":
         return <FileText className="w-5 h-5 text-gray-500" />;
       case "em_redacao":
-        return <Edit3 className="w-5 h-5 text-blue-600" />;
+        return <Edit3 className="w-5 h-5 text-primary" />;
       case "revisao":
         return <AlertCircle className="w-5 h-5 text-yellow-600" />;
       case "submetida":
-        return <Send className="w-5 h-5 text-purple-600" />;
+        return <Send className="w-5 h-5 text-primary" />;
       case "aprovada":
-        return <CheckCircle2 className="w-5 h-5 text-green-600" />;
+        return <CheckCircle2 className="w-5 h-5 text-primary" />;
       case "rejeitada":
         return <AlertCircle className="w-5 h-5 text-red-600" />;
     }
@@ -144,7 +144,7 @@ export default function MinhasPropostas() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--background)]">
       <Header />
       <div className="container py-8">
         {/* Page Header */}
@@ -154,7 +154,7 @@ export default function MinhasPropostas() {
             <p className="text-gray-600">Acompanhe o progresso dos seus projetos</p>
           </div>
           <Link href="/dashboard">
-            <Button className="bg-gradient-to-r from-blue-600 to-violet-600">
+            <Button className="bg-primary hover:bg-primary/90">
               <Sparkles className="w-4 h-4 mr-2" />
               Nova Proposta
             </Button>
@@ -163,44 +163,44 @@ export default function MinhasPropostas() {
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
           <>
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className="bg-white rounded-lg p-4 border border-gray-200">
+          <div className="institutional-surface rounded-md p-4">
             <div className="text-2xl font-bold text-gray-900">{propostas.length}</div>
             <div className="text-sm text-gray-600">Total de Propostas</div>
           </div>
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="text-2xl font-bold text-blue-700">
+          <div className="institutional-surface rounded-md p-4">
+            <div className="text-2xl font-bold text-primary">
               {propostas.filter(p => p.status === "em_redacao").length}
             </div>
-            <div className="text-sm text-blue-600">Em Redação</div>
+            <div className="text-sm text-gray-600">Em Redação</div>
           </div>
-          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+          <div className="institutional-surface rounded-md p-4">
             <div className="text-2xl font-bold text-yellow-700">
               {propostas.filter(p => p.status === "revisao").length}
             </div>
             <div className="text-sm text-yellow-600">Em Revisão</div>
           </div>
-          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <div className="text-2xl font-bold text-purple-700">
+          <div className="institutional-surface rounded-md p-4">
+            <div className="text-2xl font-bold text-primary">
               {propostas.filter(p => p.status === "submetida").length}
             </div>
-            <div className="text-sm text-purple-600">Submetidas</div>
+            <div className="text-sm text-gray-600">Submetidas</div>
           </div>
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+          <div className="institutional-surface rounded-md p-4">
             <div className="text-2xl font-bold text-green-700">
               {propostas.filter(p => p.status === "aprovada").length}
             </div>
-            <div className="text-sm text-green-600">Aprovadas</div>
+            <div className="text-sm text-gray-600">Aprovadas</div>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="bg-white rounded-lg p-3 md:p-4 mb-6 border border-gray-200">
+        <div className="institutional-surface rounded-md p-3 md:p-4 mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
             <span className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Filtrar por status:</span>
             <div className="flex flex-wrap items-center gap-2">
@@ -259,7 +259,7 @@ export default function MinhasPropostas() {
         {/* Lista de Propostas */}
         <div className="space-y-4">
           {propostasFiltradas.length === 0 ? (
-            <div className="bg-white rounded-lg p-12 text-center border border-gray-200">
+            <div className="institutional-surface rounded-md p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma proposta encontrada</h3>
               <p className="text-gray-600 mb-4">
@@ -269,7 +269,7 @@ export default function MinhasPropostas() {
                 }
               </p>
               <Link href="/dashboard">
-                <Button className="bg-gradient-to-r from-blue-600 to-violet-600">
+                <Button className="bg-primary hover:bg-primary/90">
                   <Sparkles className="w-4 h-4 mr-2" />
                   Explorar Editais
                 </Button>
@@ -277,10 +277,10 @@ export default function MinhasPropostas() {
             </div>
           ) : (
             propostasFiltradas.map((proposta) => (
-              <div key={proposta.id} className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-md transition-shadow">
+              <div key={proposta.id} className="institutional-surface rounded-md p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-4 flex-1">
-                    <div className="p-3 bg-gray-100 rounded-lg">
+                    <div className="p-3 bg-secondary rounded-sm border border-border">
                       {getStatusIcon(proposta.status)}
                     </div>
                     <div className="flex-1">
@@ -308,19 +308,19 @@ export default function MinhasPropostas() {
                       <div className="mb-3">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-medium text-gray-700">Progresso</span>
-                          <span className="text-sm font-bold text-blue-600">{proposta.progresso}%</span>
+                          <span className="text-sm font-bold text-primary">{proposta.progresso}%</span>
                         </div>
                         <Progress value={proposta.progresso} className="h-2" />
                       </div>
 
                       {/* Próxima Etapa */}
                       {proposta.proxima_etapa && (
-                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <div className="bg-secondary rounded-sm p-3 border border-border">
                           <div className="flex items-start gap-2">
-                            <TrendingUp className="w-4 h-4 text-blue-600 mt-0.5" />
+                            <TrendingUp className="w-4 h-4 text-primary mt-0.5" />
                             <div>
-                              <div className="text-xs font-medium text-blue-900 mb-1">Próxima Etapa</div>
-                              <div className="text-sm text-blue-700">{proposta.proxima_etapa}</div>
+                              <div className="text-xs font-medium text-gray-900 mb-1">Próxima Etapa</div>
+                              <div className="text-sm text-gray-700">{proposta.proxima_etapa}</div>
                             </div>
                           </div>
                         </div>
@@ -341,11 +341,7 @@ export default function MinhasPropostas() {
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
                   {proposta.status === "rascunho" || proposta.status === "em_redacao" || proposta.status === "submetida" ? (
                     <Button 
-                      className={
-                        proposta.status === "submetida"
-                          ? "bg-gradient-to-r from-purple-600 to-fuchsia-600"
-                          : "bg-gradient-to-r from-blue-600 to-violet-600"
-                      }
+                      className="bg-primary hover:bg-primary/90"
                       onClick={() => {
                         if (proposta.status === "submetida") {
                           toast.info("Você está editando uma proposta marcada como submetida. Se necessário, altere o status no editor para continuar a redação.");
@@ -358,7 +354,7 @@ export default function MinhasPropostas() {
                     </Button>
                   ) : proposta.status === "revisao" ? (
                     <Button 
-                      className="bg-gradient-to-r from-yellow-500 to-orange-500"
+                      className="bg-primary hover:bg-primary/90"
                       onClick={() => handleContinuarRedacao(proposta.id)}
                     >
                       <AlertCircle className="w-4 h-4 mr-2" />

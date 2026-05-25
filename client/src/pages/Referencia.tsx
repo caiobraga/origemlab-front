@@ -77,54 +77,54 @@ export default function Referencia() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex-1 bg-gradient-to-br from-blue-50 to-violet-50 py-12">
+      <div className="flex-1 bg-[color:var(--background)] py-12">
         <div className="container max-w-4xl">
           {/* Header */}
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Programa de Referência
+              Rede de Acesso
             </h1>
             <p className="text-xl text-gray-600">
-              Ganhe R$ {CREDITO_POR_CONVERSAO} por cada amigo que se cadastrar na Origem.Lab
+              Compartilhe a plataforma com organizações e equipes parceiras
             </p>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
             <Card className="p-6 text-center">
-              <Users className="w-8 h-8 text-blue-600 mx-auto mb-3" />
+              <Users className="w-8 h-8 text-primary mx-auto mb-3" />
               <p className="text-3xl font-bold text-gray-900">{stats.convites}</p>
               <p className="text-sm text-gray-600 mt-1">Convites enviados</p>
             </Card>
             <Card className="p-6 text-center">
-              <CheckCircle2 className="w-8 h-8 text-green-600 mx-auto mb-3" />
+              <CheckCircle2 className="w-8 h-8 text-primary mx-auto mb-3" />
               <p className="text-3xl font-bold text-gray-900">{stats.conversoes}</p>
               <p className="text-sm text-gray-600 mt-1">Conversões</p>
             </Card>
             <Card className="p-6 text-center">
-              <Gift className="w-8 h-8 text-violet-600 mx-auto mb-3" />
+              <Gift className="w-8 h-8 text-primary mx-auto mb-3" />
               <p className="text-3xl font-bold text-gray-900">R$ {stats.ganhos}</p>
               <p className="text-sm text-gray-600 mt-1">Ganhos até agora</p>
             </Card>
             <Card className="p-6 text-center">
-              <TrendingUp className="w-8 h-8 text-orange-600 mx-auto mb-3" />
+              <TrendingUp className="w-8 h-8 text-primary mx-auto mb-3" />
               <p className="text-3xl font-bold text-gray-900">R$ {stats.potencial}</p>
               <p className="text-sm text-gray-600 mt-1">Potencial próximos 30 dias</p>
             </Card>
           </div>
 
           {/* Referral Link Section */}
-          <Card className="p-8 mb-12 border-2 border-violet-200">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Seu Link de Referência</h2>
+          <Card className="p-8 mb-12 institutional-surface">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Seu link de acesso</h2>
             
             {!user ? (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
                 <p className="text-gray-700 mb-4">
-                  Crie sua conta ou faça login para obter seu link exclusivo de referência e começar a ganhar.
+                  Crie sua conta ou faça login para obter seu link exclusivo de compartilhamento.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/cadastro">
-                    <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+                    <Button className="bg-primary hover:bg-primary/90">
                       Criar conta grátis
                     </Button>
                   </Link>
@@ -149,8 +149,8 @@ export default function Referencia() {
                     onClick={copiarLink}
                     className={`flex-shrink-0 ${
                       copiado
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-primary hover:bg-primary/90"
+                        : "bg-primary hover:bg-primary/90"
                     }`}
                   >
                     <Copy className="w-4 h-4 mr-2" />
@@ -159,21 +159,21 @@ export default function Referencia() {
                 </div>
 
                 <p className="text-sm text-gray-600 mb-6">
-                  Compartilhe este link com seus amigos, colegas e seguidores. Cada pessoa que se cadastrar usando seu link gerará R$ {CREDITO_POR_CONVERSAO} em créditos para você!
+                  Compartilhe este link com equipes, parceiros e organizações da sua rede. Cada cadastro pelo link gera créditos na sua conta.
                 </p>
 
                 {/* Share Buttons */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button
                     onClick={compartilharWhatsApp}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-primary hover:bg-primary/90 text-white"
                   >
                     <Share2 className="w-4 h-4 mr-2" />
                     Compartilhar no WhatsApp
                   </Button>
                   <Button
                     onClick={compartilharEmail}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-primary hover:bg-primary/90 text-white"
                   >
                     <Share2 className="w-4 h-4 mr-2" />
                     Enviar por Email
@@ -192,23 +192,23 @@ export default function Referencia() {
 
           {/* How It Works */}
           <Card className="p-8 mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-8">Como Funciona</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">Como funciona</h2>
             
             <div className="space-y-6">
               <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                <div className="flex-shrink-0 w-10 h-10 rounded-sm bg-primary text-white flex items-center justify-center font-bold">
                   1
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Compartilhe seu link</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">Compartilhe o acesso</h3>
                   <p className="text-gray-600">
-                    Copie e compartilhe seu link de referência com amigos, colegas e seguidores
+                    Copie e compartilhe o link com equipes, instituições e redes parceiras
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold">
+                <div className="flex-shrink-0 w-10 h-10 rounded-sm bg-primary text-white flex items-center justify-center font-bold">
                   2
                 </div>
                 <div>
@@ -220,7 +220,7 @@ export default function Referencia() {
               </div>
 
               <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                <div className="flex-shrink-0 w-10 h-10 rounded-sm bg-primary text-white flex items-center justify-center font-bold">
                   3
                 </div>
                 <div>
@@ -232,7 +232,7 @@ export default function Referencia() {
               </div>
 
               <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold">
+                <div className="flex-shrink-0 w-10 h-10 rounded-sm bg-primary text-white flex items-center justify-center font-bold">
                   4
                 </div>
                 <div>
@@ -260,7 +260,7 @@ export default function Referencia() {
                   key={idx}
                   className={`flex items-center justify-between p-4 rounded-lg ${
                     u.destaque
-                      ? "bg-gradient-to-r from-blue-100 to-violet-100 border-2 border-blue-400"
+                      ? "bg-secondary border border-primary"
                       : "bg-gray-50"
                   }`}
                 >
@@ -274,14 +274,14 @@ export default function Referencia() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-green-600">R$ {u.ganhos}</p>
+                    <p className="text-2xl font-bold text-primary">R$ {u.ganhos}</p>
                     <p className="text-xs text-gray-600">ganhos</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            <Button className="w-full mt-8 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white">
+            <Button className="w-full mt-8 bg-primary hover:bg-primary/90 text-white">
               Ver Leaderboard Completo
             </Button>
           </Card>

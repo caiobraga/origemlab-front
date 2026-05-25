@@ -126,11 +126,11 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main id="main-content" className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-violet-50 px-4 py-12">
+      <main id="main-content" className="flex-1 flex items-center justify-center bg-[color:var(--background)] px-4 py-12">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-primary">
                 Bem-vindo de volta
               </h1>
               <p className="text-gray-700 mt-2">
@@ -227,7 +227,7 @@ export default function Login() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
                 disabled={loading}
               >
                 {loading ? (
@@ -251,7 +251,7 @@ export default function Login() {
             <div className="text-center text-sm text-gray-700 mt-6">
               Não tem uma conta?{" "}
               <Link href="/cadastro">
-                <span className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded">
+                <span className="text-primary hover:text-primary/80 font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded">
                   Criar conta
                 </span>
               </Link>
@@ -259,8 +259,8 @@ export default function Login() {
 
             <div className="text-center mt-4 space-y-2">
               <Link href="/referencia">
-                <span className="block text-sm text-green-600 hover:text-green-700 font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:rounded">
-                  Indique e Ganhe R$ 50
+                <span className="block text-sm text-primary hover:text-primary/80 font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded">
+                  Rede de acesso
                 </span>
               </Link>
               <Link href="/">

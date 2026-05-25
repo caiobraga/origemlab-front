@@ -71,61 +71,62 @@ export default function Header() {
     <>
       <SkipLink />
       <header 
-        className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/80 backdrop-blur-md"
+        className="sticky top-0 z-50 w-full border-b border-[color:var(--institutional-line)] bg-white/95 backdrop-blur"
         role="banner"
         id="navigation"
       >
       <div className="container">
-        <div className="flex h-14 md:h-16 items-center justify-between gap-2">
+        <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/inicio" aria-label={`${APP_TITLE} - Página inicial`}>
-            <div className="flex items-center gap-1.5 md:gap-2 cursor-pointer flex-shrink-0 min-w-0 group transition-all duration-200 hover:opacity-80">
+            <div className="flex items-center gap-3 cursor-pointer flex-shrink-0 min-w-0 group">
               <div 
-                className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-md bg-[linear-gradient(135deg,var(--attention),#0b0f1a)]"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-primary/25 bg-white text-primary shadow-[inset_3px_0_0_var(--primary)]"
                 aria-hidden="true"
               >
-                <span className="text-white font-bold text-xs md:text-sm">O</span>
+                <span className="text-sm font-bold tracking-tight">OL</span>
               </div>
-              <span className="text-base md:text-xl font-bold text-gray-950 truncate transition-all duration-200">
-                {APP_TITLE}
-              </span>
+              <div className="min-w-0">
+                <span className="block text-base md:text-lg font-semibold text-gray-950 truncate tracking-tight">
+                  {APP_TITLE}
+                </span>
+                <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500 sm:block">
+                  Portal de fomento
+                </span>
+              </div>
             </div>
           </Link>
 
           {/* Desktop Navigation - Apenas quando não logado */}
           {!user && (
             <nav 
-              className="hidden md:flex items-center gap-8"
+              className="hidden md:flex items-center gap-7"
               role="navigation"
               aria-label="Navegação principal"
             >
               <a 
                 href="#como-funciona" 
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-all duration-200 hover:scale-105 relative group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
-                Como Funciona
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" aria-hidden="true"></span>
+                Como funciona
               </a>
               <a 
                 href="#planos" 
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-all duration-200 hover:scale-105 relative group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
                 Planos
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" aria-hidden="true"></span>
               </a>
               <a 
                 href="#depoimentos" 
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-all duration-200 hover:scale-105 relative group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
                 Depoimentos
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" aria-hidden="true"></span>
               </a>
               <a 
                 href="#faq" 
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-all duration-200 hover:scale-105 relative group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
                 FAQ
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" aria-hidden="true"></span>
               </a>
             </nav>
           )}
@@ -133,72 +134,57 @@ export default function Header() {
           {/* Desktop Navigation - Quando logado */}
           {user && !loading && (
             <nav 
-              className="hidden md:flex items-center gap-1"
+              className="hidden md:flex items-stretch gap-6 self-stretch"
               role="navigation"
               aria-label="Navegação do usuário"
             >
-              <Link href="/dashboard">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 px-3 text-sm font-medium transition-all duration-200 group",
-                    isActive("/dashboard")
-                      ? "bg-blue-50 text-blue-600 hover:bg-blue-50 hover:text-blue-600"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-50 hover:scale-105"
-                  )}
-                  aria-current={isActive("/dashboard") ? "page" : undefined}
-                >
-                  <LayoutDashboard className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
-                  Meu Painel
-                </Button>
+              <Link
+                href="/dashboard"
+                className={cn(
+                  "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                  isActive("/dashboard")
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                )}
+                aria-current={isActive("/dashboard") ? "page" : undefined}
+              >
+                Painel
               </Link>
-              <Link href="/minhas-propostas">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 px-3 text-sm font-medium transition-all duration-200 group",
-                    isActive("/minhas-propostas")
-                      ? "bg-violet-50 text-violet-600 hover:bg-violet-50 hover:text-violet-600"
-                      : "text-gray-700 hover:text-violet-600 hover:bg-gray-50 hover:scale-105"
-                  )}
-                  aria-current={isActive("/minhas-propostas") ? "page" : undefined}
-                >
-                  <FileText className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
-                  Minhas Propostas
-                </Button>
+              <Link
+                href="/minhas-propostas"
+                className={cn(
+                  "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                  isActive("/minhas-propostas")
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                )}
+                aria-current={isActive("/minhas-propostas") ? "page" : undefined}
+              >
+                Propostas
               </Link>
-              <Link href="/referencia">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 px-3 text-sm font-medium transition-all duration-200 group",
-                    isActive("/referencia")
-                      ? "bg-green-50 text-green-600 hover:bg-green-50 hover:text-green-600"
-                      : "text-gray-700 hover:text-green-600 hover:bg-gray-50 hover:scale-105"
-                  )}
-                  aria-current={isActive("/referencia") ? "page" : undefined}
-                >
-                  <Share2 className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
-                  Indique e Ganhe
-                </Button>
+              <Link
+                href="/referencia"
+                className={cn(
+                  "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                  isActive("/referencia")
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                )}
+                aria-current={isActive("/referencia") ? "page" : undefined}
+              >
+                Rede de acesso
               </Link>
-              <Link href="/planos">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 px-3 text-sm font-medium transition-all duration-200 group",
-                    isActive("/planos")
-                      ? "bg-violet-50 text-violet-600 hover:bg-violet-50 hover:text-violet-600"
-                      : "text-gray-700 hover:text-violet-600 hover:bg-gray-50 hover:scale-105"
-                  )}
-                  aria-current={isActive("/planos") ? "page" : undefined}
-                >
-                  Planos
-                </Button>
+              <Link
+                href="/planos"
+                className={cn(
+                  "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                  isActive("/planos")
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                )}
+                aria-current={isActive("/planos") ? "page" : undefined}
+              >
+                Planos
               </Link>
             </nav>
           )}
@@ -210,7 +196,7 @@ export default function Header() {
                 {planBadgeLabel ? (
                   <Badge
                     variant="default"
-                    className="hidden md:inline-flex bg-gray-950 text-white border-0 px-3 py-1.5 font-medium shadow-sm"
+                    className="hidden md:inline-flex rounded-sm border border-border bg-secondary px-3 py-1.5 font-medium text-primary shadow-none"
                   >
                     <Sparkles className="w-3.5 h-3.5 mr-1.5" />
                     {planBadgeLabel}
@@ -221,7 +207,7 @@ export default function Header() {
                 <div className="relative hidden md:block" ref={profileMenuRef}>
                   <Button 
                     variant="ghost" 
-                    className="h-9 px-2 md:px-3 gap-1.5 md:gap-2 hover:bg-gray-50 transition-all duration-200"
+                    className="h-10 gap-2 rounded-sm border border-border bg-white px-2.5 hover:bg-secondary"
                     type="button"
                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                     aria-expanded={profileMenuOpen}
@@ -229,7 +215,7 @@ export default function Header() {
                     aria-label={`Menu do usuário: ${user.email}`}
                   >
                     <div 
-                      className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white font-semibold text-xs md:text-sm flex-shrink-0 transition-transform duration-200 hover:scale-110 hover:shadow-md"
+                    className="w-7 h-7 md:w-8 md:h-8 rounded-sm bg-primary flex items-center justify-center text-white font-semibold text-xs md:text-sm flex-shrink-0"
                       aria-hidden="true"
                     >
                       {user.email?.charAt(0).toUpperCase() || "U"}
@@ -239,13 +225,13 @@ export default function Header() {
                   
                   {profileMenuOpen && (
                     <div 
-                      className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200"
+                      className="absolute right-0 top-full z-[9999] mt-2 w-60 overflow-hidden rounded-sm border border-border bg-white shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
                       role="menu"
                       aria-label="Menu do usuário"
                     >
-                      <div className="p-3 border-b border-gray-200 bg-gray-50">
+                      <div className="border-b border-border bg-secondary/60 p-3">
                         <div className="flex flex-col space-y-1 min-w-0">
-                          <p className="text-sm font-semibold leading-none text-gray-900">Minha Conta</p>
+                          <p className="text-sm font-semibold leading-none text-gray-900">Conta institucional</p>
                           <p className="text-xs leading-none text-gray-600 truncate">
                             {user.email}
                           </p>
@@ -254,27 +240,27 @@ export default function Header() {
                       <div className="py-1">
                         <button
                           onClick={() => handleNavigate("/perfil")}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-all duration-200 cursor-pointer text-left hover:translate-x-1 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-secondary transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset"
                           role="menuitem"
                         >
-                          <User className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
-                          Meu Perfil
+                          <User className="w-4 h-4" aria-hidden="true" />
+                          Perfil
                         </button>
                         <button
                           onClick={() => handleNavigate("/referencia")}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-all duration-200 cursor-pointer text-left hover:translate-x-1 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-secondary transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset"
                           role="menuitem"
                         >
-                          <Share2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
-                          Indique e Ganhe
+                          <Share2 className="w-4 h-4" aria-hidden="true" />
+                          Rede de acesso
                         </button>
                         <div className="h-px bg-gray-200 my-1" aria-hidden="true" />
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-all duration-200 cursor-pointer text-left hover:translate-x-1 group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50 transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
                           role="menuitem"
                         >
-                          <LogOut className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                          <LogOut className="w-4 h-4" aria-hidden="true" />
                           Sair
                         </button>
                       </div>
@@ -315,25 +301,25 @@ export default function Header() {
                     <nav className="flex flex-col gap-4" role="navigation" aria-label="Navegação mobile">
                       <a 
                         href="#como-funciona" 
-                        className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                        className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
                         Como Funciona
                       </a>
                       <a 
                         href="#planos" 
-                        className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                        className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
                         Planos
                       </a>
                       <a 
                         href="#depoimentos" 
-                        className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                        className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
                         Depoimentos
                       </a>
                       <a 
                         href="#faq" 
-                        className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:rounded"
+                        className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
                         FAQ
                       </a>
@@ -346,7 +332,7 @@ export default function Header() {
                         {planBadgeLabel ? (
                           <Badge
                             variant="default"
-                            className="w-full justify-center bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 py-2 font-medium"
+                            className="w-full justify-center bg-primary text-primary-foreground border-0 py-2 font-medium"
                           >
                             <Sparkles className="w-3.5 h-3.5 mr-1.5" />
                             {planBadgeLabel}

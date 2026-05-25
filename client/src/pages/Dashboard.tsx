@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { 
-  ArrowLeft, Search, Filter, Globe, TrendingUp, Calendar, 
-  DollarSign, Target, Clock, AlertCircle,
-  Send, Eye, Sparkles, BarChart3, User, Loader2,
-  GraduationCap, Building2, Users, Share2
+  Search, Filter, Calendar, DollarSign, Target, AlertCircle,
+  Sparkles, Loader2, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -339,6 +337,8 @@ export default function Dashboard() {
     ? indicacoesQuery.isLoading && editaisIndicadosRaw.length === 0
     : editaisListQuery.isLoading && editaisRaw.length === 0;
   const listError = editaisListQuery.isError;
+  const indicacoesErrorMessage =
+    indicacoesQuery.error instanceof Error ? indicacoesQuery.error.message : indicacoesQuery.isError ? "Erro ao carregar indicações." : "";
   const loading = listLoading && !listError;
   const hasMore = visibleCount < editaisFiltradosOrdenados.length;
 
@@ -364,6 +364,22 @@ export default function Dashboard() {
     emAnalise: editaisFiltrados.filter((e) => getStatusFromEdital(e) === "em_analise").length,
     indicacoes: (indicacoesQuery.data ?? []).length,
   };
+  const areaSelecionada =
+    AREA_FILTER_OPTIONS.find((opt) => opt.value === filtroArea)?.label ?? "Todas as áreas";
+  const tipoSelecionado =
+    filtroTipoEdital === "pesquisadores"
+      ? "Pesquisadores"
+      : filtroTipoEdital === "empresas"
+      ? "Empresas"
+      : "Todos os tipos";
+  const filtrosAtivos = [
+    busca.trim() ? "Busca" : null,
+    filtroArea !== "todos" ? "Área" : null,
+    filtroTipoEdital !== "todos" ? "Tipo" : null,
+    mostrarInativos ? "Inativos" : null,
+    apenasIndicacoes ? "Indicações" : null,
+    ignorarFiltroPerfil ? "Fora do perfil" : null,
+  ].filter(Boolean).length;
 
   // Não renderizar se não estiver logado (está redirecionando)
   if (!authLoading && !user) {
@@ -371,32 +387,33 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--background)]">
       <Header />
       <main id="main-content" className="container py-8">
         {/* Page Header */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[color:var(--institutional-line)] pb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Meu Painel</h1>
-            <p className="text-sm md:text-base text-gray-700">Oportunidades globais de fomento</p>
+            <p className="institutional-kicker mb-2">Portal de instrumentos</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Painel de Fomento</h1>
+            <p className="text-sm md:text-base text-gray-700">Consulta estruturada de editais, prazos, requisitos e indicações para apoio à decisão.</p>
           </div>
         </div>
 
         {/* Referral Banner */}
         <Link href="/referencia" className="block mb-6">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md">
+          <div className="institutional-surface rounded-md p-4 text-gray-900 transition-colors hover:border-primary">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <Share2 className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-sm bg-secondary border border-border flex items-center justify-center flex-shrink-0">
+                  <Share2 className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold">Indique e Ganhe R$ 50</p>
-                  <p className="text-sm text-green-100">Compartilhe seu link exclusivo e ganhe créditos por cada amigo que se cadastrar</p>
+                  <p className="font-semibold">Rede de acesso</p>
+                  <p className="text-sm text-gray-600">Compartilhe o acesso à plataforma com organizações e equipes parceiras.</p>
                 </div>
               </div>
               <span className="text-sm font-medium underline underline-offset-2 sm:no-underline">
-                Ver meu link →
+                Ver acesso →
               </span>
             </div>
           </div>
@@ -404,7 +421,7 @@ export default function Dashboard() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <span className="ml-3 text-gray-600">Carregando editais...</span>
           </div>
         ) : listError && editaisRaw.length === 0 ? (
@@ -427,109 +444,236 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
+            {indicacoesErrorMessage && (
+              <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="font-medium">Indicações indisponíveis no momento.</div>
+                <div className="mt-1 break-words">{indicacoesErrorMessage}</div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => void indicacoesQuery.refetch()}
+                  disabled={indicacoesQuery.isFetching}
+                >
+                  Tentar atualizar indicações
+                </Button>
+              </div>
+            )}
+
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200">
-            <div className="flex items-center justify-between mb-2">
-              <Target className="w-5 h-5 text-blue-600 transition-transform duration-200 hover:scale-110" />
-              <TrendingUp className="w-4 h-4 text-green-600 transition-transform duration-200 hover:scale-110" />
-            </div>
-            <div className="text-3xl font-bold text-gray-900">{stats.editaisAtivos}</div>
-            <div className="text-sm text-gray-600">Editais disponíveis</div>
-          </div>
+            <dl className="mb-8 grid gap-3 sm:grid-cols-3">
+              <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Catálogo</dt>
+                <dd className="mt-3 flex items-end justify-between gap-4">
+                  <span className="text-4xl font-semibold leading-none tracking-tight text-gray-950">{stats.editaisAtivos}</span>
+                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">Instrumentos disponíveis</span>
+                </dd>
+              </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200">
-            <div className="flex items-center justify-between mb-2">
-              <Sparkles className="w-5 h-5 text-violet-600 transition-transform duration-200 hover:scale-110" />
-            </div>
-            <div className="text-3xl font-bold text-gray-900">{stats.indicacoes}</div>
-            <div className="text-sm text-gray-600">Indicações para você</div>
-          </div>
+              <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-[color:var(--attention)]" aria-hidden="true" />
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Recomendação</dt>
+                <dd className="mt-3 flex items-end justify-between gap-4">
+                  <span className="text-4xl font-semibold leading-none tracking-tight text-gray-950">{stats.indicacoes}</span>
+                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">Indicações para você</span>
+                </dd>
+              </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200">
-            <div className="flex items-center justify-between mb-2">
-              <BarChart3 className="w-5 h-5 text-orange-600 transition-transform duration-200 hover:scale-110" />
-            </div>
-            <div className="text-3xl font-bold text-gray-900">{stats.emAnalise}</div>
-            <div className="text-sm text-gray-600">Em análise</div>
-          </div>
-        </div>
+              <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-gray-400" aria-hidden="true" />
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Acompanhamento</dt>
+                <dd className="mt-3 flex items-end justify-between gap-4">
+                  <span className="text-4xl font-semibold leading-none tracking-tight text-gray-950">{stats.emAnalise}</span>
+                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">Em análise</span>
+                </dd>
+              </div>
+            </dl>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-gray-200 mb-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-            <div className="flex-1 min-w-0">
+        <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="hidden lg:block">
+            <div className="institutional-surface sticky top-24 rounded-md p-5">
+              <div className="mb-5 border-b border-border pb-4">
+                <p className="institutional-kicker mb-2">Filtros de consulta</p>
+                <h2 className="text-xl font-bold text-gray-900">Instrumentos disponíveis</h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  {editaisFiltradosOrdenados.length} resultado(s). {filtrosAtivos > 0 ? `${filtrosAtivos} filtro(s) ativo(s).` : "Sem filtros adicionais."}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <Label className="mb-2 block text-sm font-semibold text-gray-800">Busca</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      placeholder="Título, órgão ou área"
+                      className="pl-9"
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-2 block text-sm font-semibold text-gray-800">Ordenação</Label>
+                  <select
+                    className="w-full rounded-sm border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={ordenacao}
+                    onChange={(e) => setOrdenacao(e.target.value as "recentes" | "indicacoes")}
+                  >
+                    <option value="indicacoes">Recomendações primeiro</option>
+                    <option value="recentes">Mais recentes primeiro</option>
+                  </select>
+                </div>
+
+                {profile && !profileLoading && profile.userType === "ambos" && (
+                  <div>
+                  <Label className="mb-2 block text-sm font-semibold text-gray-800">Público atendido</Label>
+                    <div className="space-y-2">
+                      {[
+                        { value: "todos" as const, label: "Todos os tipos" },
+                        { value: "pesquisadores" as const, label: "Pesquisadores" },
+                        { value: "empresas" as const, label: "Empresas" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setFiltroTipoEdital(opt.value)}
+                          className={`w-full rounded-sm border px-3 py-2 text-left text-sm transition-colors ${
+                            filtroTipoEdital === opt.value
+                              ? "border-primary bg-secondary text-primary"
+                              : "border-border bg-white text-gray-700 hover:border-primary"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="mb-2 block text-sm font-semibold text-gray-800">Área temática</Label>
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {AREA_FILTER_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFiltroArea(opt.value)}
+                        className={`w-full rounded-sm border px-3 py-2 text-left text-sm transition-colors ${
+                          filtroArea === opt.value
+                            ? "border-primary bg-secondary text-primary"
+                            : "border-border bg-white text-gray-700 hover:border-primary"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-4">
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="mostrar-inativos" checked={mostrarInativos} onCheckedChange={(checked) => setMostrarInativos(checked === true)} />
+                    <Label htmlFor="mostrar-inativos" className="text-sm leading-snug text-gray-700">
+                      Mostrar editais com prazo encerrado
+                    </Label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="match-alto" checked={apenasIndicacoes} onCheckedChange={(checked) => setApenasIndicacoes(checked === true)} />
+                    <Label htmlFor="match-alto" className="text-sm leading-snug text-gray-700">
+                      Apenas indicações
+                    </Label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="ignorar-perfil" checked={ignorarFiltroPerfil} onCheckedChange={(checked) => setIgnorarFiltroPerfil(checked === true)} />
+                    <Label htmlFor="ignorar-perfil" className="text-sm leading-snug text-gray-700">
+                      Incluir editais fora do meu perfil
+                    </Label>
+                  </div>
+                </div>
+
+                <Button type="button" className="w-full" onClick={() => void indicacoesQuery.refetch()} disabled={indicacoesQuery.isFetching}>
+                  {indicacoesQuery.isFetching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Atualizando
+                    </>
+                  ) : (
+                    "Atualizar indicações"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </aside>
+
+          <section className="min-w-0">
+            <div className="mb-5 flex flex-col gap-3 lg:hidden">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
                   placeholder="Buscar editais..."
-                  className="pl-10 w-full"
+                  className="pl-10"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                 />
               </div>
-            </div>
-            {/* Mobile: botão Filtros que abre Sheet de baixo para cima */}
-            <div className="md:hidden">
               <Sheet open={filtrosSheetOpen} onOpenChange={setFiltrosSheetOpen}>
                 <SheetTrigger asChild>
                   <Button variant="outline" className="w-full justify-center gap-2">
-                    <Filter className="w-5 h-5" />
+                    <Filter className="h-5 w-5" />
                     Filtros
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl">
+                <SheetContent side="bottom" className="max-h-[85dvh] rounded-t-md overflow-hidden">
                   <SheetHeader>
                     <SheetTitle>Filtros</SheetTitle>
                   </SheetHeader>
-                  <div className="space-y-6 py-4">
+                  <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-5">
                     <div>
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Ordenação</Label>
+                      <Label className="mb-2 block text-sm font-medium text-gray-700">Ordenação</Label>
                       <select
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 hover:border-gray-400 cursor-pointer bg-white"
+                        className="w-full rounded-sm border border-border bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         value={ordenacao}
                         onChange={(e) => setOrdenacao(e.target.value as "recentes" | "indicacoes")}
                       >
                         <option value="indicacoes">Ordenar por recomendações</option>
                         <option value="recentes">Ordenar por recentes</option>
                       </select>
-                      <div className="mt-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full justify-center gap-2"
-                          onClick={() => indicacoesQuery.refetch()}
-                          disabled={indicacoesQuery.isFetching}
-                        >
-                          {indicacoesQuery.isFetching ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Atualizando
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4 text-violet-600" />
-                              Atualizar indicações
-                            </>
-                          )}
-                        </Button>
+                    </div>
+                    <div>
+                      <Label className="mb-2 block text-sm font-medium text-gray-700">Área</Label>
+                      <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+                        {AREA_FILTER_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setFiltroArea(opt.value)}
+                            className={`flex items-center gap-3 rounded-sm px-4 py-3 text-left transition-colors ${
+                              filtroArea === opt.value ? "border border-border bg-secondary text-primary" : "border border-transparent bg-white text-gray-700 hover:bg-secondary"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     {profile && !profileLoading && profile.userType === "ambos" && (
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Tipo</Label>
+                        <Label className="mb-2 block text-sm font-medium text-gray-700">Público atendido</Label>
                         <div className="flex flex-col gap-1">
                           {[
                             { value: "todos" as const, label: "Todos os tipos" },
-                            { value: "pesquisadores" as const, label: "🔬 Pesquisadores" },
-                            { value: "empresas" as const, label: "🏢 Empresas" },
+                            { value: "pesquisadores" as const, label: "Pesquisadores" },
+                            { value: "empresas" as const, label: "Empresas" },
                           ].map((opt) => (
                             <button
                               key={opt.value}
                               type="button"
-                              onClick={() => { setFiltroTipoEdital(opt.value); }}
-                              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                                filtroTipoEdital === opt.value ? "bg-blue-50 text-blue-700 border-2 border-blue-200" : "bg-gray-50 text-gray-700 border-2 border-transparent hover:bg-gray-100"
+                              onClick={() => setFiltroTipoEdital(opt.value)}
+                              className={`flex items-center gap-3 rounded-sm px-4 py-3 text-left transition-colors ${
+                                filtroTipoEdital === opt.value ? "border border-border bg-secondary text-primary" : "border border-transparent bg-white text-gray-700 hover:bg-secondary"
                               }`}
                             >
                               {opt.label}
@@ -538,51 +682,22 @@ export default function Dashboard() {
                         </div>
                       </div>
                     )}
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Área</Label>
-                      <div className="flex flex-col gap-1">
-                        {AREA_FILTER_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => { setFiltroArea(opt.value); }}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                              filtroArea === opt.value ? "bg-blue-50 text-blue-700 border-2 border-blue-200" : "bg-gray-50 text-gray-700 border-2 border-transparent hover:bg-gray-100"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pt-2">
-                      <Checkbox
-                        id="mostrar-inativos-mobile"
-                        checked={mostrarInativos}
-                        onCheckedChange={(checked) => setMostrarInativos(checked === true)}
-                      />
-                      <Label htmlFor="mostrar-inativos-mobile" className="text-sm text-gray-700 cursor-pointer">
-                        Mostrar editais inativos (com prazo encerrado)
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="mostrar-inativos-mobile" checked={mostrarInativos} onCheckedChange={(checked) => setMostrarInativos(checked === true)} />
+                      <Label htmlFor="mostrar-inativos-mobile" className="cursor-pointer text-sm text-gray-700">
+                        Mostrar editais inativos
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="match-alto-mobile"
-                        checked={apenasIndicacoes}
-                        onCheckedChange={(checked) => setApenasIndicacoes(checked === true)}
-                      />
-                      <Label htmlFor="match-alto-mobile" className="text-sm text-gray-700 cursor-pointer">
+                      <Checkbox id="match-alto-mobile" checked={apenasIndicacoes} onCheckedChange={(checked) => setApenasIndicacoes(checked === true)} />
+                      <Label htmlFor="match-alto-mobile" className="cursor-pointer text-sm text-gray-700">
                         Apenas indicações
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="ignorar-perfil-mobile"
-                        checked={ignorarFiltroPerfil}
-                        onCheckedChange={(checked) => setIgnorarFiltroPerfil(checked === true)}
-                      />
-                      <Label htmlFor="ignorar-perfil-mobile" className="text-sm text-gray-700 cursor-pointer">
-                        Incluir editais fora do meu perfil (pesquisador/empresa)
+                      <Checkbox id="ignorar-perfil-mobile" checked={ignorarFiltroPerfil} onCheckedChange={(checked) => setIgnorarFiltroPerfil(checked === true)} />
+                      <Label htmlFor="ignorar-perfil-mobile" className="cursor-pointer text-sm text-gray-700">
+                        Incluir editais fora do meu perfil
                       </Label>
                     </div>
                     <Button className="w-full" onClick={() => setFiltrosSheetOpen(false)}>
@@ -592,343 +707,123 @@ export default function Dashboard() {
                 </SheetContent>
               </Sheet>
             </div>
-            {/* Desktop: selects inline */}
-            <div className="hidden md:flex items-center gap-2 flex-shrink-0 flex-wrap">
-              <Filter className="w-5 h-5 text-gray-400 flex-shrink-0" />
-              <select
-                className="px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 hover:border-gray-400 cursor-pointer"
-                value={ordenacao}
-                onChange={(e) => setOrdenacao(e.target.value as "recentes" | "indicacoes")}
-              >
-                <option value="indicacoes">Ordenar por recomendações</option>
-                <option value="recentes">Ordenar por recentes</option>
-              </select>
-              {profile && !profileLoading && profile.userType === "ambos" && (
-                <select
-                  className="px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 hover:border-gray-400 cursor-pointer"
-                  value={filtroTipoEdital}
-                  onChange={(e) => setFiltroTipoEdital(e.target.value as "pesquisadores" | "empresas" | "todos")}
-                >
-                  <option value="todos">Todos os tipos</option>
-                  <option value="pesquisadores">🔬 Pesquisadores</option>
-                  <option value="empresas">🏢 Empresas</option>
-                </select>
-              )}
-              <select
-                className="px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 hover:border-gray-400 cursor-pointer"
-                value={filtroArea}
-                onChange={(e) => setFiltroArea(e.target.value)}
-              >
-                {AREA_FILTER_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => indicacoesQuery.refetch()}
-                disabled={indicacoesQuery.isFetching}
-                className="gap-2"
-              >
-                {indicacoesQuery.isFetching ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Atualizando
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-violet-600" />
-                    Atualizar indicações
-                  </>
-                )}
+
+            <div className="mb-5 flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="institutional-kicker mb-2">Resultado da consulta</p>
+                <h2 className="text-2xl font-bold text-gray-900">{editaisFiltradosOrdenados.length} instrumentos disponíveis</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Área: {areaSelecionada} · Público: {tipoSelecionado}
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setBusca(""); setFiltroArea("todos"); setFiltroTipoEdital("todos"); setApenasIndicacoes(false); }}>
+                Limpar filtros
               </Button>
             </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="mostrar-inativos"
-                  checked={mostrarInativos}
-                  onCheckedChange={(checked) => setMostrarInativos(checked === true)}
-                />
-                <Label htmlFor="mostrar-inativos" className="text-sm text-gray-700 cursor-pointer">
-                  Mostrar editais inativos (com prazo encerrado)
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="match-alto"
-                  checked={apenasIndicacoes}
-                  onCheckedChange={(checked) => setApenasIndicacoes(checked === true)}
-                />
-                <Label htmlFor="match-alto" className="text-sm text-gray-700 cursor-pointer">
-                  Apenas indicações
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="ignorar-perfil"
-                  checked={ignorarFiltroPerfil}
-                  onCheckedChange={(checked) => setIgnorarFiltroPerfil(checked === true)}
-                />
-                <Label htmlFor="ignorar-perfil" className="text-sm text-gray-700 cursor-pointer">
-                  Incluir editais fora do meu perfil
-                </Label>
-              </div>
-            </div>
-          </div>
-          {profile && !profileLoading && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Target className="w-4 h-4 text-blue-600" />
-                <span>
-                  Mostrando editais para{" "}
-                  <span className="font-semibold text-gray-900">
-                    {profile.userType === "pesquisador" 
-                      ? "pesquisadores" 
-                      : profile.userType === "pessoa-empresa"
-                      ? "empresas e público geral"
-                      : filtroTipoEdital === "pesquisadores"
-                      ? "pesquisadores"
-                      : filtroTipoEdital === "empresas"
-                      ? "empresas"
-                      : "todos os tipos"}
-                  </span>
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {profile.userType === "pesquisador"
-                  ? "Editais direcionados para pesquisadores e iniciação científica são exibidos primeiro."
-                  : profile.userType === "pessoa-empresa"
-                  ? "Editais abertos para empresas, MEI, autônomos e público geral são exibidos primeiro."
-                  : "Use o filtro acima para alternar entre editais para pesquisadores e empresas."}
-              </p>
-            </div>
-          )}
-        </div>
 
-        {/* Editais List */}
-        <div className="space-y-4">
-          {editais.map((edital) => {
-            const indicacao = indicacoesMap.get(edital.id);
-            const isIndicado = indicacao != null;
-            return (
-              <Link
-                key={edital.id}
-                href={`/edital/${edital.id}`}
-                className={`block rounded-xl p-4 md:p-6 shadow-sm border transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 hover:shadow-md ${
-                  isIndicado
-                    ? "bg-gradient-to-br from-violet-50 via-white to-blue-50 border-violet-200 hover:border-violet-300"
-                    : "bg-white border-gray-200 hover:border-gray-300"
-                }`}
-              >
-              <div className="flex flex-col md:flex-row items-start md:justify-between gap-4 mb-4">
-                <div className="flex-1 min-w-0 w-full">
-                  {/* No mobile: título em linha própria para evitar compressão */}
-                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 mb-2">
-                    <h3 className="order-1 w-full sm:w-auto sm:flex-1 sm:min-w-0 text-base md:text-lg font-bold text-gray-900 break-words hover:text-blue-700">
-                      {edital.titulo}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 order-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {editais.map((edital) => {
+                const indicacao = indicacoesMap.get(edital.id);
+                const isIndicado = indicacao != null;
+                const isResearcher = edital.is_researcher === true;
+                const isCompany = edital.is_company === true;
+                const valorFormatado = formatValorProjeto(edital.valor_projeto || edital.valor);
+                const prazoLabel = (() => {
+                  const deadlineSubmissao = extrairDeadlineSubmissao(edital.timeline_estimada);
+                  if (deadlineSubmissao && !isNaN(deadlineSubmissao.getTime())) {
+                    return `Até ${formatDatePtBR(deadlineSubmissao)}`;
+                  }
+                  const prazoSummary = getPrazoInscricaoSummary(edital.prazo_inscricao);
+                  if (prazoSummary.date) {
+                    return `Até ${formatDatePtBR(prazoSummary.date)}${prazoSummary.extraCount ? ` (+${prazoSummary.extraCount})` : ""}`;
+                  }
+                  const prazoFormatado = formatPrazoInscricao(edital.prazo_inscricao);
+                  if (prazoFormatado.display !== "Não informado") return prazoFormatado.display;
+                  return edital.prazo;
+                })();
+                const typeLabel = isResearcher && isCompany
+                  ? "Pesquisadores e empresas"
+                  : isResearcher
+                  ? "Pesquisadores"
+                  : isCompany
+                  ? "Empresas"
+                  : "Público amplo";
+
+                return (
+                  <Link
+                    key={edital.id}
+                    href={`/edital/${edital.id}`}
+                    className={`group flex min-h-[22rem] flex-col rounded-md border p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:aspect-square sm:min-h-0 ${
+                      isIndicado
+                        ? "border-primary/40 bg-secondary hover:border-primary"
+                        : "border-border bg-white hover:border-primary/60"
+                    }`}
+                  >
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <Badge variant="outline" className="border-border bg-white text-primary">
+                        {typeLabel}
+                      </Badge>
                       {isIndicado && (
-                        <Badge className="bg-violet-600 text-white flex-shrink-0">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          {indicacao?.score ?? 0}/100
+                        <Badge className="bg-primary text-white">
+                          <Sparkles className="h-3 w-3" />
+                          {indicacao?.score ?? 0}
                         </Badge>
                       )}
-                      {/* Badges de tipo de edital com separadores visuais */}
-                    {(() => {
-                      const isResearcher = edital.is_researcher === true;
-                      const isCompany = edital.is_company === true;
-                      const badges: React.ReactNode[] = [];
-                      
-                      // Badge de tipo de edital
-                      const profileType = profile?.userType;
-                      const forceSingleType =
-                        !ignorarFiltroPerfil &&
-                        !profileLoading &&
-                        !apenasIndicacoes &&
-                        (profileType === "pesquisador" || profileType === "pessoa-empresa");
-
-                      // Se o usuário está em modo "pesquisador", não mostrar badge de "empresa" (mesmo que o edital sirva para ambos).
-                      if (forceSingleType && profileType === "pesquisador") {
-                        badges.push(
-                          <Badge key="type" variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0">
-                            <GraduationCap className="w-3 h-3 mr-1" />
-                            Pesquisadores
-                          </Badge>
-                        );
-                      } else if (forceSingleType && profileType === "pessoa-empresa") {
-                        badges.push(
-                          <Badge key="type" variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 flex-shrink-0">
-                            <Building2 className="w-3 h-3 mr-1" />
-                            Empresas
-                          </Badge>
-                        );
-                      } else if (isResearcher && isCompany) {
-                        badges.push(
-                          <Badge key="type" variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 flex-shrink-0">
-                            <Users className="w-3 h-3 mr-1" />
-                            Pesquisadores e Empresas
-                          </Badge>
-                        );
-                      } else if (isResearcher) {
-                        badges.push(
-                          <Badge key="type" variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0">
-                            <GraduationCap className="w-3 h-3 mr-1" />
-                            Pesquisadores
-                          </Badge>
-                        );
-                      } else if (isCompany) {
-                        badges.push(
-                          <Badge key="type" variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 flex-shrink-0">
-                            <Building2 className="w-3 h-3 mr-1" />
-                            Empresas
-                          </Badge>
-                        );
-                      }
-                      
-                      // Badge de status
-                      if (edital.status === "novo") {
-                        badges.push(
-                          <Badge key="status-novo" variant="outline" className="bg-green-50 text-green-700 border-green-200 flex-shrink-0">
-                            Novo
-                          </Badge>
-                        );
-                      }
-                      if (edital.status === "em_analise") {
-                        badges.push(
-                          <Badge key="status-analise" variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0">
-                            Em análise
-                          </Badge>
-                        );
-                      }
-                      
-                      // Renderizar badges com separadores visuais
-                      if (badges.length === 0) {
-                        return null;
-                      }
-                      
-                      return badges.map((badge, index) => (
-                        <React.Fragment key={index}>
-                          {index > 0 && (
-                            <span 
-                              className="text-gray-300 dark:text-gray-600 mx-1.5 text-sm font-medium select-none" 
-                              aria-hidden="true"
-                              role="separator"
-                            >
-                              •
-                            </span>
-                          )}
-                          {badge}
-                        </React.Fragment>
-                      ));
-                    })()}
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-600 mb-3 break-words">
-                    {edital.orgao && (
-                      <span className="inline-flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-gray-400" />
-                        <span className="font-medium">{edital.orgao}</span>
-                      </span>
-                    )}
-                    {edital.orgao && edital.pais && <span>•</span>}
-                    {edital.pais && <span>{edital.pais}</span>}
-                    {!edital.orgao && !edital.pais && <span className="text-gray-400">Órgão não informado</span>}
-                  </div>
-                  
-                  {/* Descrição resumida */}
-                  {edital.descricao && (
-                    <p className="text-xs md:text-sm text-gray-600 mb-3 line-clamp-2 break-words">
-                      {edital.descricao.substring(0, 150)}
-                      {edital.descricao.length > 150 ? "..." : ""}
-                    </p>
-                  )}
 
-                  {isIndicado && (indicacao?.motivos?.length ?? 0) > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {indicacao!.motivos.slice(0, 4).map((m, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200">
-                          {m}
-                        </Badge>
-                      ))}
+                    <div className="min-h-0 flex-1">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
+                        {edital.orgao || edital.pais || "Órgão não informado"}
+                      </p>
+                      <h3 className="line-clamp-4 text-lg font-bold leading-tight text-gray-950 group-hover:text-primary">
+                        {edital.titulo}
+                      </h3>
+                      {edital.descricao && (
+                        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-gray-600">
+                          {edital.descricao}
+                        </p>
+                      )}
                     </div>
-                  )}
 
-                  <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs md:text-sm min-w-0">
-                    {(() => {
-                      const valorFormatado = formatValorProjeto(edital.valor_projeto || edital.valor);
-                      if (valorFormatado.display !== 'Não informado') {
-                        return (
-                          <div className="flex items-center gap-2 flex-shrink-0 group/item">
-                            <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 group-hover/item:scale-110 group-hover/item:text-green-600" />
-                            <span className="font-semibold text-gray-900 break-words">{valorFormatado.display}</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                    <div className="flex items-center gap-2 min-w-0 max-w-full group/item">
-                      <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 group-hover/item:scale-110 group-hover/item:text-blue-600" />
-                      <span className="text-gray-600 break-words min-w-0 overflow-hidden" title={(() => {
-                        const deadlineSubmissao = extrairDeadlineSubmissao(edital.timeline_estimada);
-                        if (deadlineSubmissao && !isNaN(deadlineSubmissao.getTime())) {
-                          return `Prazo (submissão): Até ${formatDatePtBR(deadlineSubmissao)}`;
-                        }
-                        const prazoSummary = getPrazoInscricaoSummary(edital.prazo_inscricao);
-                        if (prazoSummary.date) {
-                          return `Prazo: Até ${formatDatePtBR(prazoSummary.date)}${prazoSummary.extraCount ? ` (+${prazoSummary.extraCount} mais)` : ""}`;
-                        }
-                        const prazoFormatado = formatPrazoInscricao(edital.prazo_inscricao);
-                        if (prazoFormatado.display !== "Não informado") return `Prazo: ${prazoFormatado.display}`;
-                        return `Prazo: ${edital.prazo}`;
-                      })()}>
-                        {(() => {
-                          const deadlineSubmissao = extrairDeadlineSubmissao(edital.timeline_estimada);
-                          if (deadlineSubmissao && !isNaN(deadlineSubmissao.getTime())) {
-                            return `Prazo: Até ${formatDatePtBR(deadlineSubmissao)}`;
-                          }
-                          const prazoSummary = getPrazoInscricaoSummary(edital.prazo_inscricao);
-                          if (prazoSummary.date) {
-                            return `Prazo: Até ${formatDatePtBR(prazoSummary.date)}${prazoSummary.extraCount ? ` (+${prazoSummary.extraCount} mais)` : ""}`;
-                          }
-                          const prazoFormatado = formatPrazoInscricao(edital.prazo_inscricao);
-                          if (prazoFormatado.display !== "Não informado") return `Prazo: ${prazoFormatado.display}`;
-                          return `Prazo: ${edital.prazo}`;
-                        })()}
-                      </span>
-                    </div>
-                    {edital.area && (
-                      <div className="flex items-start gap-2 min-w-0 max-w-full w-full md:w-auto group/item">
-                        <Target className="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 group-hover/item:scale-110 group-hover/item:text-purple-600" />
-                        <span className="text-gray-600 break-words min-w-0 overflow-hidden line-clamp-2" title={edital.area}>
-                          {edital.area}
-                        </span>
+                    {isIndicado && (indicacao?.motivos?.length ?? 0) > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {indicacao!.motivos.slice(0, 2).map((m, idx) => (
+                          <Badge key={idx} variant="outline" className="bg-white text-xs text-primary">
+                            {m}
+                          </Badge>
+                        ))}
                       </div>
                     )}
-                  </div>
-                </div>
 
-                <div className="flex flex-row md:flex-col items-center md:items-end gap-3 md:gap-3 w-full md:w-auto justify-between md:justify-start">
-                  <div className="text-center md:text-right">
-                    {isIndicado && (
-                      <div className="text-xs text-violet-700 font-medium">Indicação para você</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              </Link>
-            );
-          })}
+                    <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm text-gray-700">
+                      {valorFormatado.display !== "Não informado" && (
+                        <div className="flex items-start gap-2">
+                          <DollarSign className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span className="line-clamp-1 font-semibold text-gray-900">{valorFormatado.display}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <Calendar className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+                        <span className="line-clamp-1">Prazo: {prazoLabel}</span>
+                      </div>
+                      {edital.area && (
+                        <div className="flex items-start gap-2">
+                          <Target className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span className="line-clamp-1">{edital.area}</span>
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
         </div>
 
             {/* Sentinel para paginação infinita: ao rolar até aqui, carrega mais 5 editais */}
             {hasMore && (
               <div ref={loadMoreRef} className="flex justify-center py-6 min-h-[60px]" aria-hidden="true">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600" aria-label="Carregando mais editais" />
+                <Loader2 className="w-6 h-6 animate-spin text-primary" aria-label="Carregando mais editais" />
               </div>
             )}
 

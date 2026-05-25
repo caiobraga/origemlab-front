@@ -5,7 +5,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 const testimonials = [
   {
     name: "Dr. Ana Silva",
-    role: "Pesquisadora - USP",
+    role: "Coordenadora de projetos de inovação",
     content: "A Origem.Lab transformou completamente minha forma de buscar fomento. Em 2 meses, consegui aprovação em 3 editais que nem sabia que existiam!",
     avatar: "AS"
   },
@@ -17,7 +17,7 @@ const testimonials = [
   },
   {
     name: "Mariana Costa",
-    role: "Coordenadora de Inovação - FAPESP",
+    role: "Gestora em agência de fomento",
     content: "Como instituição de fomento, vemos a qualidade das propostas melhorar significativamente. A Origem.Lab está democratizando o acesso à inovação.",
     avatar: "MC"
   }
@@ -25,9 +25,10 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section id="depoimentos" className="py-24 bg-gray-50">
+    <section id="depoimentos" className="py-24 institutional-section">
       <div className="container">
         <ScrollReveal className="text-center mb-16">
+          <p className="institutional-kicker mb-3">Depoimentos</p>
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
             O que dizem nossos usuários
           </h2>
@@ -39,7 +40,7 @@ export default function Testimonials() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {testimonials.map((testimonial, index) => (
             <ScrollReveal key={index} delay={0.06 * index}>
-              <Card className="p-8 border border-gray-200 hover:shadow-md transition-shadow relative">
+              <Card className="p-8 institutional-surface relative">
               <Quote className="absolute top-6 right-6 w-12 h-12 text-gray-200" />
               
               <div className="relative z-10">
@@ -48,7 +49,7 @@ export default function Testimonials() {
                 </p>
 
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gray-950 flex items-center justify-center text-white font-bold">
+                  <div className="w-12 h-12 rounded-sm bg-primary flex items-center justify-center text-white font-bold">
                     {testimonial.avatar}
                   </div>
                   <div>
