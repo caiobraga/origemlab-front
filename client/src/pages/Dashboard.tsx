@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Search, Filter, Calendar, DollarSign, Target, AlertCircle,
-  Sparkles, Loader2, Share2
+  Sparkles, Loader2, Share2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+} from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -43,6 +50,28 @@ interface EditalDisplay extends DatabaseEdital {
   elegivel: boolean;
 }
 
+const PAGE_SIZE = 9;
+
+function getDashboardPageNumbers(currentPage: number, totalPages: number): (number | "ellipsis")[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const range: number[] = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+      range.push(i);
+    }
+  }
+  const withEllipsis: (number | "ellipsis")[] = [];
+  let prev = 0;
+  for (const page of range) {
+    if (prev && page - prev > 1) withEllipsis.push("ellipsis");
+    withEllipsis.push(page);
+    prev = page;
+  }
+  return withEllipsis;
+}
+
 export default function Dashboard() {
   const [filtroArea, setFiltroArea] = useState<string>("todos");
   const [busca, setBusca] = useState("");
@@ -51,11 +80,9 @@ export default function Dashboard() {
   const [filtroTipoEdital, setFiltroTipoEdital] = useState<"pesquisadores" | "empresas" | "todos">("todos"); // Filtro para tipo (quando usuário é "ambos")
   const [apenasIndicacoes, setApenasIndicacoes] = useState(false);
   const [ordenacao, setOrdenacao] = useState<"recentes" | "indicacoes">("indicacoes");
-  const INCREMENTO_PAGINACAO = 5;
-  const [visibleCount, setVisibleCount] = useState(15); // Paginação infinita: exibir 15 iniciais, depois +5 ao rolar
+  const [currentPage, setCurrentPage] = useState(1);
   const [gerandoProposta, setGerandoProposta] = useState<string | null>(null);
   const [filtrosSheetOpen, setFiltrosSheetOpen] = useState(false);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
@@ -124,15 +151,10 @@ export default function Dashboard() {
     }
   }, [user, authLoading, profileLoading, profile?.onboardingCompleted, setLocation]);
 
-  // Resetar paginação quando filtros mudarem
+  // Voltar à página 1 quando filtros mudarem
   useEffect(() => {
-    setVisibleCount(15);
+    setCurrentPage(1);
   }, [busca, filtroArea, filtroTipoEdital, mostrarInativos, ignorarFiltroPerfil, apenasIndicacoes, ordenacao]);
-
-  // Paginação infinita: carregar mais 5 editais quando o sentinel entrar na tela
-  const handleLoadMore = useCallback(() => {
-    setVisibleCount((prev) => prev + INCREMENTO_PAGINACAO);
-  }, []);
 
   const handleVerDetalhes = (editalId: string) => {
     setLocation(`/edital/${editalId}`);
@@ -316,8 +338,20 @@ export default function Dashboard() {
     return editaisFiltrados;
   })();
 
-  // Paginação: apenas os visíveis (scores calculados sob demanda)
-  const visibleEditais = editaisFiltradosOrdenados.slice(0, visibleCount);
+  const totalPages = Math.max(1, Math.ceil(editaisFiltradosOrdenados.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const pageNumbers = useMemo(
+    () => getDashboardPageNumbers(safePage, totalPages),
+    [safePage, totalPages]
+  );
+
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const visibleEditais = editaisFiltradosOrdenados.slice(pageStart, pageStart + PAGE_SIZE);
   const editais: EditalDisplay[] = visibleEditais.map((edital) => {
     const { pais, flag } = getPaisFromEdital(edital);
     const status = getStatusFromEdital(edital);
@@ -340,24 +374,12 @@ export default function Dashboard() {
   const indicacoesErrorMessage =
     indicacoesQuery.error instanceof Error ? indicacoesQuery.error.message : indicacoesQuery.isError ? "Erro ao carregar indicações." : "";
   const loading = listLoading && !listError;
-  const hasMore = visibleCount < editaisFiltradosOrdenados.length;
 
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel || !editaisFiltradosOrdenados.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry?.isIntersecting && hasMore) {
-          handleLoadMore();
-        }
-      },
-      { rootMargin: "200px", threshold: 0.1 }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, handleLoadMore, editaisFiltradosOrdenados.length]);
+  const goToPage = (page: number) => {
+    const next = Math.min(Math.max(1, page), totalPages);
+    setCurrentPage(next);
+    document.getElementById("dashboard-editais-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const stats = {
     editaisAtivos: editaisFiltrados.length,
@@ -714,6 +736,12 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-bold text-gray-900">{editaisFiltradosOrdenados.length} instrumentos disponíveis</h2>
                 <p className="mt-1 text-sm text-gray-600">
                   Área: {areaSelecionada} · Público: {tipoSelecionado}
+                  {editaisFiltradosOrdenados.length > 0 && (
+                    <>
+                      {" "}
+                      · Página {safePage} de {totalPages} ({editaisFiltradosOrdenados.length} editais)
+                    </>
+                  )}
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => { setBusca(""); setFiltroArea("todos"); setFiltroTipoEdital("todos"); setApenasIndicacoes(false); }}>
@@ -721,7 +749,7 @@ export default function Dashboard() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div id="dashboard-editais-grid" className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {editais.map((edital) => {
                 const indicacao = indicacoesMap.get(edital.id);
                 const isIndicado = indicacao != null;
@@ -817,15 +845,67 @@ export default function Dashboard() {
                 );
               })}
             </div>
+
+            {editaisFiltradosOrdenados.length > PAGE_SIZE && (
+              <nav className="mt-8 flex flex-col items-center gap-3" aria-label="Paginação do catálogo">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationLink
+                        href="#"
+                        size="default"
+                        className={`gap-1 px-2.5 ${safePage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                        aria-label="Página anterior"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (safePage > 1) goToPage(safePage - 1);
+                        }}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span className="hidden sm:inline">Anterior</span>
+                      </PaginationLink>
+                    </PaginationItem>
+                    {pageNumbers.map((item, idx) =>
+                      item === "ellipsis" ? (
+                        <PaginationItem key={`ellipsis-${idx}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={item}>
+                          <PaginationLink
+                            href="#"
+                            isActive={item === safePage}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              goToPage(item);
+                            }}
+                          >
+                            {item}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+                    <PaginationItem>
+                      <PaginationLink
+                        href="#"
+                        size="default"
+                        className={`gap-1 px-2.5 ${safePage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
+                        aria-label="Próxima página"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (safePage < totalPages) goToPage(safePage + 1);
+                        }}
+                      >
+                        <span className="hidden sm:inline">Próxima</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </PaginationLink>
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </nav>
+            )}
           </section>
         </div>
-
-            {/* Sentinel para paginação infinita: ao rolar até aqui, carrega mais 5 editais */}
-            {hasMore && (
-              <div ref={loadMoreRef} className="flex justify-center py-6 min-h-[60px]" aria-hidden="true">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" aria-label="Carregando mais editais" />
-              </div>
-            )}
 
             {editais.length === 0 && !loading && !listError && (
               <div className="text-center py-12 max-w-2xl mx-auto px-2">
