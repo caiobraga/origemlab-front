@@ -91,7 +91,7 @@ export async function apiUploadFile<T>(path: string, file: File, fieldName = "fi
   return json as T;
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit, retryCount = 0): Promise<T> {
   const authHeader = await supabaseAuthHeader();
   const res = await fetch(apiUrl(path), {
     ...init,
@@ -108,9 +108,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit, retried = fa
 
   if (!res.ok) {
     const isUnauthenticated = res.status === 401 && (json as any)?.error === "unauthenticated";
-    if (isUnauthenticated && !retried) {
-      await supabase.auth.refreshSession();
-      return apiFetch<T>(path, init, true);
+    if (isUnauthenticated && retryCount < 2) {
+      if (retryCount === 0) {
+        await syncBackendSessionFromSupabase();
+      } else {
+        await supabase.auth.refreshSession();
+      }
+      return apiFetch<T>(path, init, retryCount + 1);
     }
 
     const msg =

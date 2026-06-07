@@ -119,7 +119,7 @@ export default function Dashboard() {
   })();
 
   // 1. Lista em cache (5 min) - carregamento rápido
-  const editaisListQuery = useEditaisList(user?.id);
+  const editaisListQuery = useEditaisList(user?.id, !authLoading);
   const editaisRaw = editaisListQuery.data?.rows ?? [];
   const entitlements = editaisListQuery.data?.entitlements ?? profileEntitlements;
   const proFeatures = entitlements.pro_features;

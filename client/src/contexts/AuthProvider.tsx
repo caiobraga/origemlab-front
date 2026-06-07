@@ -69,15 +69,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn: AuthContextType["signIn"] = async (email, password) => {
     try {
+      const trimmedEmail = email.trim();
       await apiFetch("/api/auth/sign-in", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       });
-      try {
-        await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      } catch {
-        // cookie do backend segue válido; Supabase será usado só para re-sync após restart
+
+      const { error: sbError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+      if (sbError) {
+        console.warn("Sessão Supabase no browser:", sbError.message);
       }
+      await syncBackendSessionFromSupabase();
+
       let resolvedUser = await resolveSessionUser();
       if (!resolvedUser) {
         await new Promise((r) => setTimeout(r, 150));
