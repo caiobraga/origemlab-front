@@ -194,7 +194,10 @@ export async function resolvePostLoginPath(user: SessionUser): Promise<string> {
     return redirect;
   }
   const profile = await getUserProfile(user);
-  return profile?.onboardingCompleted ? "/dashboard" : "/onboarding?new=1";
+  if (profile?.onboardingCompleted === true) return "/dashboard";
+  if (profile?.onboardingCompleted === false) return "/onboarding?new=1";
+  // Perfil indisponível (rede/401): não mandar usuário existente de volta ao onboarding.
+  return "/dashboard";
 }
 
 /**

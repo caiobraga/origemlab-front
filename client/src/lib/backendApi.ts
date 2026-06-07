@@ -12,6 +12,12 @@ function apiUrl(path: string) {
   return normalized ? `${normalized}${path}` : path;
 }
 
+function normalizeExpiresAtMs(value?: number): number | undefined {
+  if (value == null || !Number.isFinite(value)) return undefined;
+  // Supabase/backend podem enviar segundos (~1.7e9) ou ms (~1.7e12).
+  return value < 1e12 ? value * 1000 : value;
+}
+
 export function setStoredAccessToken(token: string | null, expiresAtMs?: number) {
   if (!token) {
     sessionStorage.removeItem(ACCESS_TOKEN_KEY);
@@ -19,7 +25,9 @@ export function setStoredAccessToken(token: string | null, expiresAtMs?: number)
     return;
   }
   sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
-  if (expiresAtMs) sessionStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(expiresAtMs));
+  const expMs = normalizeExpiresAtMs(expiresAtMs);
+  if (expMs) sessionStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(expMs));
+  else sessionStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
 }
 
 function readStoredAccessToken(): string | null {
@@ -27,8 +35,8 @@ function readStoredAccessToken(): string | null {
   if (!token) return null;
   const expRaw = sessionStorage.getItem(ACCESS_TOKEN_EXP_KEY);
   if (expRaw) {
-    const exp = Number(expRaw);
-    if (Number.isFinite(exp) && exp <= Date.now() + 30_000) {
+    const exp = normalizeExpiresAtMs(Number(expRaw));
+    if (exp && exp <= Date.now() + 5_000) {
       sessionStorage.removeItem(ACCESS_TOKEN_KEY);
       sessionStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
       return null;
@@ -166,7 +174,28 @@ export async function apiUploadFile<T>(path: string, file: File, fieldName = "fi
   return json as T;
 }
 
+/** Garante Bearer/cookie antes de chamadas autenticadas. */
+export async function ensureApiAuth(): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (session?.access_token) {
+    setStoredAccessToken(
+      session.access_token,
+      session.expires_at ? session.expires_at * 1000 : undefined,
+    );
+    await syncBackendSessionFromSupabase();
+    return;
+  }
+  const stored = readStoredAccessToken();
+  if (stored) {
+    await syncBackendSessionFromSupabase();
+  }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit, retryCount = 0): Promise<T> {
+  if (retryCount === 0 && !/^\/api\/auth\/(sign-in|sign-up|sign-out)$/.test(path)) {
+    await ensureApiAuth();
+  }
   const authHeader = await supabaseAuthHeader();
   let res: Response;
   try {
@@ -188,7 +217,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit, retryCount =
 
   if (!res.ok) {
     const isUnauthenticated = res.status === 401 && (json as any)?.error === "unauthenticated";
-    if (isUnauthenticated && retryCount < 2) {
+    const isPublicAuthRoute = /^\/api\/auth\/(sign-in|sign-up|sign-out)$/.test(path);
+    if (isUnauthenticated && !isPublicAuthRoute && retryCount < 2) {
       if (retryCount === 0) {
         await syncBackendSessionFromSupabase();
       } else {
@@ -217,5 +247,82 @@ export function persistSignInResponse(body: unknown) {
   const expiresAtMs = (body as any).expiresAtMs;
   if (typeof accessToken === "string" && accessToken) {
     setStoredAccessToken(accessToken, Number(expiresAtMs) || undefined);
+  }
+}
+
+/** POST/GET públicos de auth — sem Bearer (evita token expirado quebrar login). */
+export async function authPublicFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (err) {
+    throw wrapFetchError(err);
+  }
+
+  const text = await res.text();
+  const json = parseJsonBody(text, res.status);
+
+  if (!res.ok) {
+    const msg =
+      (json && typeof (json as any).message === "string" && (json as any).message) ||
+      (json && typeof (json as any).error === "string" && (json as any).error) ||
+      `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return json as T;
+}
+
+export async function syncBackendSessionFromAccessToken(input: {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAtMs?: number;
+}): Promise<boolean> {
+  const accessToken = String(input.accessToken || "").trim();
+  if (!accessToken) return false;
+
+  setStoredAccessToken(
+    accessToken,
+    input.expiresAtMs && Number.isFinite(input.expiresAtMs) ? input.expiresAtMs : undefined,
+  );
+
+  try {
+    const expiresAtMs =
+      input.expiresAtMs && Number.isFinite(input.expiresAtMs)
+        ? input.expiresAtMs
+        : Date.now() + 3600_000;
+
+    const res = await fetch(apiUrl("/api/auth/sync-supabase"), {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        accessToken,
+        refreshToken: input.refreshToken ?? "",
+        expiresAtMs,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchBackendMe(): Promise<{ user: { id: string; email: string | null } | null } | null> {
+  try {
+    return await apiFetch<{ user: { id: string; email: string | null } | null }>("/api/auth/me", {
+      method: "GET",
+    });
+  } catch {
+    return null;
   }
 }
