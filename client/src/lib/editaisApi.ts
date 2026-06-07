@@ -45,6 +45,7 @@ export type EditaisListResponse = {
   entitlements?: EntitlementsPayload;
   count?: number;
   catalog_locked_count?: number;
+  preview_edital_ids?: string[];
 };
 
 /**
@@ -61,6 +62,7 @@ export async function fetchEditaisFromSupabase(options?: {
     entitlements?: EntitlementsPayload;
     count?: number;
     catalog_locked_count?: number;
+    preview_edital_ids?: string[];
   }>(
     "/api/editais?limit=" + encodeURIComponent(String(limit)) + "&offset=" + encodeURIComponent(String(offset)),
     { method: "GET" },
@@ -70,6 +72,7 @@ export async function fetchEditaisFromSupabase(options?: {
     entitlements: out.entitlements,
     count: out.count,
     catalog_locked_count: out.catalog_locked_count,
+    preview_edital_ids: out.preview_edital_ids,
   };
 }
 

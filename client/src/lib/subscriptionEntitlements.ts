@@ -1,6 +1,8 @@
 /** Espelho do backend — planos e recursos (Pricing / Planos). */
 
 export const FREE_EDITAIS_PER_MONTH = 3;
+/** Quantos editais o plano gratuito vê em destaque no dashboard (upsell abaixo). */
+export const FREE_CATALOG_PREVIEW = FREE_EDITAIS_PER_MONTH;
 
 export type PlanTier = "free" | "pro" | "empresas" | "institucional";
 
@@ -25,49 +27,17 @@ export type EntitlementsPayload = {
 };
 
 export function canAccessEditalCatalog(
-  entitlements?: EntitlementsPayload | null,
-  editalId?: string,
+  _entitlements?: EntitlementsPayload | null,
+  _editalId?: string,
+  _previewEditalIds?: ReadonlySet<string> | string[],
 ): boolean {
-  if (hasProFeatures(entitlements)) return true;
-  const usage = entitlements?.usage?.editais_views;
-  if (!usage) return false;
-  const id = String(editalId || "").trim();
-  if (id && usage.accessed_ids.includes(id)) return true;
-  return usage.used < usage.limit;
+  return true;
 }
 
-/** Plano gratuito: exibe no máximo N editais (prioriza os já abertos no mês). */
-export function limitEditaisForFreeTier<T extends { id: string }>(
-  rows: T[],
-  entitlements?: EntitlementsPayload | null,
-): T[] {
+/** Plano gratuito no dashboard: exibe só os N primeiros da lista filtrada. */
+export function sliceCatalogForFreePreview<T>(rows: T[], entitlements?: EntitlementsPayload | null): T[] {
   if (hasProFeatures(entitlements)) return rows;
-  const accessedIds = entitlements?.usage?.editais_views?.accessed_ids ?? [];
-  return applyFreeCatalogListLimit(rows, accessedIds);
-}
-
-function applyFreeCatalogListLimit<T extends { id: string }>(
-  rows: T[],
-  accessedIds: string[],
-  maxVisible = FREE_EDITAIS_PER_MONTH,
-): T[] {
-  if (maxVisible <= 0) return [];
-  const accessedSet = new Set(accessedIds.map(String));
-  const byId = new Map(rows.map((r) => [String(r.id), r]));
-  const accessedRows = accessedIds
-    .map((id) => byId.get(String(id)))
-    .filter((row): row is T => Boolean(row));
-  const rest = rows.filter((r) => !accessedSet.has(String(r.id)));
-  const merged: T[] = [];
-  const seen = new Set<string>();
-  for (const row of [...accessedRows, ...rest]) {
-    const id = String(row.id);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    merged.push(row);
-    if (merged.length >= maxVisible) break;
-  }
-  return merged;
+  return rows.slice(0, FREE_CATALOG_PREVIEW);
 }
 
 export function editalCatalogUsageLabel(entitlements?: EntitlementsPayload | null): string | null {
@@ -142,7 +112,7 @@ export function resolveEntitlementsFromProfile(profile: {
 
 export function subscriptionUpgradeMessage(feature?: string): string {
   if (feature === "editais_catalog") {
-    return `Plano gratuito: até ${FREE_EDITAIS_PER_MONTH} editais por mês. Assine o Pro para acesso ilimitado.`;
+    return "Explore o catálogo no plano gratuito. Assine o Pro para ver todos os editais sem blur e recursos avançados.";
   }
   return "Recurso disponível no plano Pro. Assine em /planos para desbloquear.";
 }

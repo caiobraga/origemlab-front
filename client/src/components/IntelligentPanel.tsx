@@ -169,12 +169,12 @@ export default function IntelligentPanel() {
           </h2>
           {!user && (
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Faça login para ver os editais do catálogo. Plano gratuito: até 3 editais por mês.
+              Faça login para explorar o catálogo de editais.
             </p>
           )}
           {user && !proFeatures && (
             <p className="text-gray-600 max-w-2xl mx-auto">
-              {subscriptionUpgradeMessage("editais_catalog")}
+              Plano gratuito: navegue por páginas e abra qualquer edital. Assine o Pro para o catálogo completo sem blur.
             </p>
           )}
         </div>

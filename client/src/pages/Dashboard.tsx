@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Search, Filter, Calendar, DollarSign, Target, AlertCircle,
-  Sparkles, Loader2, Share2, ChevronLeft, ChevronRight, Lock
+  Sparkles, Loader2, Share2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,8 +42,12 @@ import {
 import { gerarPropostaComIA } from "@/lib/propostasApi";
 import { getApiConnectionHelpMessage } from "@/lib/backendApi";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
-import UpgradePlanBanner from "@/components/UpgradePlanBanner";
-import { FREE_EDITAIS_PER_MONTH, canAccessEditalCatalog, editalCatalogUsageLabel, limitEditaisForFreeTier, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
+import {
+  CatalogLockedEditalCard,
+  CatalogUpgradeStrip,
+  buildLockedPreviewEditais,
+} from "@/components/CatalogLockedBlurSection";
+import { FREE_CATALOG_PREVIEW, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 
 interface EditalDisplay extends DatabaseEdital {
   prazo: string;
@@ -124,8 +128,10 @@ export default function Dashboard() {
   const editaisRaw = editaisListQuery.data?.rows ?? [];
   const entitlements = editaisListQuery.data?.entitlements ?? profileEntitlements;
   const proFeatures = entitlements.pro_features;
-  const catalogUsageLabel = editalCatalogUsageLabel(entitlements);
-  const catalogLockedCount = editaisListQuery.data?.catalog_locked_count ?? 0;
+  const catalogTotalCount = editaisListQuery.data?.count ?? editaisRaw.length;
+  const catalogLockedCount =
+    editaisListQuery.data?.catalog_locked_count ??
+    (proFeatures ? 0 : Math.max(0, catalogTotalCount - FREE_CATALOG_PREVIEW));
   const editaisIndicadosRaw = (indicacoesQuery.data ?? [])
     .map((i) => i.edital)
     .filter(Boolean);
@@ -156,10 +162,7 @@ export default function Dashboard() {
     return out;
   })();
 
-  const editaisRawForList = (() => {
-    const base = apenasIndicacoes ? editaisIndicadosRaw : editaisRawMerged;
-    return limitEditaisForFreeTier(base as DatabaseEdital[], entitlements);
-  })();
+  const editaisRawForList = apenasIndicacoes ? editaisIndicadosRaw : editaisRawMerged;
 
   // Redirecionar para login se não estiver logado
   useEffect(() => {
@@ -176,15 +179,6 @@ export default function Dashboard() {
       setLocation("/onboarding?new=1");
     }
   }, [user, authLoading, profileLoading, profile?.onboardingCompleted, setLocation]);
-
-  const handleVerDetalhes = (editalId: string) => {
-    if (!canAccessEditalCatalog(entitlements, editalId)) {
-      toast.error(subscriptionUpgradeMessage("editais_catalog"));
-      setLocation("/planos");
-      return;
-    }
-    setLocation(`/edital/${editalId}`);
-  };
 
   // Função para gerar proposta com IA
   const handleGerarProposta = async (editalId: string) => {
@@ -325,15 +319,39 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, setCurrentPage]);
 
   const pageNumbers = useMemo(
     () => getDashboardPageNumbers(safePage, totalPages),
-    [safePage, totalPages]
+    [safePage, totalPages],
   );
 
   const pageStart = (safePage - 1) * PAGE_SIZE;
-  const visibleEditais = editaisFiltradosOrdenados.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageEditais = editaisFiltradosOrdenados.slice(pageStart, pageStart + PAGE_SIZE);
+  const visibleEditais = proFeatures ? pageEditais : pageEditais.slice(0, FREE_CATALOG_PREVIEW);
+  const lockedBlurEditais = useMemo(() => {
+    if (proFeatures) return [] as DatabaseEdital[];
+
+    const maxBlurCards = PAGE_SIZE - FREE_CATALOG_PREVIEW;
+    const fromPage = pageEditais.slice(FREE_CATALOG_PREVIEW);
+    if (fromPage.length > 0) return fromPage.slice(0, maxBlurCards);
+
+    const catalogExtra = Math.max(
+      catalogLockedCount,
+      Math.max(catalogTotalCount, editaisCatalogoBase.length) - FREE_CATALOG_PREVIEW,
+      editaisFiltradosOrdenados.length - FREE_CATALOG_PREVIEW,
+    );
+    if (catalogExtra <= 0) return [];
+
+    return buildLockedPreviewEditais(Math.min(maxBlurCards, Math.max(3, catalogExtra)));
+  }, [
+    proFeatures,
+    pageEditais,
+    catalogLockedCount,
+    catalogTotalCount,
+    editaisCatalogoBase.length,
+    editaisFiltradosOrdenados.length,
+  ]);
   const editais: EditalDisplay[] = visibleEditais.map((edital) => {
     const { pais, flag } = getPaisFromEdital(edital);
     const status = getStatusFromEdital(edital);
@@ -364,15 +382,26 @@ export default function Dashboard() {
   };
 
   const stats = useMemo(() => {
-    const arrecadacao = computeArrecadacaoCatalogo(editaisCatalogoBase);
+    // Plano gratuito: arrecadação do catálogo inteiro (não só dos 3 visíveis).
+    const editaisForArrecadacao = proFeatures
+      ? editaisCatalogoBase
+      : editaisComPais.filter((edital) => mostrarInativos || isEditalAtivo(edital));
+    const arrecadacao = computeArrecadacaoCatalogo(editaisForArrecadacao);
+    const editaisAtivos = proFeatures ? editaisCatalogoBase.length : Math.max(catalogTotalCount, editaisCatalogoBase.length);
     return {
-      editaisAtivos: editaisCatalogoBase.length,
+      editaisAtivos,
       emAnalise: editaisCatalogoBase.filter((e) => getStatusFromEdital(e) === "em_analise").length,
       indicacoes: (indicacoesQuery.data ?? []).length,
       arrecadacao,
       arrecadacaoDisplay: formatArrecadacaoResumo(arrecadacao.totalBRL),
     };
-  }, [editaisCatalogoBase, indicacoesQuery.data]);
+  }, [editaisCatalogoBase, editaisComPais, mostrarInativos, indicacoesQuery.data, proFeatures, catalogTotalCount]);
+
+  const showFreeCatalogUpsell =
+    !proFeatures &&
+    !profileLoading &&
+    (Math.max(catalogLockedCount, stats.editaisAtivos - FREE_CATALOG_PREVIEW) > 0 || totalPages > 1);
+
   const areaSelecionada =
     AREA_FILTER_OPTIONS.find((opt) => opt.value === filtroArea)?.label ?? "Todas as áreas";
   const tipoSelecionado =
@@ -469,18 +498,8 @@ export default function Dashboard() {
               </div>
             )}
 
-            {!proFeatures && !profileLoading && (
-              <UpgradePlanBanner
-                message={`Plano ${entitlements.plan_name}: ${catalogUsageLabel ? `${catalogUsageLabel}. ` : ""}${subscriptionUpgradeMessage("editais_catalog")}${
-                  catalogLockedCount > 0
-                    ? ` Há mais ${catalogLockedCount} edital${catalogLockedCount === 1 ? "" : "is"} no catálogo Pro.`
-                    : ""
-                } Assine o Pro para catálogo ilimitado e recursos de IA.`}
-              />
-            )}
-
             {/* Stats */}
-            <dl className={`mb-8 grid gap-3 sm:grid-cols-2 ${proFeatures ? "xl:grid-cols-4" : "xl:grid-cols-2"}`}>
+            <dl className={`mb-8 grid gap-3 sm:grid-cols-2 ${proFeatures ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
               <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
                 <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
                 <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Catálogo</dt>
@@ -489,12 +508,11 @@ export default function Dashboard() {
                   <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">
                     {proFeatures
                       ? "Instrumentos disponíveis"
-                      : catalogUsageLabel || `Plano gratuito · até ${FREE_EDITAIS_PER_MONTH}/mês`}
+                      : `Oportunidades ativas · preview de ${FREE_CATALOG_PREVIEW}`}
                   </span>
                 </dd>
               </div>
 
-              {proFeatures && (
               <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
                 <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500" aria-hidden="true" />
                 <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Arrecadação</dt>
@@ -509,6 +527,20 @@ export default function Dashboard() {
                     {stats.arrecadacao.editaisComValor > 0
                       ? `Estimativa em ${stats.arrecadacao.editaisComValor} edital${stats.arrecadacao.editaisComValor === 1 ? "" : "is"} ativo${stats.arrecadacao.editaisComValor === 1 ? "" : "s"}`
                       : "Sem valores identificados nos editais ativos"}
+                  </span>
+                </dd>
+              </div>
+
+              {!proFeatures && (
+              <div className="relative overflow-hidden rounded-sm border border-primary/20 bg-secondary/40 px-5 py-4 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Plano gratuito</dt>
+                <dd className="mt-3 flex items-end justify-between gap-4">
+                  <span className="text-4xl font-semibold leading-none tracking-tight text-gray-950">
+                    +{catalogLockedCount}
+                  </span>
+                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">
+                    Editais extras no plano Pro
                   </span>
                 </dd>
               </div>
@@ -768,14 +800,24 @@ export default function Dashboard() {
             <div className="mb-5 flex flex-col justify-between gap-3 border-b border-border pb-4 sm:flex-row sm:items-end">
               <div>
                 <p className="institutional-kicker mb-2">Resultado da consulta</p>
-                <h2 className="text-2xl font-bold text-gray-900">{editaisFiltradosOrdenados.length} instrumentos disponíveis</h2>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {proFeatures
+                    ? `${editaisFiltradosOrdenados.length} instrumentos disponíveis`
+                    : `${stats.editaisAtivos} instrumentos no catálogo`}
+                </h2>
                 <p className="mt-1 text-sm text-gray-600">
                   Área: {areaSelecionada} · Público: {tipoSelecionado}
                   {editaisFiltradosOrdenados.length > 0 && (
                     <>
                       {" "}
-                      · Página {safePage} de {totalPages} ({editaisFiltradosOrdenados.length} editais)
+                      · Página {safePage} de {totalPages}
+                      {proFeatures
+                        ? ` (${editaisFiltradosOrdenados.length} editais)`
+                        : ` · ${Math.min(FREE_CATALOG_PREVIEW, pageEditais.length)} em destaque nesta página`}
                     </>
+                  )}
+                  {!proFeatures && stats.editaisAtivos > editaisFiltradosOrdenados.length && (
+                    <> · {stats.editaisAtivos} no catálogo total</>
                   )}
                 </p>
               </div>
@@ -790,7 +832,6 @@ export default function Dashboard() {
                 const isIndicado = indicacao != null;
                 const isResearcher = edital.is_researcher === true;
                 const isCompany = edital.is_company === true;
-                const locked = !canAccessEditalCatalog(entitlements, edital.id);
                 const valorFormatado = formatValorProjeto(edital.valor_projeto || edital.valor);
                 const prazoLabel = getPrazoInscricaoDisplayPreferindoTimeline(
                   edital.prazo_inscricao,
@@ -806,22 +847,13 @@ export default function Dashboard() {
                   : "Público amplo";
 
                 const cardClassName = `group relative flex min-h-[22rem] flex-col overflow-hidden rounded-md border p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[26rem] ${
-                  locked
-                    ? "cursor-not-allowed border-border bg-gray-50 opacity-80"
-                    : isIndicado
-                      ? "border-primary/40 bg-secondary hover:border-primary"
-                      : "border-border bg-white hover:border-primary/60"
+                  isIndicado
+                    ? "border-primary/40 bg-secondary hover:border-primary"
+                    : "border-border bg-white hover:border-primary/60"
                 }`;
 
                 const cardInner = (
                   <>
-                    {locked && (
-                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/75 px-4 text-center backdrop-blur-[1px]">
-                        <Lock className="h-5 w-5 text-primary" aria-hidden="true" />
-                        <p className="text-sm font-medium text-gray-800">Limite do plano gratuito</p>
-                        <p className="text-xs text-gray-600">Assine o Pro para ver este edital</p>
-                      </div>
-                    )}
                     <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
                       <Badge variant="outline" className="border-border bg-white text-primary">
                         {typeLabel}
@@ -839,7 +871,7 @@ export default function Dashboard() {
                         {edital.orgao || edital.pais || "Órgão não informado"}
                       </p>
                       <h3
-                        className={`line-clamp-3 break-words text-lg font-bold leading-snug ${locked ? "text-gray-700" : "text-gray-950 group-hover:text-primary"}`}
+                        className="line-clamp-3 break-words text-lg font-bold leading-snug text-gray-950 group-hover:text-primary"
                         title={edital.titulo}
                       >
                         {edital.titulo}
@@ -894,35 +926,31 @@ export default function Dashboard() {
                   </>
                 );
 
-                if (locked) {
-                  return (
-                    <div
-                      key={edital.id}
-                      className={cardClassName}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleVerDetalhes(edital.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleVerDetalhes(edital.id);
-                        }
-                      }}
-                    >
-                      {cardInner}
-                    </div>
-                  );
-                }
-
                 return (
                   <Link key={edital.id} href={`/edital/${edital.id}`} className={cardClassName}>
                     {cardInner}
                   </Link>
                 );
               })}
+
+              {!proFeatures &&
+                !profileLoading &&
+                lockedBlurEditais.map((edital) => (
+                  <CatalogLockedEditalCard key={edital.id} edital={edital} />
+                ))}
             </div>
 
-            {editaisFiltradosOrdenados.length > PAGE_SIZE && (
+            {showFreeCatalogUpsell && (
+              <CatalogUpgradeStrip
+                totalEditais={stats.editaisAtivos}
+                lockedCount={catalogLockedCount}
+                arrecadacaoMain={stats.arrecadacaoDisplay.main}
+                arrecadacaoDetail={stats.arrecadacaoDisplay.detail}
+                editaisComValor={stats.arrecadacao.editaisComValor}
+              />
+            )}
+
+            {totalPages > 1 && (
               <nav className="mt-8 flex flex-col items-center gap-3" aria-label="Paginação do catálogo">
                 <Pagination>
                   <PaginationContent>
