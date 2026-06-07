@@ -1,30 +1,36 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { apiFetch, syncBackendSessionFromSupabase } from "@/lib/backendApi";
+import {
+  apiFetch,
+  persistSignInResponse,
+  setStoredAccessToken,
+  syncBackendSessionFromSupabase,
+} from "@/lib/backendApi";
 import { supabase } from "@/lib/supabase";
 import { AuthContext, type AuthContextType, type AuthUser } from "./auth-context";
 
 async function resolveSessionUser(): Promise<AuthUser | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const supabaseSession = sessionData.session;
+
+  if (supabaseSession?.access_token) {
+    setStoredAccessToken(
+      supabaseSession.access_token,
+      supabaseSession.expires_at ? supabaseSession.expires_at * 1000 : undefined,
+    );
+    await syncBackendSessionFromSupabase();
+  }
+
   try {
     const me = await apiFetch<{ user: AuthUser | null }>("/api/auth/me", { method: "GET" });
     if (me.user?.id) return me.user;
   } catch {
-    // tenta sincronizar abaixo
+    // tenta fallback Supabase abaixo
   }
 
-  const synced = await syncBackendSessionFromSupabase();
-  if (synced) {
-    try {
-      const me = await apiFetch<{ user: AuthUser | null }>("/api/auth/me", { method: "GET" });
-      if (me.user?.id) return me.user;
-    } catch {
-      // segue para fallback Supabase
-    }
+  if (supabaseSession?.user?.id) {
+    return { id: supabaseSession.user.id, email: supabaseSession.user.email ?? null };
   }
-
-  const { data: sessionData } = await supabase.auth.getSession();
-  const su = sessionData.session?.user;
-  if (su?.id) return { id: su.id, email: su.email ?? null };
   return null;
 }
 
@@ -62,18 +68,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setLoading(false);
       });
 
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (cancelled) return;
+      if (session?.access_token) {
+        setStoredAccessToken(
+          session.access_token,
+          session.expires_at ? session.expires_at * 1000 : undefined,
+        );
+        await syncBackendSessionFromSupabase();
+        if (session.user?.id) {
+          setUser({ id: session.user.id, email: session.user.email ?? null });
+        }
+      } else if (_event === "SIGNED_OUT") {
+        setStoredAccessToken(null);
+        setUser(null);
+      }
+    });
+
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
   const signIn: AuthContextType["signIn"] = async (email, password) => {
     try {
       const trimmedEmail = email.trim();
-      await apiFetch("/api/auth/sign-in", {
+      const signInBody = await apiFetch<{
+        ok?: boolean;
+        accessToken?: string;
+        expiresAtMs?: number;
+        user?: AuthUser;
+      }>("/api/auth/sign-in", {
         method: "POST",
         body: JSON.stringify({ email: trimmedEmail, password }),
       });
+      persistSignInResponse(signInBody);
 
       const { error: sbError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
@@ -84,7 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       await syncBackendSessionFromSupabase();
 
-      let resolvedUser = await resolveSessionUser();
+      let resolvedUser = signInBody.user?.id
+        ? signInBody.user
+        : await resolveSessionUser();
       if (!resolvedUser) {
         await new Promise((r) => setTimeout(r, 150));
         resolvedUser = await resolveSessionUser();
@@ -103,11 +135,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp: AuthContextType["signUp"] = async (email, password) => {
     try {
-      await apiFetch("/api/auth/sign-up", {
+      const signUpBody = await apiFetch<{
+        ok?: boolean;
+        accessToken?: string;
+        expiresAtMs?: number;
+        user?: AuthUser;
+      }>("/api/auth/sign-up", {
         method: "POST",
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      let resolvedUser = await resolveSessionUser();
+      persistSignInResponse(signUpBody);
+
+      let resolvedUser = signUpBody.user?.id ? signUpBody.user : await resolveSessionUser();
       if (!resolvedUser) {
         await new Promise((r) => setTimeout(r, 150));
         resolvedUser = await resolveSessionUser();
@@ -127,6 +166,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut: AuthContextType["signOut"] = async () => {
     try {
       await apiFetch("/api/auth/sign-out", { method: "POST" });
+      await supabase.auth.signOut();
+      setStoredAccessToken(null);
       setUser(null);
       toast.info("Logout realizado");
     } catch (error) {

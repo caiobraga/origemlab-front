@@ -1,5 +1,8 @@
 import { supabase } from "./supabase";
 
+const ACCESS_TOKEN_KEY = "origemlab_api_access_token";
+const ACCESS_TOKEN_EXP_KEY = "origemlab_api_access_exp";
+
 function readApiBaseUrl(): string {
   return String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
 }
@@ -9,6 +12,31 @@ function apiUrl(path: string) {
   return normalized ? `${normalized}${path}` : path;
 }
 
+export function setStoredAccessToken(token: string | null, expiresAtMs?: number) {
+  if (!token) {
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+    sessionStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
+    return;
+  }
+  sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+  if (expiresAtMs) sessionStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(expiresAtMs));
+}
+
+function readStoredAccessToken(): string | null {
+  const token = sessionStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!token) return null;
+  const expRaw = sessionStorage.getItem(ACCESS_TOKEN_EXP_KEY);
+  if (expRaw) {
+    const exp = Number(expRaw);
+    if (Number.isFinite(exp) && exp <= Date.now() + 30_000) {
+      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+      sessionStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
+      return null;
+    }
+  }
+  return token;
+}
+
 /** Texto de ajuda quando falha conexão com a API (dev vs produção). */
 export function getApiConnectionHelpMessage(): string {
   const apiBase = readApiBaseUrl();
@@ -16,7 +44,12 @@ export function getApiConnectionHelpMessage(): string {
     return "Se a sessão expirou, saia e entre de novo. Em desenvolvimento local, confira se o backend está rodando em localhost:8080.";
   }
   if (apiBase) {
-    return `Se a sessão expirou, saia e entre de novo. Se persistir, verifique se a API está acessível (${apiBase}).`;
+    const frontOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const corsHint =
+      frontOrigin && frontOrigin !== apiBase
+        ? ` O domínio do site (${frontOrigin}) precisa estar em CORS_ALLOW_ORIGIN / FRONT_ORIGINS no backend.`
+        : "";
+    return `Se a sessão expirou, saia e entre de novo. Se persistir, verifique se a API está acessível (${apiBase}).${corsHint}`;
   }
   return "Se a sessão expirou, saia e entre de novo. Se persistir, tente novamente em alguns instantes.";
 }
@@ -30,7 +63,13 @@ async function supabaseAuthHeader(): Promise<Record<string, string>> {
     const refreshed = await supabase.auth.refreshSession();
     session = refreshed.data.session ?? session;
   }
-  const token = session?.access_token;
+  const token = session?.access_token || readStoredAccessToken();
+  if (session?.access_token) {
+    setStoredAccessToken(
+      session.access_token,
+      session.expires_at ? session.expires_at * 1000 : undefined,
+    );
+  }
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -42,22 +81,24 @@ export async function syncBackendSessionFromSupabase(): Promise<boolean> {
     try {
       const { data } = await supabase.auth.getSession();
       const session = data.session;
-      if (!session?.access_token) return false;
+      const accessToken = session?.access_token || readStoredAccessToken();
+      if (!accessToken) return false;
 
-      const expiresAtMs = session.expires_at
+      const expiresAtMs = session?.expires_at
         ? session.expires_at * 1000
-        : Date.now() + (session.expires_in ?? 3600) * 1000;
+        : Number(sessionStorage.getItem(ACCESS_TOKEN_EXP_KEY)) ||
+          Date.now() + (session?.expires_in ?? 3600) * 1000;
 
       const res = await fetch(apiUrl("/api/auth/sync-supabase"), {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          accessToken: session.access_token,
-          refreshToken: session.refresh_token,
+          accessToken,
+          refreshToken: session?.refresh_token ?? "",
           expiresAtMs,
         }),
       });
@@ -77,8 +118,22 @@ function parseJsonBody(text: string, status: number): unknown {
   try {
     return JSON.parse(text);
   } catch {
+    if (text.trimStart().startsWith("<")) {
+      throw new Error(
+        "Resposta inválida da API (HTML/XML). Confira VITE_API_BASE_URL e se o domínio do site está em CORS_ALLOW_ORIGIN no backend.",
+      );
+    }
     throw new Error(`Resposta inválida do servidor (HTTP ${status}).`);
   }
+}
+
+function wrapFetchError(err: unknown): Error {
+  if (err instanceof Error && /Failed to fetch|NetworkError|Load failed/i.test(err.message)) {
+    return new Error(
+      `Não foi possível conectar à API (${readApiBaseUrl() || "URL não configurada"}). ${getApiConnectionHelpMessage()}`,
+    );
+  }
+  return err instanceof Error ? err : new Error(String(err));
 }
 
 export async function apiUploadFile<T>(path: string, file: File, fieldName = "file"): Promise<T> {
@@ -86,12 +141,17 @@ export async function apiUploadFile<T>(path: string, file: File, fieldName = "fi
   const form = new FormData();
   form.append(fieldName, file, file.name);
 
-  const res = await fetch(apiUrl(path), {
-    method: "POST",
-    credentials: "include",
-    headers: authHeader,
-    body: form,
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      method: "POST",
+      credentials: "include",
+      headers: authHeader,
+      body: form,
+    });
+  } catch (err) {
+    throw wrapFetchError(err);
+  }
 
   const text = await res.text();
   const json = parseJsonBody(text, res.status);
@@ -108,15 +168,20 @@ export async function apiUploadFile<T>(path: string, file: File, fieldName = "fi
 
 export async function apiFetch<T>(path: string, init?: RequestInit, retryCount = 0): Promise<T> {
   const authHeader = await supabaseAuthHeader();
-  const res = await fetch(apiUrl(path), {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeader,
-      ...(init?.headers || {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (err) {
+    throw wrapFetchError(err);
+  }
 
   const text = await res.text();
   const json = parseJsonBody(text, res.status);
@@ -137,9 +202,20 @@ export async function apiFetch<T>(path: string, init?: RequestInit, retryCount =
       (json && typeof (json as any).error === "string" && (json as any).error) ||
       `HTTP ${res.status}`;
     if (isUnauthenticated) {
+      setStoredAccessToken(null);
       throw new Error("Sessão expirada. Faça login novamente.");
     }
     throw new Error(msg);
   }
   return json as T;
+}
+
+/** Persiste token retornado pelo POST /api/auth/sign-in (fallback quando cookie cross-site falha). */
+export function persistSignInResponse(body: unknown) {
+  if (!body || typeof body !== "object") return;
+  const accessToken = (body as any).accessToken;
+  const expiresAtMs = (body as any).expiresAtMs;
+  if (typeof accessToken === "string" && accessToken) {
+    setStoredAccessToken(accessToken, Number(expiresAtMs) || undefined);
+  }
 }
