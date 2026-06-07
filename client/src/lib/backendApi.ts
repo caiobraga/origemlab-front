@@ -1,9 +1,24 @@
 import { supabase } from "./supabase";
 
+function readApiBaseUrl(): string {
+  return String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
+}
+
 function apiUrl(path: string) {
-  const base = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
-  const normalized = base ? String(base).replace(/\/$/, "") : "";
+  const normalized = readApiBaseUrl();
   return normalized ? `${normalized}${path}` : path;
+}
+
+/** Texto de ajuda quando falha conexão com a API (dev vs produção). */
+export function getApiConnectionHelpMessage(): string {
+  const apiBase = readApiBaseUrl();
+  if (import.meta.env.DEV && !apiBase) {
+    return "Se a sessão expirou, saia e entre de novo. Em desenvolvimento local, confira se o backend está rodando em localhost:8080.";
+  }
+  if (apiBase) {
+    return `Se a sessão expirou, saia e entre de novo. Se persistir, verifique se a API está acessível (${apiBase}).`;
+  }
+  return "Se a sessão expirou, saia e entre de novo. Se persistir, tente novamente em alguns instantes.";
 }
 
 let syncInflight: Promise<boolean> | null = null;

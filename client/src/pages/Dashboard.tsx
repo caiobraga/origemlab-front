@@ -40,6 +40,7 @@ import {
   isEditalAtivoByDeadlines,
 } from "@/lib/editalSubmissionDeadline";
 import { gerarPropostaComIA } from "@/lib/propostasApi";
+import { getApiConnectionHelpMessage } from "@/lib/backendApi";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import UpgradePlanBanner from "@/components/UpgradePlanBanner";
 import { FREE_EDITAIS_PER_MONTH, canAccessEditalCatalog, editalCatalogUsageLabel, limitEditaisForFreeTier, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
@@ -444,8 +445,7 @@ export default function Dashboard() {
               </p>
             ) : null}
             <p className="text-sm text-gray-600 text-center mb-4">
-              Se a sessão expirou, saia e entre de novo. Se persistir, confira se o backend está rodando em{" "}
-              <code className="text-xs bg-gray-100 px-1 rounded">localhost:8080</code>.
+              {getApiConnectionHelpMessage()}
             </p>
             <Button onClick={() => void editaisListQuery.refetch()} variant="outline">
               Tentar novamente
