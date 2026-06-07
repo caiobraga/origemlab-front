@@ -1,7 +1,58 @@
 import { apiFetch } from "./backendApi";
 import { supabase } from "./supabase";
+import type { EntitlementsPayload } from "./subscriptionEntitlements";
 import type { User } from "@supabase/supabase-js";
 type SessionUser = { id: string; user_metadata?: any } ;
+
+function mapProfileRow(
+  profile: Record<string, any>,
+  entitlements?: EntitlementsPayload,
+): UserProfile {
+  const resolvedUserType = (profile.user_type || "pesquisador") as "pesquisador" | "pessoa-empresa" | "ambos";
+  return {
+    cpf: profile.cpf || undefined,
+    cnpj: profile.cnpj || undefined,
+    lattesId: profile.lattes_id || undefined,
+    userType: resolvedUserType,
+    hasCnpj: profile.has_cnpj || false,
+    isAdmin: profile.is_admin ?? undefined,
+    isBlocked: profile.is_blocked ?? undefined,
+    sexo: profile.sexo ?? undefined,
+    curriculumData: (profile.curriculum_data as CurriculumData) ?? undefined,
+    onboardingCompleted: profile.onboarding_completed ?? undefined,
+    phone: profile.phone ?? undefined,
+    area: profile.area ?? undefined,
+    stripeCustomerId: profile.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: profile.stripe_subscription_id ?? undefined,
+    subscriptionStatus: profile.subscription_status ?? undefined,
+    subscriptionPriceId: profile.subscription_price_id ?? undefined,
+    subscriptionCurrentPeriodEnd: profile.subscription_current_period_end ?? undefined,
+    subscriptionPlanKey: profile.subscription_plan_key ?? undefined,
+    entitlements,
+  };
+}
+
+async function getProfileFromSupabase(userId: string): Promise<UserProfile | null> {
+  const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
+  if (error || !data) return null;
+  return mapProfileRow(data as Record<string, any>);
+}
+
+async function patchProfileWithFallback(userId: string, patch: Record<string, unknown>): Promise<void> {
+  try {
+    await apiFetch("/api/profile", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return;
+  } catch (backendError) {
+    const { error } = await supabase.from("profiles").upsert(
+      { user_id: userId, ...patch },
+      { onConflict: "user_id" },
+    );
+    if (error) throw backendError;
+  }
+}
 
 /** Params para upsert_user_profile (versão com consentimento - 9 params, evita ambiguidade PGRST203). */
 type UpsertRpcParams = {
@@ -73,6 +124,8 @@ export interface UserProfile {
   isAdmin?: boolean;
   /** Bloqueio administrativo (coluna em `profiles`). */
   isBlocked?: boolean;
+  /** Entitlements calculados no backend (limites de plano + uso mensal). */
+  entitlements?: import("@/lib/subscriptionEntitlements").EntitlementsPayload;
 }
 
 /**
@@ -105,47 +158,57 @@ export async function saveUserProfile(
  * Salva os dados do currículo (extraídos de PDF) no user_metadata e na tabela profiles.
  * Assim a página de perfil e getUserProfile passam a ler do banco e não dependem de sessão atualizada.
  */
-export async function saveCurriculumToMetadata(curriculumData: CurriculumData): Promise<void> {
-  // Backend owns profile persistence now (session via cookie).
-  await apiFetch("/api/profile", {
-    method: "PATCH",
-    body: JSON.stringify({ curriculum_data: curriculumData }),
-  });
+export async function saveCurriculumToMetadata(
+  curriculumData: CurriculumData,
+  userId?: string,
+): Promise<void> {
+  const payload: Record<string, unknown> = { curriculum_data: curriculumData };
+  const lattesId = String(curriculumData.id || "").replace(/\D/g, "");
+  if (/^\d{16}$/.test(lattesId)) payload.lattes_id = lattesId;
+
+  try {
+    await apiFetch("/api/profile", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    return;
+  } catch (backendError) {
+    const uid =
+      userId ||
+      (await supabase.auth.getSession()).data.session?.user?.id ||
+      null;
+    if (!uid) throw backendError;
+
+    const { error } = await supabase.from("profiles").upsert(
+      { user_id: uid, ...payload },
+      { onConflict: "user_id" },
+    );
+    if (error) throw error;
+  }
+}
+
+export async function resolvePostLoginPath(user: SessionUser): Promise<string> {
+  const redirect = sessionStorage.getItem("loginRedirect");
+  if (redirect) {
+    sessionStorage.removeItem("loginRedirect");
+    return redirect;
+  }
+  const profile = await getUserProfile(user);
+  return profile?.onboardingCompleted ? "/dashboard" : "/onboarding?new=1";
 }
 
 /**
- * Extrai o perfil do usuário atual
- * Agora busca da tabela profiles do banco de dados
+ * Extrai o perfil do usuário atual (tabela profiles via API ou Supabase).
  */
 export async function getUserProfile(user: SessionUser | null): Promise<UserProfile | null> {
   if (!user) return null;
   try {
-    const out = await apiFetch<{ row: any }>("/api/profile", { method: "GET" });
+    const out = await apiFetch<{ row: any; entitlements?: EntitlementsPayload }>("/api/profile", { method: "GET" });
     const profile = out.row;
-    if (!profile) return null;
-    const resolvedUserType = (profile.user_type || "pesquisador") as "pesquisador" | "pessoa-empresa" | "ambos";
-    return {
-      cpf: profile.cpf || undefined,
-      cnpj: profile.cnpj || undefined,
-      lattesId: profile.lattes_id || undefined,
-      userType: resolvedUserType,
-      hasCnpj: profile.has_cnpj || false,
-      isAdmin: profile.is_admin ?? undefined,
-      isBlocked: profile.is_blocked ?? undefined,
-      sexo: profile.sexo ?? undefined,
-      curriculumData: (profile.curriculum_data as CurriculumData) ?? undefined,
-      onboardingCompleted: profile.onboarding_completed ?? undefined,
-      phone: profile.phone ?? undefined,
-      area: profile.area ?? undefined,
-      stripeCustomerId: profile.stripe_customer_id ?? undefined,
-      stripeSubscriptionId: profile.stripe_subscription_id ?? undefined,
-      subscriptionStatus: profile.subscription_status ?? undefined,
-      subscriptionPriceId: profile.subscription_price_id ?? undefined,
-      subscriptionCurrentPeriodEnd: profile.subscription_current_period_end ?? undefined,
-      subscriptionPlanKey: profile.subscription_plan_key ?? undefined,
-    };
+    if (!profile) return getProfileFromSupabase(user.id);
+    return mapProfileRow(profile, out.entitlements);
   } catch {
-    return null;
+    return getProfileFromSupabase(user.id);
   }
 }
 
@@ -155,16 +218,7 @@ export async function getUserProfile(user: SessionUser | null): Promise<UserProf
  * Usa upsert para criar o perfil se ainda não existir.
  */
 export async function setOnboardingCompleted(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(
-      { user_id: userId, onboarding_completed: true },
-      { onConflict: "user_id" }
-    );
-  if (error) {
-    console.error("Erro ao marcar onboarding como concluído:", error);
-    throw error;
-  }
+  await patchProfileWithFallback(userId, { onboarding_completed: true });
 }
 
 /** Dados que podem ser atualizados a partir do onboarding. */
@@ -187,26 +241,21 @@ export async function updateProfileFromOnboarding(
   userId: string,
   data: OnboardingProfileUpdate
 ): Promise<void> {
-  const row: Record<string, unknown> = { user_id: userId };
-  if (data.phone !== undefined) row.phone = data.phone.replace(/\D/g, "").slice(0, 20) || null;
-  if (data.area !== undefined) row.area = data.area || null;
-  if (data.userType !== undefined) row.user_type = data.userType;
-  if (data.sexo !== undefined) row.sexo = data.sexo || null;
+  const patch: Record<string, unknown> = {};
+  if (data.phone !== undefined) patch.phone = data.phone.replace(/\D/g, "").slice(0, 20) || null;
+  if (data.area !== undefined) patch.area = data.area || null;
+  if (data.userType !== undefined) patch.user_type = data.userType;
+  if (data.sexo !== undefined) patch.sexo = data.sexo || null;
   if (data.cnpj !== undefined) {
     const cnpjLimpo = data.cnpj.replace(/\D/g, "");
-    row.cnpj = cnpjLimpo.length === 14 ? cnpjLimpo : null;
-    row.has_cnpj = cnpjLimpo.length === 14;
+    patch.cnpj = cnpjLimpo.length === 14 ? cnpjLimpo : null;
+    patch.has_cnpj = cnpjLimpo.length === 14;
   }
-  if (data.markOnboardingCompleted === true) row.onboarding_completed = true;
-  if (Object.keys(row).length === 1) return; // só user_id, nada a persistir
+  if (data.hasCnpj !== undefined) patch.has_cnpj = data.hasCnpj;
+  if (data.markOnboardingCompleted === true) patch.onboarding_completed = true;
+  if (Object.keys(patch).length === 0) return;
 
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(row, { onConflict: "user_id" });
-  if (error) {
-    console.error("Erro ao salvar perfil com dados do onboarding:", error);
-    throw error;
-  }
+  await patchProfileWithFallback(userId, patch);
 }
 
 /**

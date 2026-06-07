@@ -77,7 +77,7 @@ export default function Profile() {
       if (data) {
         setLattesData(data);
         try {
-          await saveCurriculumToMetadata(data as CurriculumData);
+          await saveCurriculumToMetadata(data as CurriculumData, user?.id);
           refetch();
         } catch {
           // não bloquear; dados já estão na tela

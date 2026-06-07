@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
+import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import {
   ChatMessage,
   sendChatMessage,
@@ -23,6 +25,7 @@ export default function EditalChat({ editalId }: EditalChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { profile } = useUserProfile();
+  const { proFeatures } = useSubscriptionEntitlements();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load chat history on mount
@@ -45,6 +48,10 @@ export default function EditalChat({ editalId }: EditalChatProps) {
       toast.error("Você precisa estar logado para usar o chat");
       return;
     }
+    if (!proFeatures) {
+      toast.error(subscriptionUpgradeMessage("edital_chat"));
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -60,7 +67,7 @@ export default function EditalChat({ editalId }: EditalChatProps) {
     setIsLoading(true);
 
     try {
-      // Send message to webhook
+      // Backend com contexto do edital (ou webhook legado)
       const response = await sendChatMessage(
         userMessage.content,
         editalId,

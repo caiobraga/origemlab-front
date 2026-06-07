@@ -2,6 +2,8 @@
  * Integrações com APIs externas para buscar informações adicionais do usuário
  */
 
+import { apiFetch, apiUploadFile } from "./backendApi";
+
 const API_BASE = String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
 function apiUrl(path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -106,22 +108,85 @@ export interface CPFData {
   // Nota: APIs públicas de CPF são limitadas por questões de privacidade
 }
 
-/** Converte PDF para base64 sem estourar pilha/memória (loop byte-a-byte quebra arquivos Lattes grandes). */
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  const chunk = 0x8000;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunk) {
-    const sub = bytes.subarray(i, i + chunk);
-    binary += String.fromCharCode.apply(null, sub as unknown as number[]);
-  }
-  return btoa(binary);
-}
-
 const MAX_CURRICULUM_PDF_BYTES = 48 * 1024 * 1024;
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo PDF."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function normalizeCurriculumUploadError(message: string): string {
+  if (/base64/i.test(message)) {
+    return "Não foi possível enviar o PDF. Recarregue a página (Ctrl+Shift+R) e tente novamente.";
+  }
+  return message;
+}
+
+async function parseCurriculumPdfResponse(raw: Record<string, unknown>): Promise<LattesData> {
+  const eleg = raw.elegibilidade as Record<string, unknown> | undefined;
+  const formacao = Array.isArray(raw.formacao)
+    ? (raw.formacao as Array<{ nivel: string; curso: string; instituicao: string; anoConclusao?: string }>)
+    : undefined;
+
+  let elegibilidade = eleg
+    ? {
+        possuiDoutorado: Boolean(eleg.possuiDoutorado),
+        possuiMestrado: Boolean(eleg.possuiMestrado),
+        possuiGraduacao: Boolean(eleg.possuiGraduacao),
+        anosExperiencia: eleg.anosExperiencia != null ? Number(eleg.anosExperiencia) : undefined,
+        podeParticiparEditais: Boolean(eleg.podeParticiparEditais),
+        observacoes: Array.isArray(eleg.observacoes) ? (eleg.observacoes as string[]) : undefined,
+      }
+    : undefined;
+
+  // Se a API não retornou elegibilidade ou retornou tudo false, inferir a partir da formação
+  if (formacao && formacao.length > 0) {
+    const niveis = formacao.map((f) => f.nivel).join(" ");
+    const fromFormacao = {
+      possuiDoutorado: /doutorado|doutor\b|ph\.?\s*d/i.test(niveis),
+      possuiMestrado: /mestrado|master\b/i.test(niveis),
+      possuiGraduacao: /gradua[cç][aã]o|bacharelado|licenciatura/i.test(niveis),
+    };
+    const hasAny = fromFormacao.possuiDoutorado || fromFormacao.possuiMestrado || fromFormacao.possuiGraduacao;
+    if (!elegibilidade || (!elegibilidade.possuiDoutorado && !elegibilidade.possuiMestrado && !elegibilidade.possuiGraduacao)) {
+      elegibilidade = {
+        possuiDoutorado: fromFormacao.possuiDoutorado,
+        possuiMestrado: fromFormacao.possuiMestrado,
+        possuiGraduacao: fromFormacao.possuiGraduacao,
+        anosExperiencia: elegibilidade?.anosExperiencia,
+        podeParticiparEditais: hasAny || Boolean(elegibilidade?.podeParticiparEditais),
+        observacoes: elegibilidade?.observacoes,
+      };
+    }
+  }
+
+  return {
+    id: String(raw.id ?? "pdf"),
+    nome: String(raw.nome ?? "Currículo"),
+    resumo: raw.resumo != null ? String(raw.resumo) : undefined,
+    areasAtuacao: Array.isArray(raw.areasAtuacao) ? (raw.areasAtuacao as string[]) : undefined,
+    formacao,
+    resumoProducoes: raw.resumoProducoes != null ? String(raw.resumoProducoes) : undefined,
+    vinculoInstitucional: Array.isArray(raw.vinculoInstitucional) ? (raw.vinculoInstitucional as string[]) : undefined,
+    enderecoProfissional:
+      raw.enderecoProfissional != null && typeof raw.enderecoProfissional === "object"
+        ? (raw.enderecoProfissional as { cidade?: string; uf?: string; pais?: string })
+        : undefined,
+    linkLattes: raw.linkLattes != null ? String(raw.linkLattes) : undefined,
+    elegibilidade,
+  };
+}
+
 /**
- * Envia um PDF de currículo para extração de dados.
- * POST /api/lattes/parse-pdf com o arquivo em base64.
+ * Envia um PDF de currículo para extração de dados (upload direto do arquivo).
  */
 export async function parseCurriculumFromPdf(file: File): Promise<LattesData | null> {
   try {
@@ -131,80 +196,28 @@ export async function parseCurriculumFromPdf(file: File): Promise<LattesData | n
     if (file.size > MAX_CURRICULUM_PDF_BYTES) {
       throw new Error("PDF acima de 48 MB. Exporte um currículo mais enxuto do Lattes ou use o ID Lattes no perfil.");
     }
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    const pdfBase64 = uint8ArrayToBase64(bytes);
-    const response = await fetch(apiUrl("/api/lattes/parse-pdf"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pdfBase64 }),
-    });
-    if (!response.ok) {
-      const err = (await response.json().catch(() => ({}))) as { error?: string };
-      const detail = err.error?.trim();
-      if (detail) throw new Error(detail);
-      if (response.status === 413) {
-        throw new Error("Arquivo grande demais para o servidor. Tente um PDF menor ou use o ID Lattes.");
-      }
-      throw new Error(`Falha ao processar PDF (${response.status}). Tente de novo ou use o ID Lattes no perfil.`);
-    }
-    const raw = (await response.json()) as Record<string, unknown>;
-    const eleg = raw.elegibilidade as Record<string, unknown> | undefined;
-    const formacao = Array.isArray(raw.formacao)
-      ? (raw.formacao as Array<{ nivel: string; curso: string; instituicao: string; anoConclusao?: string }>)
-      : undefined;
 
-    let elegibilidade = eleg
-      ? {
-          possuiDoutorado: Boolean(eleg.possuiDoutorado),
-          possuiMestrado: Boolean(eleg.possuiMestrado),
-          possuiGraduacao: Boolean(eleg.possuiGraduacao),
-          anosExperiencia: eleg.anosExperiencia != null ? Number(eleg.anosExperiencia) : undefined,
-          podeParticiparEditais: Boolean(eleg.podeParticiparEditais),
-          observacoes: Array.isArray(eleg.observacoes) ? (eleg.observacoes as string[]) : undefined,
-        }
-      : undefined;
+    let raw: Record<string, unknown>;
+    try {
+      raw = await apiUploadFile<Record<string, unknown>>("/api/lattes/parse-pdf", file, "file");
+    } catch (uploadErr) {
+      const uploadMsg = uploadErr instanceof Error ? uploadErr.message : "";
+      const shouldRetryWithBase64 =
+        /base64|não recebemos o arquivo|nao recebemos o arquivo|arquivo pdf/i.test(uploadMsg);
+      if (!shouldRetryWithBase64) throw uploadErr;
 
-    // Se a API não retornou elegibilidade ou retornou tudo false, inferir a partir da formação
-    if (formacao && formacao.length > 0) {
-      const niveis = formacao.map((f) => f.nivel).join(" ");
-      const fromFormacao = {
-        possuiDoutorado: /doutorado|doutor\b|ph\.?\s*d/i.test(niveis),
-        possuiMestrado: /mestrado|master\b/i.test(niveis),
-        possuiGraduacao: /gradua[cç][aã]o|bacharelado|licenciatura/i.test(niveis),
-      };
-      const hasAny = fromFormacao.possuiDoutorado || fromFormacao.possuiMestrado || fromFormacao.possuiGraduacao;
-      if (!elegibilidade || (!elegibilidade.possuiDoutorado && !elegibilidade.possuiMestrado && !elegibilidade.possuiGraduacao)) {
-        elegibilidade = {
-          possuiDoutorado: fromFormacao.possuiDoutorado,
-          possuiMestrado: fromFormacao.possuiMestrado,
-          possuiGraduacao: fromFormacao.possuiGraduacao,
-          anosExperiencia: elegibilidade?.anosExperiencia,
-          podeParticiparEditais: hasAny || Boolean(elegibilidade?.podeParticiparEditais),
-          observacoes: elegibilidade?.observacoes,
-        };
-      }
+      const pdfBase64 = await fileToBase64(file);
+      raw = await apiFetch<Record<string, unknown>>("/api/lattes/parse-pdf", {
+        method: "POST",
+        body: JSON.stringify({ pdfBase64 }),
+      });
     }
 
-    return {
-      id: String(raw.id ?? "pdf"),
-      nome: String(raw.nome ?? "Currículo"),
-      resumo: raw.resumo != null ? String(raw.resumo) : undefined,
-      areasAtuacao: Array.isArray(raw.areasAtuacao) ? (raw.areasAtuacao as string[]) : undefined,
-      formacao,
-      resumoProducoes: raw.resumoProducoes != null ? String(raw.resumoProducoes) : undefined,
-      vinculoInstitucional: Array.isArray(raw.vinculoInstitucional) ? (raw.vinculoInstitucional as string[]) : undefined,
-      enderecoProfissional:
-        raw.enderecoProfissional != null && typeof raw.enderecoProfissional === "object"
-          ? (raw.enderecoProfissional as { cidade?: string; uf?: string; pais?: string })
-          : undefined,
-      linkLattes: raw.linkLattes != null ? String(raw.linkLattes) : undefined,
-      elegibilidade,
-    };
+    return await parseCurriculumPdfResponse(raw);
   } catch (err) {
     console.warn("Erro ao extrair currículo do PDF:", err);
     const msg = err instanceof Error ? err.message : "Erro ao processar PDF";
-    throw new Error(msg);
+    throw new Error(normalizeCurriculumUploadError(msg));
   }
 }
 

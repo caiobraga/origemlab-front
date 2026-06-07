@@ -1,4 +1,13 @@
 import { formatPrazoInscricao, type FormattedPrazo } from "@/lib/editalFormatters";
+import { isEditalAtivoByDatePatterns } from "@/lib/editalActiveByDatePatterns";
+import {
+  extractAllPrazoDatesFromText,
+  extractDeadlineDateFromPrazoText,
+  normalizePrazoInscricaoPlainText,
+  parseDateFromAtéDisplay,
+  parsePrazoDateToken,
+  sameCalendarDay,
+} from "@/lib/editalPrazoNormalize";
 
 export const normalizeText = (value: unknown): string => {
   return String(value ?? "")
@@ -86,6 +95,11 @@ export const extrairDataMaisRecentePrazo = (prazo: string | null | undefined): D
       return isNaN(d.getTime()) ? null : d;
     }
 
+    const brShort = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})$/);
+    if (brShort) {
+      return parsePrazoDateToken(`${brShort[1]}/${brShort[2]}/${brShort[3]}`);
+    }
+
     // Ex.: "08 de outubro de 2025" ou "8 outubro 2025"
     const ptMonthOnly1 = s.match(/^(\d{1,2})\s+de\s+([a-zA-ZÀ-ÿçÇ]+)\s+de\s+(\d{4})$/i);
     if (ptMonthOnly1) {
@@ -113,7 +127,7 @@ export const extrairDataMaisRecentePrazo = (prazo: string | null | undefined): D
     const t = String(texto);
     const matches: string[] = [];
     // ISO e BR numérico
-    const basic = t.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}/g);
+    const basic = t.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2}\b/g);
     if (basic) matches.push(...basic);
     // Datas com mês por extenso (pt-BR)
     const ptMonthRegex =
@@ -144,6 +158,8 @@ export const extrairDataMaisRecentePrazo = (prazo: string | null | undefined): D
     } else if (typeof prazo === "object") {
       parsed = prazo;
     } else {
+      const preferred = extractDeadlineDateFromPrazoText(String(prazo));
+      if (preferred) return preferred;
       const quaisquer = extrairDatasDoTexto(String(prazo));
       const max = quaisquer.length ? Math.max(...quaisquer.map((x) => x.getTime()).filter((t) => !isNaN(t))) : NaN;
       return Number.isFinite(max) ? new Date(max) : null;
@@ -283,7 +299,7 @@ export const extrairDeadlineSubmissao = (timeline: any): Date | null => {
       ? fases.filter(isFaseSubmissaoStrict)
       : fases.filter(isFaseInscricao);
 
-  if (candidatos.length === 0) return null;
+  const candidatosFases = candidatos.length > 0 ? candidatos : fases;
 
   const deadlines: Date[] = [];
 
@@ -325,7 +341,7 @@ export const extrairDeadlineSubmissao = (timeline: any): Date | null => {
     return null;
   };
 
-  for (const fase of candidatos) {
+  for (const fase of candidatosFases) {
     // Preferir data_fim quando existir (deadline real)
     if (fase?.data_fim) {
       const parsedFim = extrairDataMaisRecentePrazo(String(fase.data_fim));
@@ -348,6 +364,154 @@ export const extrairDeadlineSubmissao = (timeline: any): Date | null => {
   return new Date(Math.max(...deadlines.map((d) => d.getTime())));
 };
 
+function unwrapTimelineEstimada(timeline: unknown): { fases: any[] } | null {
+  if (timeline == null) return null;
+  let cur: any = timeline;
+  for (let i = 0; i < 3 && cur && typeof cur === "object" && "json" in cur; i++) {
+    cur = cur.json;
+  }
+  if (typeof cur === "string") {
+    try {
+      cur = JSON.parse(cur);
+    } catch {
+      return null;
+    }
+  }
+  if (!cur || typeof cur !== "object" || !Array.isArray((cur as any).fases)) return null;
+  return { fases: (cur as any).fases };
+}
+
+const isFaseSubmissaoNome = (fase: any): boolean => {
+  const nome = normalizeText(fase?.nome);
+  return (
+    nome.includes("submiss") ||
+    nome.includes("envio") ||
+    nome.includes("propost") ||
+    nome.includes("cadastr") ||
+    nome.includes("candidat") ||
+    nome.includes("recebimento")
+  );
+};
+
+const isFaseInscricaoNome = (fase: any): boolean => {
+  const nome = normalizeText(fase?.nome);
+  return nome.includes("inscri") || nome.includes("habilit") || nome.includes("registr");
+};
+
+/** Extração menos restritiva: usa todas as fases quando nomes não batem com inscri/submiss. */
+export const extrairDeadlineTimelineAmplo = (timeline: unknown): Date | null => {
+  const tl = unwrapTimelineEstimada(timeline);
+  if (!tl?.fases?.length) return null;
+
+  let candidatos = tl.fases.filter(isFaseSubmissaoNome);
+  if (!candidatos.length) candidatos = tl.fases.filter(isFaseInscricaoNome);
+  if (!candidatos.length) candidatos = tl.fases;
+
+  const deadlines: Date[] = [];
+
+  for (const fase of candidatos) {
+    for (const part of [fase?.data_fim, fase?.fim, fase?.prazo, fase?.data_inicio, fase?.nome]) {
+      if (part == null) continue;
+      const s = String(part).trim();
+      if (!s || /invalid date/i.test(s)) continue;
+      const fromToken = parsePrazoDateToken(s);
+      if (fromToken) {
+        deadlines.push(fromToken);
+        continue;
+      }
+      const fromText = extractDeadlineDateFromPrazoText(s) || extrairDataMaisRecentePrazo(s);
+      if (fromText) deadlines.push(fromText);
+    }
+  }
+
+  if (deadlines.length === 0) return null;
+  return new Date(Math.max(...deadlines.map((d) => d.getTime())));
+};
+
+export type EditalDeadlineFields = {
+  timeline_estimada?: any;
+  prazo_inscricao?: any;
+  data_encerramento?: string | null;
+  criado_em?: string | null;
+  status?: string | null;
+};
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function parseEncerramentoDate(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const fromToken = parsePrazoDateToken(String(raw).trim());
+  if (fromToken) return fromToken;
+  const d = new Date(String(raw).trim());
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Descarta datas claramente legadas/OCR (ex.: 2008 em edital indexado em 2024). */
+export function isPlausibleCatalogDeadline(date: Date, criadoEm?: string | null): boolean {
+  if (date.getFullYear() < 2010) return false;
+  if (criadoEm) {
+    const c = new Date(criadoEm);
+    if (!Number.isNaN(c.getTime()) && date.getFullYear() < c.getFullYear() - 2) return false;
+  }
+  return true;
+}
+
+export function collectEditalDeadlineDates(input: EditalDeadlineFields): Date[] {
+  const dates: Date[] = [];
+
+  const timeline =
+    extrairDeadlineSubmissao(input.timeline_estimada) ??
+    extrairDeadlineTimelineAmplo(input.timeline_estimada);
+  if (timeline && isPlausibleCatalogDeadline(timeline, input.criado_em)) dates.push(timeline);
+
+  const prazoRaw =
+    typeof input.prazo_inscricao === "string"
+      ? input.prazo_inscricao
+      : input.prazo_inscricao != null
+        ? JSON.stringify(input.prazo_inscricao)
+        : null;
+  if (prazoRaw && prazoRaw !== "Não informado") {
+    const prazo =
+      extrairDataMaisRecentePrazo(prazoRaw) ||
+      extractDeadlineDateFromPrazoText(prazoRaw) ||
+      (() => {
+        const all = extractAllPrazoDatesFromText(prazoRaw);
+        return all.length ? new Date(Math.max(...all.map((d) => d.getTime()))) : null;
+      })();
+    if (prazo && isPlausibleCatalogDeadline(prazo, input.criado_em)) dates.push(prazo);
+  }
+
+  const enc = parseEncerramentoDate(input.data_encerramento);
+  if (enc && isPlausibleCatalogDeadline(enc, input.criado_em)) dates.push(enc);
+
+  return dates;
+}
+
+/** Prazo efetivo para exibição: prioriza deadlines futuros entre timeline, prazo e encerramento. */
+export function getEditalDisplayDeadline(input: EditalDeadlineFields): Date | null {
+  const hoje = startOfDay(new Date());
+  const dates = collectEditalDeadlineDates(input);
+  if (dates.length === 0) return null;
+
+  const future = dates.filter((d) => startOfDay(d).getTime() >= hoje.getTime());
+  const pool = future.length > 0 ? future : dates;
+  return new Date(Math.max(...pool.map((d) => d.getTime())));
+}
+
+/** Edital ativo: janela MM/AAAA (mês atual → dez) + anos +1…+4 (mesma lógica da busca manual). */
+export function isEditalAtivoByDeadlines(input: EditalDeadlineFields & {
+  titulo?: string | null;
+  descricao?: string | null;
+  sobre_programa?: string | null;
+  numero?: string | null;
+}): boolean {
+  return isEditalAtivoByDatePatterns(input);
+}
+
 export type PrazoInscricaoDisplay = {
   /** Texto principal (compatível com `formatPrazoInscricao`, mas pode priorizar timeline) */
   display: string;
@@ -361,11 +525,19 @@ export type PrazoInscricaoDisplay = {
   fasePrazoTexto?: string;
 };
 
-export function getPrazoInscricaoDisplayPreferindoTimeline(prazoInscricao: any, timeline: any): PrazoInscricaoDisplay {
+export function getPrazoInscricaoDisplayPreferindoTimeline(
+  prazoInscricao: any,
+  timeline: any,
+  opts?: Pick<EditalDeadlineFields, "data_encerramento" | "criado_em">,
+): PrazoInscricaoDisplay {
   const base = formatPrazoInscricao(prazoInscricao);
-  const deadlineSubmissao = extrairDeadlineSubmissao(timeline);
+  const displayDeadline = getEditalDisplayDeadline({
+    timeline_estimada: timeline,
+    prazo_inscricao: prazoInscricao,
+    data_encerramento: opts?.data_encerramento,
+    criado_em: opts?.criado_em,
+  });
 
-  // Tentar identificar uma fase representativa (a que gerou o maior deadline)
   let faseNome: string | undefined;
   let fasePrazoTexto: string | undefined;
   try {
@@ -378,7 +550,8 @@ export function getPrazoInscricaoDisplayPreferindoTimeline(prazoInscricao: any, 
       }
     }
     const fases = obj?.fases;
-    if (deadlineSubmissao && Array.isArray(fases)) {
+    const deadlineSubmissaoTimeline = extrairDeadlineSubmissao(timeline);
+    if (deadlineSubmissaoTimeline && Array.isArray(fases)) {
       const isFaseSubmissaoStrict = (fase: any): boolean => {
         const nome = normalizeText(fase?.nome);
         if (nome.includes("submiss")) return true;
@@ -417,7 +590,7 @@ export function getPrazoInscricaoDisplayPreferindoTimeline(prazoInscricao: any, 
         }
       }
 
-      if (bestFase && bestScore === deadlineSubmissao.getTime()) {
+      if (bestFase && bestScore === deadlineSubmissaoTimeline.getTime()) {
         faseNome = String(bestFase?.nome || "").trim() || undefined;
         fasePrazoTexto = String(bestFase?.prazo || bestFase?.fim || "").trim() || undefined;
       }
@@ -426,11 +599,34 @@ export function getPrazoInscricaoDisplayPreferindoTimeline(prazoInscricao: any, 
     // ignore
   }
 
-  if (deadlineSubmissao && !isNaN(deadlineSubmissao.getTime())) {
+  if (displayDeadline && !Number.isNaN(displayDeadline.getTime())) {
+    const hoje = startOfDay(new Date());
+    const encerrado = startOfDay(displayDeadline).getTime() < hoje.getTime();
     return {
-      display: `Até ${formatDatePtBR(deadlineSubmissao)}`,
+      display: encerrado
+        ? `Encerrado (${formatDatePtBR(displayDeadline)})`
+        : `Até ${formatDatePtBR(displayDeadline)}`,
       details: base.details,
-      deadlineSubmissao,
+      deadlineSubmissao: encerrado ? null : displayDeadline,
+      faseNome,
+      fasePrazoTexto,
+    };
+  }
+
+  const fallbackDate =
+    parseDateFromAtéDisplay(base.display) ||
+    (prazoInscricao != null && String(prazoInscricao).trim() && String(prazoInscricao) !== "Não informado"
+      ? extractDeadlineDateFromPrazoText(String(prazoInscricao))
+      : null);
+  if (fallbackDate && isPlausibleCatalogDeadline(fallbackDate, opts?.criado_em)) {
+    const hoje = startOfDay(new Date());
+    const encerrado = startOfDay(fallbackDate).getTime() < hoje.getTime();
+    return {
+      display: encerrado
+        ? `Encerrado (${formatDatePtBR(fallbackDate)})`
+        : `Até ${formatDatePtBR(fallbackDate)}`,
+      details: base.details,
+      deadlineSubmissao: encerrado ? null : fallbackDate,
       faseNome,
       fasePrazoTexto,
     };
@@ -441,4 +637,19 @@ export function getPrazoInscricaoDisplayPreferindoTimeline(prazoInscricao: any, 
     details: base.details,
     deadlineSubmissao: null,
   };
+}
+
+/** Só exibe linha de referência quando `prazo_inscricao` tem valor útil e difere do prazo principal. */
+export function shouldShowPrazoInscricaoReferencia(
+  prazoInscricao: unknown,
+  prazoResumoDisplay: string,
+): boolean {
+  const normalized = normalizePrazoInscricaoPlainText(String(prazoInscricao ?? ""));
+  if (normalized.display === "Não informado") return false;
+
+  const refDate = extractDeadlineDateFromPrazoText(String(prazoInscricao ?? ""));
+  const mainDate = parseDateFromAtéDisplay(prazoResumoDisplay);
+  if (refDate && mainDate && sameCalendarDay(refDate, mainDate)) return false;
+
+  return normalized.display !== prazoResumoDisplay;
 }

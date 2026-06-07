@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Search, Filter, Calendar, DollarSign, Target, AlertCircle,
-  Sparkles, Loader2, Share2, ChevronLeft, ChevronRight
+  Sparkles, Loader2, Share2, ChevronLeft, ChevronRight, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,16 +31,18 @@ import {
   AREA_FILTER_OPTIONS,
 } from "@/lib/editaisApi";
 import { useEditaisList } from "@/hooks/useEditaisDashboard";
+import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { useEditaisIndicacoes } from "@/hooks/useEditaisIndicacoes";
-import { formatValorProjeto, formatPrazoInscricao } from "@/lib/editalFormatters";
+import { formatValorProjeto } from "@/lib/editalFormatters";
+import { computeArrecadacaoCatalogo, formatArrecadacaoResumo } from "@/lib/editalValorStats";
 import {
-  extrairDataMaisRecentePrazo,
-  extrairDeadlineSubmissao,
-  formatDatePtBR,
-  getPrazoInscricaoSummary,
-  normalizeText,
+  getPrazoInscricaoDisplayPreferindoTimeline,
+  isEditalAtivoByDeadlines,
 } from "@/lib/editalSubmissionDeadline";
 import { gerarPropostaComIA } from "@/lib/propostasApi";
+import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
+import UpgradePlanBanner from "@/components/UpgradePlanBanner";
+import { FREE_EDITAIS_PER_MONTH, canAccessEditalCatalog, editalCatalogUsageLabel, limitEditaisForFreeTier, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 
 interface EditalDisplay extends DatabaseEdital {
   prazo: string;
@@ -73,20 +75,36 @@ function getDashboardPageNumbers(currentPage: number, totalPages: number): (numb
 }
 
 export default function Dashboard() {
-  const [filtroArea, setFiltroArea] = useState<string>("todos");
-  const [busca, setBusca] = useState("");
-  const [mostrarInativos, setMostrarInativos] = useState(false); // Opção para mostrar editais inativos
-  const [ignorarFiltroPerfil, setIgnorarFiltroPerfil] = useState(false); // Mostra editais mesmo com is_researcher/is_company incompatíveis
-  const [filtroTipoEdital, setFiltroTipoEdital] = useState<"pesquisadores" | "empresas" | "todos">("todos"); // Filtro para tipo (quando usuário é "ambos")
-  const [apenasIndicacoes, setApenasIndicacoes] = useState(false);
-  const [ordenacao, setOrdenacao] = useState<"recentes" | "indicacoes">("indicacoes");
-  const [currentPage, setCurrentPage] = useState(1);
+  const {
+    filtroArea,
+    setFiltroArea,
+    busca,
+    setBusca,
+    mostrarInativos,
+    setMostrarInativos,
+    ignorarFiltroPerfil,
+    setIgnorarFiltroPerfil,
+    filtroTipoEdital,
+    setFiltroTipoEdital,
+    apenasIndicacoes,
+    setApenasIndicacoes,
+    ordenacao,
+    setOrdenacao,
+    currentPage,
+    setCurrentPage,
+    clearFilters,
+  } = useDashboardFilters();
   const [gerandoProposta, setGerandoProposta] = useState<string | null>(null);
   const [filtrosSheetOpen, setFiltrosSheetOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
-  const indicacoesQuery = useEditaisIndicacoes(user?.id, { limit: 12, autoRefresh: true });
+  const { proFeatures: proFeaturesFromProfile, entitlements: profileEntitlements } = useSubscriptionEntitlements();
+  const indicacoesQuery = useEditaisIndicacoes(user?.id, {
+    limit: 12,
+    autoRefresh: proFeaturesFromProfile,
+    enabled: proFeaturesFromProfile,
+  });
   const indicacoesMap = (() => {
     const m = new Map<string, { score: number; motivos: string[] }>();
     for (const item of indicacoesQuery.data ?? []) {
@@ -102,7 +120,11 @@ export default function Dashboard() {
 
   // 1. Lista em cache (5 min) - carregamento rápido
   const editaisListQuery = useEditaisList(user?.id);
-  const editaisRaw = editaisListQuery.data ?? [];
+  const editaisRaw = editaisListQuery.data?.rows ?? [];
+  const entitlements = editaisListQuery.data?.entitlements ?? profileEntitlements;
+  const proFeatures = entitlements.pro_features;
+  const catalogUsageLabel = editalCatalogUsageLabel(entitlements);
+  const catalogLockedCount = editaisListQuery.data?.catalog_locked_count ?? 0;
   const editaisIndicadosRaw = (indicacoesQuery.data ?? [])
     .map((i) => i.edital)
     .filter(Boolean);
@@ -133,7 +155,10 @@ export default function Dashboard() {
     return out;
   })();
 
-  const editaisRawForList = apenasIndicacoes ? editaisIndicadosRaw : editaisRawMerged;
+  const editaisRawForList = (() => {
+    const base = apenasIndicacoes ? editaisIndicadosRaw : editaisRawMerged;
+    return limitEditaisForFreeTier(base as DatabaseEdital[], entitlements);
+  })();
 
   // Redirecionar para login se não estiver logado
   useEffect(() => {
@@ -151,12 +176,12 @@ export default function Dashboard() {
     }
   }, [user, authLoading, profileLoading, profile?.onboardingCompleted, setLocation]);
 
-  // Voltar à página 1 quando filtros mudarem
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [busca, filtroArea, filtroTipoEdital, mostrarInativos, ignorarFiltroPerfil, apenasIndicacoes, ordenacao]);
-
   const handleVerDetalhes = (editalId: string) => {
+    if (!canAccessEditalCatalog(entitlements, editalId)) {
+      toast.error(subscriptionUpgradeMessage("editais_catalog"));
+      setLocation("/planos");
+      return;
+    }
     setLocation(`/edital/${editalId}`);
   };
 
@@ -164,6 +189,11 @@ export default function Dashboard() {
   const handleGerarProposta = async (editalId: string) => {
     if (!user) {
       toast.error("Faça login para gerar uma proposta");
+      return;
+    }
+    if (!proFeatures) {
+      toast.error(subscriptionUpgradeMessage("propostas"));
+      setLocation("/planos");
       return;
     }
 
@@ -191,106 +221,59 @@ export default function Dashboard() {
     }
   };
 
-  // Função helper para verificar se um edital ainda está ativo
-  // IMPORTANTE: Um edital é considerado ativo se QUALQUER um dos seguintes critérios for verdadeiro:
-  // Regra principal: edital é "ativo" se ainda está dentro do prazo de submissão.
-  // A data usada para filtrar deve ser a MESMA exibida no card (Prazo).
-  const isEditalAtivo = (edital: DatabaseEdital): boolean => {
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-
-    // 0) Não esconder só porque `prazo_inscricao` está "Não informado".
-    // Muitos editais ainda têm `data_encerramento` ou timeline válida; esconder aqui reduz demais a lista
-    // e faz as indicações “sumirem” do feed.
-    // (A validação real acontece nos passos abaixo, com fallbacks.)
-    const prazoFormatado = formatPrazoInscricao(edital.prazo_inscricao);
-
-    // 1) Submissão (timeline_estimada)
-    const deadlineSubmissao = extrairDeadlineSubmissao(edital.timeline_estimada);
-    if (deadlineSubmissao && !isNaN(deadlineSubmissao.getTime())) {
-      const fimDoDia = new Date(deadlineSubmissao);
-      fimDoDia.setHours(23, 59, 59, 999);
-      return hoje.getTime() <= fimDoDia.getTime();
-    }
-
-    // 2) prazo_inscricao (quando não há timeline de submissão)
-    const prazoSummary = getPrazoInscricaoSummary(edital.prazo_inscricao);
-    if (prazoSummary.date) {
-      const fimDoDia = new Date(prazoSummary.date);
-      fimDoDia.setHours(23, 59, 59, 999);
-      return hoje.getTime() <= fimDoDia.getTime();
-    }
-
-    // 3) data_encerramento (fallback)
-    if (edital.data_encerramento) {
-      const enc = new Date(edital.data_encerramento);
-      if (!isNaN(enc.getTime())) {
-      enc.setHours(23, 59, 59, 999);
-        return hoje.getTime() <= enc.getTime();
-      }
-    }
-
-    // 4) Sem datas parseáveis: não esconder o edital por default.
-    // Só marcar como inativo quando o status explícito indica encerrado/finalizado.
-    const statusLower = (edital.status || "").toLowerCase().trim();
-    if (statusLower === "encerrado" || statusLower === "finalizado") return false;
-    return true;
-  };
+  const isEditalAtivo = (edital: DatabaseEdital): boolean =>
+    isEditalAtivoByDeadlines({
+      timeline_estimada: edital.timeline_estimada,
+      prazo_inscricao: edital.prazo_inscricao,
+      data_encerramento: edital.data_encerramento,
+      criado_em: edital.criado_em,
+      status: edital.status,
+      titulo: edital.titulo,
+      descricao: edital.descricao,
+      sobre_programa: edital.sobre_programa,
+      numero: edital.numero,
+    });
 
   // Adicionar pais/flag para filtros (getPaisFromEdital)
   const editaisComPais = editaisRawForList.map((e) => ({ ...e, ...getPaisFromEdital(e) }));
 
-  // Filtrar editais baseado no perfil do usuário e outros filtros
-  const editaisFiltrados = editaisComPais.filter((edital) => {
+  const passesCatalogoBaseFilters = (edital: (typeof editaisComPais)[number]) => {
     // Quando "Apenas indicações" estiver ligado, NÃO aplicar filtros "fortes".
-    // A indicação já é a personalização — então não deve ser cortada por ativo/inativo nem pelo tipo do perfil.
     if (!apenasIndicacoes) {
-      // Filtrar editais que já passaram da data de encerramento (a menos que mostrarInativos esteja ativo)
       if (!mostrarInativos && !isEditalAtivo(edital)) {
         return false;
       }
 
-      // Filtro baseado no perfil do usuário (is_researcher ou is_company) — pode ocultar centenas de linhas
       if (!ignorarFiltroPerfil && profile && !profileLoading) {
         const userType = profile.userType;
 
-        // Se o usuário é pesquisador, mostrar apenas editais onde is_researcher === true
-        if (userType === "pesquisador") {
-          // Se is_researcher é false ou null, não mostrar
-          // Se is_researcher é true ou undefined (ainda não processado), mostrar
-          if (edital.is_researcher === false) {
-            return false;
-          }
+        if (userType === "pesquisador" && edital.is_researcher === false) {
+          return false;
         }
 
-        // Se o usuário é pessoa-empresa, mostrar apenas editais onde is_company === true
-        if (userType === "pessoa-empresa") {
-          // Se is_company é false ou null, não mostrar
-          // Se is_company é true ou undefined (ainda não processado), mostrar
-          if (edital.is_company === false) {
-            return false;
-          }
+        if (userType === "pessoa-empresa" && edital.is_company === false) {
+          return false;
         }
 
-        // Se o usuário é tipo "ambos", aplicar filtro baseado no filtroTipoEdital
         if (userType === "ambos") {
-          if (filtroTipoEdital === "pesquisadores") {
-            // Mostrar apenas editais onde is_researcher === true
-            if (edital.is_researcher === false) {
-              return false;
-            }
-          } else if (filtroTipoEdital === "empresas") {
-            // Mostrar apenas editais onde is_company === true
-            if (edital.is_company === false) {
-              return false;
-            }
+          if (filtroTipoEdital === "pesquisadores" && edital.is_researcher === false) {
+            return false;
           }
-          // Se filtroTipoEdital === "todos", não filtrar por tipo
+          if (filtroTipoEdital === "empresas" && edital.is_company === false) {
+            return false;
+          }
         }
       }
     }
 
-    // Filtro de busca
+    return true;
+  };
+
+  // Base do catálogo (ativo + perfil) — usada nos cards de stats, independente de busca/área.
+  const editaisCatalogoBase = editaisComPais.filter(passesCatalogoBaseFilters);
+
+  // Lista consultável: catálogo base + busca, área e indicações.
+  const editaisFiltrados = editaisCatalogoBase.filter((edital) => {
     const buscaL = busca.toLowerCase();
     const matchBusca =
       (edital.titulo || "").toLowerCase().includes(buscaL) ||
@@ -298,9 +281,7 @@ export default function Dashboard() {
       (edital.area?.toLowerCase() || "").includes(buscaL) ||
       (edital.descricao?.toLowerCase() || "").includes(buscaL);
 
-    // Filtro de área (Tecnologia, Saúde, Agronegócio, etc.)
     const matchArea = editalMatchesArea(edital, filtroArea);
-
     const matchIndicacoes = !apenasIndicacoes || indicacoesMap.has(edital.id);
 
     return matchBusca && matchArea && matchIndicacoes;
@@ -335,7 +316,7 @@ export default function Dashboard() {
     }
 
     // “Recentes”: mantém a ordem padrão que já veio do backend (criado_em desc)
-    return editaisFiltrados;
+    return list;
   })();
 
   const totalPages = Math.max(1, Math.ceil(editaisFiltradosOrdenados.length / PAGE_SIZE));
@@ -381,11 +362,16 @@ export default function Dashboard() {
     document.getElementById("dashboard-editais-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const stats = {
-    editaisAtivos: editaisFiltrados.length,
-    emAnalise: editaisFiltrados.filter((e) => getStatusFromEdital(e) === "em_analise").length,
-    indicacoes: (indicacoesQuery.data ?? []).length,
-  };
+  const stats = useMemo(() => {
+    const arrecadacao = computeArrecadacaoCatalogo(editaisCatalogoBase);
+    return {
+      editaisAtivos: editaisCatalogoBase.length,
+      emAnalise: editaisCatalogoBase.filter((e) => getStatusFromEdital(e) === "em_analise").length,
+      indicacoes: (indicacoesQuery.data ?? []).length,
+      arrecadacao,
+      arrecadacaoDisplay: formatArrecadacaoResumo(arrecadacao.totalBRL),
+    };
+  }, [editaisCatalogoBase, indicacoesQuery.data]);
   const areaSelecionada =
     AREA_FILTER_OPTIONS.find((opt) => opt.value === filtroArea)?.label ?? "Todas as áreas";
   const tipoSelecionado =
@@ -458,7 +444,8 @@ export default function Dashboard() {
               </p>
             ) : null}
             <p className="text-sm text-gray-600 text-center mb-4">
-              Erros comuns: RLS (sem policy de leitura para o anon) ou tabela/URL de outro projeto no .env.
+              Se a sessão expirou, saia e entre de novo. Se persistir, confira se o backend está rodando em{" "}
+              <code className="text-xs bg-gray-100 px-1 rounded">localhost:8080</code>.
             </p>
             <Button onClick={() => void editaisListQuery.refetch()} variant="outline">
               Tentar novamente
@@ -482,17 +469,52 @@ export default function Dashboard() {
               </div>
             )}
 
+            {!proFeatures && !profileLoading && (
+              <UpgradePlanBanner
+                message={`Plano ${entitlements.plan_name}: ${catalogUsageLabel ? `${catalogUsageLabel}. ` : ""}${subscriptionUpgradeMessage("editais_catalog")}${
+                  catalogLockedCount > 0
+                    ? ` Há mais ${catalogLockedCount} edital${catalogLockedCount === 1 ? "" : "is"} no catálogo Pro.`
+                    : ""
+                } Assine o Pro para catálogo ilimitado e recursos de IA.`}
+              />
+            )}
+
             {/* Stats */}
-            <dl className="mb-8 grid gap-3 sm:grid-cols-3">
+            <dl className={`mb-8 grid gap-3 sm:grid-cols-2 ${proFeatures ? "xl:grid-cols-4" : "xl:grid-cols-2"}`}>
               <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
                 <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
                 <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Catálogo</dt>
                 <dd className="mt-3 flex items-end justify-between gap-4">
                   <span className="text-4xl font-semibold leading-none tracking-tight text-gray-950">{stats.editaisAtivos}</span>
-                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">Instrumentos disponíveis</span>
+                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">
+                    {proFeatures
+                      ? "Instrumentos disponíveis"
+                      : catalogUsageLabel || `Plano gratuito · até ${FREE_EDITAIS_PER_MONTH}/mês`}
+                  </span>
                 </dd>
               </div>
 
+              {proFeatures && (
+              <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500" aria-hidden="true" />
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Arrecadação</dt>
+                <dd className="mt-3 flex items-end justify-between gap-4">
+                  <span
+                    className="text-4xl font-semibold leading-none tracking-tight text-gray-950"
+                    title={stats.arrecadacaoDisplay.detail}
+                  >
+                    {stats.arrecadacaoDisplay.main}
+                  </span>
+                  <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">
+                    {stats.arrecadacao.editaisComValor > 0
+                      ? `Estimativa em ${stats.arrecadacao.editaisComValor} edital${stats.arrecadacao.editaisComValor === 1 ? "" : "is"} ativo${stats.arrecadacao.editaisComValor === 1 ? "" : "s"}`
+                      : "Sem valores identificados nos editais ativos"}
+                  </span>
+                </dd>
+              </div>
+              )}
+
+              {proFeatures && (
               <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
                 <div className="absolute inset-y-0 left-0 w-1 bg-[color:var(--attention)]" aria-hidden="true" />
                 <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Recomendação</dt>
@@ -501,7 +523,9 @@ export default function Dashboard() {
                   <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">Indicações para você</span>
                 </dd>
               </div>
+              )}
 
+              {proFeatures && (
               <div className="relative overflow-hidden rounded-sm border border-[color:var(--institutional-line)] bg-white px-5 py-4 shadow-sm">
                 <div className="absolute inset-y-0 left-0 w-1 bg-gray-400" aria-hidden="true" />
                 <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Acompanhamento</dt>
@@ -510,6 +534,7 @@ export default function Dashboard() {
                   <span className="max-w-[8rem] text-right text-sm leading-snug text-gray-600">Em análise</span>
                 </dd>
               </div>
+              )}
             </dl>
 
         <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -603,9 +628,14 @@ export default function Dashboard() {
                     </Label>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Checkbox id="match-alto" checked={apenasIndicacoes} onCheckedChange={(checked) => setApenasIndicacoes(checked === true)} />
+                    <Checkbox
+                      id="match-alto"
+                      checked={apenasIndicacoes}
+                      disabled={!proFeatures}
+                      onCheckedChange={(checked) => proFeatures && setApenasIndicacoes(checked === true)}
+                    />
                     <Label htmlFor="match-alto" className="text-sm leading-snug text-gray-700">
-                      Apenas indicações
+                      Apenas indicações{!proFeatures ? " (Pro)" : ""}
                     </Label>
                   </div>
                   <div className="flex items-start gap-2">
@@ -711,9 +741,14 @@ export default function Dashboard() {
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Checkbox id="match-alto-mobile" checked={apenasIndicacoes} onCheckedChange={(checked) => setApenasIndicacoes(checked === true)} />
+                      <Checkbox
+                        id="match-alto-mobile"
+                        checked={apenasIndicacoes}
+                        disabled={!proFeatures}
+                        onCheckedChange={(checked) => proFeatures && setApenasIndicacoes(checked === true)}
+                      />
                       <Label htmlFor="match-alto-mobile" className="cursor-pointer text-sm text-gray-700">
-                        Apenas indicações
+                        Apenas indicações{!proFeatures ? " (Pro)" : ""}
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
@@ -744,7 +779,7 @@ export default function Dashboard() {
                   )}
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => { setBusca(""); setFiltroArea("todos"); setFiltroTipoEdital("todos"); setApenasIndicacoes(false); }}>
+              <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
                 Limpar filtros
               </Button>
             </div>
@@ -755,20 +790,13 @@ export default function Dashboard() {
                 const isIndicado = indicacao != null;
                 const isResearcher = edital.is_researcher === true;
                 const isCompany = edital.is_company === true;
+                const locked = !canAccessEditalCatalog(entitlements, edital.id);
                 const valorFormatado = formatValorProjeto(edital.valor_projeto || edital.valor);
-                const prazoLabel = (() => {
-                  const deadlineSubmissao = extrairDeadlineSubmissao(edital.timeline_estimada);
-                  if (deadlineSubmissao && !isNaN(deadlineSubmissao.getTime())) {
-                    return `Até ${formatDatePtBR(deadlineSubmissao)}`;
-                  }
-                  const prazoSummary = getPrazoInscricaoSummary(edital.prazo_inscricao);
-                  if (prazoSummary.date) {
-                    return `Até ${formatDatePtBR(prazoSummary.date)}${prazoSummary.extraCount ? ` (+${prazoSummary.extraCount})` : ""}`;
-                  }
-                  const prazoFormatado = formatPrazoInscricao(edital.prazo_inscricao);
-                  if (prazoFormatado.display !== "Não informado") return prazoFormatado.display;
-                  return edital.prazo;
-                })();
+                const prazoLabel = getPrazoInscricaoDisplayPreferindoTimeline(
+                  edital.prazo_inscricao,
+                  edital.timeline_estimada,
+                  { data_encerramento: edital.data_encerramento, criado_em: edital.criado_em },
+                ).display;
                 const typeLabel = isResearcher && isCompany
                   ? "Pesquisadores e empresas"
                   : isResearcher
@@ -777,17 +805,24 @@ export default function Dashboard() {
                   ? "Empresas"
                   : "Público amplo";
 
-                return (
-                  <Link
-                    key={edital.id}
-                    href={`/edital/${edital.id}`}
-                    className={`group flex min-h-[22rem] flex-col rounded-md border p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:aspect-square sm:min-h-0 ${
-                      isIndicado
-                        ? "border-primary/40 bg-secondary hover:border-primary"
-                        : "border-border bg-white hover:border-primary/60"
-                    }`}
-                  >
-                    <div className="mb-4 flex items-start justify-between gap-3">
+                const cardClassName = `group relative flex min-h-[22rem] flex-col overflow-hidden rounded-md border p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[26rem] ${
+                  locked
+                    ? "cursor-not-allowed border-border bg-gray-50 opacity-80"
+                    : isIndicado
+                      ? "border-primary/40 bg-secondary hover:border-primary"
+                      : "border-border bg-white hover:border-primary/60"
+                }`;
+
+                const cardInner = (
+                  <>
+                    {locked && (
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/75 px-4 text-center backdrop-blur-[1px]">
+                        <Lock className="h-5 w-5 text-primary" aria-hidden="true" />
+                        <p className="text-sm font-medium text-gray-800">Limite do plano gratuito</p>
+                        <p className="text-xs text-gray-600">Assine o Pro para ver este edital</p>
+                      </div>
+                    )}
+                    <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
                       <Badge variant="outline" className="border-border bg-white text-primary">
                         {typeLabel}
                       </Badge>
@@ -799,22 +834,28 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    <div className="min-h-0 flex-1">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <p className="mb-2 line-clamp-1 break-words text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
                         {edital.orgao || edital.pais || "Órgão não informado"}
                       </p>
-                      <h3 className="line-clamp-4 text-lg font-bold leading-tight text-gray-950 group-hover:text-primary">
+                      <h3
+                        className={`line-clamp-3 break-words text-lg font-bold leading-snug ${locked ? "text-gray-700" : "text-gray-950 group-hover:text-primary"}`}
+                        title={edital.titulo}
+                      >
                         {edital.titulo}
                       </h3>
                       {edital.descricao && (
-                        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-gray-600">
+                        <p
+                          className="mt-2 line-clamp-2 break-words text-sm leading-relaxed text-gray-600"
+                          title={edital.descricao}
+                        >
                           {edital.descricao}
                         </p>
                       )}
                     </div>
 
                     {isIndicado && (indicacao?.motivos?.length ?? 0) > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="mt-3 flex shrink-0 flex-wrap gap-2">
                         {indicacao!.motivos.slice(0, 2).map((m, idx) => (
                           <Badge key={idx} variant="outline" className="bg-white text-xs text-primary">
                             {m}
@@ -823,24 +864,59 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm text-gray-700">
+                    <div className="mt-auto shrink-0 space-y-2 border-t border-border pt-4 text-sm text-gray-700">
                       {valorFormatado.display !== "Não informado" && (
-                        <div className="flex items-start gap-2">
-                          <DollarSign className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                          <span className="line-clamp-1 font-semibold text-gray-900">{valorFormatado.display}</span>
+                        <div className="flex min-w-0 items-start gap-2">
+                          <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                          <span
+                            className="min-w-0 flex-1 break-words line-clamp-2 font-semibold text-gray-900"
+                            title={valorFormatado.display}
+                          >
+                            {valorFormatado.display}
+                          </span>
                         </div>
                       )}
-                      <div className="flex items-start gap-2">
-                        <Calendar className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                        <span className="line-clamp-1">Prazo: {prazoLabel}</span>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                        <span className="min-w-0 flex-1 break-words line-clamp-2" title={`Prazo: ${prazoLabel}`}>
+                          Prazo: {prazoLabel}
+                        </span>
                       </div>
                       {edital.area && (
-                        <div className="flex items-start gap-2">
-                          <Target className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                          <span className="line-clamp-1">{edital.area}</span>
+                        <div className="flex min-w-0 items-start gap-2">
+                          <Target className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                          <span className="min-w-0 flex-1 break-words line-clamp-2" title={edital.area}>
+                            {edital.area}
+                          </span>
                         </div>
                       )}
                     </div>
+                  </>
+                );
+
+                if (locked) {
+                  return (
+                    <div
+                      key={edital.id}
+                      className={cardClassName}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleVerDetalhes(edital.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleVerDetalhes(edital.id);
+                        }
+                      }}
+                    >
+                      {cardInner}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link key={edital.id} href={`/edital/${edital.id}`} className={cardClassName}>
+                    {cardInner}
                   </Link>
                 );
               })}

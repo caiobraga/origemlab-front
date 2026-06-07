@@ -33,7 +33,7 @@ const accountPlans: Array<{
     name: "Gratuito",
     price: "R$ 0/mês",
     description: "Acesso inicial para consultar oportunidades e conhecer o fluxo.",
-    features: ["Consulta limitada de editais", "Perfil básico", "Alertas essenciais"],
+    features: ["3 editais por mês", "Perfil básico", "Alertas essenciais"],
   },
   {
     key: "pro",

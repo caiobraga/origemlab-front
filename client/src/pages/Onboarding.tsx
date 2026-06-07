@@ -10,7 +10,6 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { fetchEditaisStatsForOnboarding } from "@/lib/editaisApi";
 import { parseCurriculumFromPdf } from "@/lib/externalAPIs";
 import { saveCurriculumToMetadata, setOnboardingCompleted, updateProfileFromOnboarding, type CurriculumData } from "@/lib/userProfile";
-import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import { Spinner } from "@/components/ui/spinner";
 import { Progress } from "@/components/ui/progress";
@@ -41,7 +40,7 @@ function formatTelefone(v: string): string {
 export default function Onboarding() {
   const [location, setLocation] = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading } = useUserProfile();
+  const { profile, loading: profileLoading, refetch: refetchProfile } = useUserProfile();
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const isNewSignup = params.get("new") === "1";
 
@@ -79,24 +78,41 @@ export default function Onboarding() {
     }
   }, [isNewSignup, user]);
 
-  const handleSalvarPerfil = async () => {
-    if (!user) return;
-    setLoading(true);
+  const persistOnboardingAndGoToDashboard = async (opts?: { userType?: string; markCompleted?: boolean }) => {
+    if (!user) {
+      setLocation("/cadastro");
+      toast.success("Crie sua conta para explorar seus editais!");
+      return;
+    }
     try {
-      const current = (user.user_metadata?.profile as Record<string, unknown>) || {};
-      const updates: Record<string, unknown> = { ...current, onboarding_completed: true };
-      if (data.telefone.trim()) updates.phone = data.telefone.replace(/\D/g, "");
-      await supabase.auth.updateUser({ data: { profile: updates } });
       await updateProfileFromOnboarding(user.id, {
         phone: data.telefone.trim() || undefined,
         area: data.area || undefined,
         cnpj: data.cnpj.trim() ? data.cnpj : undefined,
         hasCnpj: data.cnpj.replace(/\D/g, "").length === 14,
-        markOnboardingCompleted: true,
+        userType: opts?.userType
+          ? (opts.userType as "pesquisador" | "pessoa-empresa" | "ambos")
+          : undefined,
+        markOnboardingCompleted: opts?.markCompleted !== false,
       });
-      toast.success("Perfil atualizado!");
-      setLocation("/dashboard");
-    } catch (e) {
+    } catch (firstError) {
+      try {
+        await setOnboardingCompleted(user.id);
+      } catch {
+        throw firstError;
+      }
+    }
+    await refetchProfile();
+    setLocation("/dashboard");
+    toast.success("Bem-vindo ao Origem.Lab!");
+  };
+
+  const handleSalvarPerfil = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await persistOnboardingAndGoToDashboard({ markCompleted: true });
+    } catch {
       toast.error("Erro ao salvar. Tente novamente.");
     } finally {
       setLoading(false);
@@ -119,7 +135,7 @@ export default function Onboarding() {
       clearInterval(interval);
       setPdfExtractProgress(100);
       if (curriculumData) {
-        await saveCurriculumToMetadata(curriculumData as CurriculumData);
+        await saveCurriculumToMetadata(curriculumData as CurriculumData, user.id);
         setCurriculumExtracted(true);
         setUploadedFileName(file.name);
         toast.success("Currículo extraído e salvo. Você pode continuar.");
@@ -156,27 +172,21 @@ export default function Onboarding() {
   };
 
   const handleIrAoPainel = async () => {
-    if (user) {
-      try {
-        const userType = data.userType ? (data.userType as "pesquisador" | "pessoa-empresa" | "ambos") : undefined;
-        await updateProfileFromOnboarding(user.id, {
-          userType,
-          area: data.area || undefined,
-          markOnboardingCompleted: true,
-        });
-      } catch {
-        // segue mesmo se falhar (ex.: perfil ainda não existe) — marca só onboarding
-        try {
-          await setOnboardingCompleted(user.id);
-        } catch {
-          // ignora
-        }
-      }
-      setLocation("/dashboard");
-      toast.success("Bem-vindo ao Origem.Lab!");
-    } else {
+    if (!user) {
       setLocation("/cadastro");
       toast.success("Crie sua conta para explorar seus editais!");
+      return;
+    }
+    setLoading(true);
+    try {
+      await persistOnboardingAndGoToDashboard({
+        userType: data.userType || undefined,
+        markCompleted: true,
+      });
+    } catch {
+      toast.error("Erro ao salvar. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -461,11 +471,12 @@ export default function Onboarding() {
                   </div>
                   <p className="text-center text-gray-700">Tudo certo! Você pode completar mais dados depois na página de perfil.</p>
                   <p className="text-center text-sm text-gray-600">
-                    Para pagar com cartão e ativar o <strong>Pro</strong> ou <strong>Empresas</strong>, abra os planos após entrar no painel (menu <strong>Planos</strong>) ou agora:
+                    Seu <strong>plano gratuito</strong> já está ativo — explore editais e use o painel sem pagar nada.
+                    Quando quiser mais recursos (Pro ou Empresas), abra <strong>Planos</strong> no menu.
                   </p>
                   <Link href="/planos">
                     <Button type="button" variant="outline" className="w-full border-border text-primary hover:bg-secondary">
-                      Ver planos e checkout com cartão
+                      Conhecer planos pagos (opcional)
                     </Button>
                   </Link>
                   <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleSalvarPerfil} disabled={loading}>
@@ -479,28 +490,7 @@ export default function Onboarding() {
             <p className="text-center mt-6">
               <button
                 type="button"
-                onClick={async () => {
-                  if (user) {
-                    const current = (user.user_metadata?.profile as Record<string, unknown>) || {};
-                    await supabase.auth.updateUser({ data: { profile: { ...current, onboarding_completed: true } } });
-                    try {
-                      await updateProfileFromOnboarding(user.id, {
-                        phone: data.telefone.trim() || undefined,
-                        area: data.area || undefined,
-                        cnpj: data.cnpj.trim() ? data.cnpj : undefined,
-                        hasCnpj: data.cnpj.replace(/\D/g, "").length === 14,
-                        markOnboardingCompleted: true,
-                      });
-                    } catch {
-                      try {
-                        await setOnboardingCompleted(user.id);
-                      } catch {
-                        // ignora
-                      }
-                    }
-                  }
-                  setLocation("/dashboard");
-                }}
+                onClick={() => void persistOnboardingAndGoToDashboard({ markCompleted: true })}
                 className="text-sm text-gray-500 hover:text-gray-700 underline"
               >
                 Pular e ir ao painel

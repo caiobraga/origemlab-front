@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   ArrowLeft, AlertCircle, Loader2,
   Calendar, DollarSign, MapPin, Users, FileText, Sparkles,
@@ -13,9 +14,11 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import EditalChat from "@/components/EditalChat";
 import { supabase } from "@/lib/supabase";
-import { DatabaseEdital } from "@/lib/editaisApi";
+import { DatabaseEdital, fetchEditalById } from "@/lib/editaisApi";
+import UpgradePlanBanner from "@/components/UpgradePlanBanner";
+import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import { formatValorProjeto, formatPrazoInscricao } from "@/lib/editalFormatters";
-import { getPrazoInscricaoDisplayPreferindoTimeline } from "@/lib/editalSubmissionDeadline";
+import { getPrazoInscricaoDisplayPreferindoTimeline, shouldShowPrazoInscricaoReferencia } from "@/lib/editalSubmissionDeadline";
 import { normalizeJsonLikeToMarkdown } from "@/lib/editalRichText";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -58,14 +61,16 @@ export default function EditalDetails() {
   const params = useParams();
   const editalId = params.id || "";
   const [edital, setEdital] = useState<DatabaseEdital | null>(null);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfs, setPdfs] = useState<EditalPdf[]>([]);
   const [loadingPdfs, setLoadingPdfs] = useState(true);
   const [linkCopiado, setLinkCopiado] = useState(false);
   const [gerandoProposta, setGerandoProposta] = useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { profile } = useUserProfile();
+  const { profile, refetch: refetchProfile } = useUserProfile();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const scrollPositionKey = `scroll_edital_${editalId}`;
   const [scrollRestored, setScrollRestored] = useState(false);
 
@@ -154,37 +159,22 @@ export default function EditalDetails() {
 
       try {
         setLoading(true);
-        // Preferir dados validados/normalizados em editais_corretos.
-        // Se ainda não existir nessa tabela, fallback para editais.
-        const { data: correto, error: errCorreto } = await supabase
-          .from("editais_corretos")
-          .select("*")
-          .eq("id", editalId)
-          .maybeSingle();
-
-        if (errCorreto) {
-          console.error("Erro ao buscar edital (editais_corretos):", errCorreto);
-        }
-
-        if (correto) {
-          setEdital(correto as any);
-        } else {
-          const { data, error } = await supabase
-            .from("editais")
-            .select("*")
-            .eq("id", editalId)
-            .single();
-
-          if (error) {
-            console.error("Erro ao buscar edital:", error);
-            toast.error("Erro ao carregar dados do edital");
-          } else {
-            setEdital(data);
-          }
+        setSubscriptionBlocked(null);
+        const out = await fetchEditalById(editalId);
+        setEdital(out.row as any);
+        if (out.entitlements) {
+          void refetchProfile();
+          void queryClient.invalidateQueries({ queryKey: ["editais-list"] });
         }
       } catch (error) {
-        console.error("Erro ao buscar edital:", error);
-        toast.error("Erro ao carregar dados do edital");
+        const msg = error instanceof Error ? error.message : "Erro ao carregar dados do edital";
+        if (msg.includes("Plano gratuito") || msg.includes("subscription_limit") || msg.includes("Assine")) {
+          setSubscriptionBlocked(msg);
+          setEdital(null);
+        } else {
+          console.error("Erro ao buscar edital:", error);
+          toast.error(msg);
+        }
       } finally {
         setLoading(false);
       }
@@ -277,7 +267,10 @@ export default function EditalDetails() {
   }, [editalId, edital, user, authLoading]);
 
   const prazoInscricaoResumo = edital
-    ? getPrazoInscricaoDisplayPreferindoTimeline(edital.prazo_inscricao, edital.timeline_estimada)
+    ? getPrazoInscricaoDisplayPreferindoTimeline(edital.prazo_inscricao, edital.timeline_estimada, {
+        data_encerramento: edital.data_encerramento,
+        criado_em: edital.criado_em,
+      })
     : null;
 
   // Função para fazer download do arquivo
@@ -634,6 +627,9 @@ export default function EditalDetails() {
       </header>
 
       <div className="container py-4 md:py-8">
+        {!loading && subscriptionBlocked && (
+          <UpgradePlanBanner message={subscriptionBlocked || subscriptionUpgradeMessage("editais_catalog")} />
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Coluna Principal */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
@@ -658,12 +654,16 @@ export default function EditalDetails() {
                       const prazoResumo = getPrazoInscricaoDisplayPreferindoTimeline(
                         edital?.prazo_inscricao,
                         edital?.timeline_estimada,
+                        {
+                          data_encerramento: edital?.data_encerramento,
+                          criado_em: edital?.criado_em,
+                        },
                       );
                       const prazoFormatado = formatPrazoInscricao(edital?.prazo_inscricao);
                       return (
                         <div className="space-y-1">
                           <div className="text-lg font-bold text-gray-900">{prazoResumo.display}</div>
-                          {prazoResumo.deadlineSubmissao && prazoFormatado.display !== prazoResumo.display && (
+                          {shouldShowPrazoInscricaoReferencia(edital?.prazo_inscricao, prazoResumo.display) && (
                             <div className="text-xs text-gray-600">
                               Campo `prazo_inscricao` (referência):{" "}
                               <span className="font-medium text-gray-800">{prazoFormatado.display}</span>
@@ -808,7 +808,7 @@ export default function EditalDetails() {
                               return (
                                 <div className="space-y-1">
                                   <div className="font-bold text-lg">{prazoResumo.display}</div>
-                                  {prazoResumo.deadlineSubmissao && prazoFormatado.display !== prazoResumo.display && (
+                                  {shouldShowPrazoInscricaoReferencia(edital?.prazo_inscricao, prazoResumo.display) && (
                                     <div className="text-xs text-gray-600">
                                       Referência (`prazo_inscricao`):{" "}
                                       <span className="font-medium text-gray-800">{prazoFormatado.display}</span>
@@ -820,7 +820,7 @@ export default function EditalDetails() {
                             return (
                               <div className="space-y-2">
                                 <div className="font-bold text-lg">{prazoResumo.display}</div>
-                                {prazoResumo.deadlineSubmissao && prazoFormatado.display !== prazoResumo.display && (
+                                {shouldShowPrazoInscricaoReferencia(edital?.prazo_inscricao, prazoResumo.display) && (
                                   <div className="text-xs text-gray-600">
                                     Referência (`prazo_inscricao`):{" "}
                                     <span className="font-medium text-gray-800">{prazoFormatado.display}</span>

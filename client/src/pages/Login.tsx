@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserProfile } from "@/lib/userProfile";
+import { getUserProfile, resolvePostLoginPath } from "@/lib/userProfile";
 import { Spinner } from "@/components/ui/spinner";
 import Header from "@/components/Header";
 import { Eye, EyeOff, Mail } from "lucide-react";
@@ -62,25 +62,17 @@ export default function Login() {
   // Redirect if already logged in (usa perfil do banco para saber se onboarding foi concluído)
   useEffect(() => {
     if (!user) return;
-    const redirect = sessionStorage.getItem("loginRedirect");
-    if (redirect) {
-      sessionStorage.removeItem("loginRedirect");
-      setLocation(redirect);
-      return;
-    }
     let cancelled = false;
-    getUserProfile(user)
-      .then((profile) => {
-        if (cancelled) return;
-        setLocation(profile?.onboardingCompleted ? "/dashboard" : "/onboarding?new=1");
+    resolvePostLoginPath(user)
+      .then((path) => {
+        if (!cancelled) setLocation(path);
       })
-      .catch((err) => {
-        if (!cancelled) {
-          console.warn("Erro ao buscar perfil para redirecionamento:", err);
-          setLocation("/onboarding?new=1");
-        }
+      .catch(() => {
+        if (!cancelled) setLocation("/onboarding?new=1");
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,7 +81,9 @@ export default function Login() {
 
     setNeedsEmailConfirmation(false);
     try {
-      await signIn(email, password);
+      const loggedInUser = await signIn(email, password);
+      const path = await resolvePostLoginPath(loggedInUser);
+      setLocation(path);
     } catch (error: unknown) {
       const e = error as { code?: string; message?: string };
       const code = String(e?.code ?? "").toLowerCase();

@@ -27,6 +27,12 @@ export default defineConfig({
     port: 3000,
     strictPort: false,
     host: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+    },
     allowedHosts: [
       ".manuspre.computer",
       ".manus.computer",

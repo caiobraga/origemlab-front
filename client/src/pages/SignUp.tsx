@@ -41,7 +41,7 @@ export default function SignUp() {
   const [dataCollectionConsent, setDataCollectionConsent] = useState(false);
   
   const [loading, setLoading] = useState(false);
-  const { signUp, user } = useAuth();
+  const { signUp, user, signIn } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const [location] = useLocation();
 
@@ -222,6 +222,11 @@ export default function SignUp() {
       
       // Com "Confirm email" ativo no Supabase não há session até confirmar — ir ao login com aviso
       if (signUpData.session) {
+        try {
+          await signIn(email, password);
+        } catch (signInError) {
+          console.warn("Login no backend após cadastro:", signInError);
+        }
         setLocation("/onboarding?new=1");
       } else {
         setLocation(

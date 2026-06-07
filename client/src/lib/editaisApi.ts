@@ -4,6 +4,7 @@ import { LattesData } from "./externalAPIs";
 import { fetchCNPJData, CNPJData } from "./externalAPIs";
 import { fetchCPFData, CPFData } from "./externalAPIs";
 import { apiFetch } from "./backendApi";
+import type { EntitlementsPayload } from "./subscriptionEntitlements";
 
 export interface DatabaseEdital {
   id: string;
@@ -39,17 +40,46 @@ export interface EditalIndicacao {
   gerado_em: string;
 }
 
+export type EditaisListResponse = {
+  rows: DatabaseEdital[];
+  entitlements?: EntitlementsPayload;
+  count?: number;
+  catalog_locked_count?: number;
+};
+
 /**
- * Busca editais do Supabase com paginação opcional
+ * Busca editais do catálogo via API (com entitlements de plano).
  */
 export async function fetchEditaisFromSupabase(options?: {
   limit?: number;
   offset?: number;
-}): Promise<DatabaseEdital[]> {
+}): Promise<EditaisListResponse> {
   const limit = options?.limit ?? 50;
   const offset = options?.offset ?? 0;
-  const out = await apiFetch<{ rows: DatabaseEdital[] }>("/api/editais?limit=" + encodeURIComponent(String(limit)) + "&offset=" + encodeURIComponent(String(offset)), { method: "GET" });
-  return out.rows || [];
+  const out = await apiFetch<{
+    rows: DatabaseEdital[];
+    entitlements?: EntitlementsPayload;
+    count?: number;
+    catalog_locked_count?: number;
+  }>(
+    "/api/editais?limit=" + encodeURIComponent(String(limit)) + "&offset=" + encodeURIComponent(String(offset)),
+    { method: "GET" },
+  );
+  return {
+    rows: out.rows || [],
+    entitlements: out.entitlements,
+    count: out.count,
+    catalog_locked_count: out.catalog_locked_count,
+  };
+}
+
+export async function fetchEditalById(editalId: string): Promise<{ row: DatabaseEdital; entitlements?: EntitlementsPayload }> {
+  const out = await apiFetch<{ row: DatabaseEdital; entitlements?: EntitlementsPayload }>(
+    `/api/editais/${encodeURIComponent(editalId)}`,
+    { method: "GET" },
+  );
+  if (!out?.row) throw new Error("Edital não encontrado");
+  return out;
 }
 
 /**
@@ -106,12 +136,13 @@ export async function fetchEditaisStatsForOnboarding(area?: string): Promise<{
 }> {
   try {
     const editais = await fetchEditaisFromSupabase();
+    const rows = editais.rows;
     const hoje = new Date();
 
     const termos = area ? AREA_FILTER_MAP[area] || [] : [];
     const naArea = termos.length === 0
-      ? editais
-      : editais.filter((e) => {
+      ? rows
+      : rows.filter((e) => {
           const areaText = (e.area || e.descricao || "").toLowerCase();
           return termos.some((t) => areaText.includes(t));
         });
@@ -134,7 +165,7 @@ export async function fetchEditaisStatsForOnboarding(area?: string): Promise<{
     const prazoMedioDias = prazos.length > 0 ? Math.round(prazos.reduce((a, b) => a + b, 0) / prazos.length) : 30;
 
     return {
-      total: editais.length,
+      total: rows.length,
       naArea: naArea.length,
       valorTotal,
       prazoMedioDias,

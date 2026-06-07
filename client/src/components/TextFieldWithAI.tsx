@@ -20,6 +20,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { analyzeField } from "@/lib/analyzeFieldApi";
+import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
+import UpgradePlanBanner from "@/components/UpgradePlanBanner";
+import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import {
   groundFieldWithReferences,
   fieldSuggestsScientificGrounding,
@@ -71,6 +74,7 @@ export default function TextFieldWithAI({
   placeholder,
   className,
 }: TextFieldWithAIProps) {
+  const { proFeatures } = useSubscriptionEntitlements();
   const [isImproving, setIsImproving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -101,7 +105,14 @@ export default function TextFieldWithAI({
   const showGroundingAction = suggestsGrounding || needsScientificGrounding;
   const minFieldHeightPx = useMemo(() => Math.max(120, rows * 24), [rows]);
 
+  const guardProAi = () => {
+    if (proFeatures) return true;
+    toast.error(subscriptionUpgradeMessage("ai_proposal"));
+    return false;
+  };
+
   const handleImprove = async () => {
+    if (!guardProAi()) return;
     if (isEmpty) {
       toast.error("O campo deve ter algum conteúdo para ser melhorado");
       return;
@@ -140,6 +151,7 @@ export default function TextFieldWithAI({
   };
 
   const handleGenerateFromScratch = async () => {
+    if (!guardProAi()) return;
     if (!canImprove) {
       toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
       return;
@@ -219,6 +231,7 @@ export default function TextFieldWithAI({
   };
 
   const handleImproveSelection = async () => {
+    if (!guardProAi()) return;
     if (showPreview) {
       toast.error("Troque para edição para melhorar um trecho selecionado.");
       return;
@@ -273,6 +286,7 @@ export default function TextFieldWithAI({
   };
 
   const handleAnalyze = async () => {
+    if (!guardProAi()) return;
     if (!canImprove) {
       toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
       return;
@@ -350,6 +364,7 @@ export default function TextFieldWithAI({
   };
 
   const handleGroundWithReferences = async () => {
+    if (!guardProAi()) return;
     if (!canImprove) {
       toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
       return;
@@ -391,6 +406,7 @@ export default function TextFieldWithAI({
   };
 
   const handleRegenerateUsingAnalysis = () => {
+    if (!guardProAi()) return;
     if (!analysisMarkdown.trim()) {
       toast.error("Rode a análise antes de refazer com base nela.");
       return;
@@ -571,6 +587,10 @@ export default function TextFieldWithAI({
           placeholder={placeholder}
           className={cn(isOverLimit && "border-red-500 focus-visible:border-red-500")}
         />
+      )}
+
+      {!proFeatures && (
+        <UpgradePlanBanner compact message={subscriptionUpgradeMessage("ai_proposal")} />
       )}
 
       {!showPreview && (

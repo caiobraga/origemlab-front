@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchEditaisFromSupabase,
+  type EditaisListResponse,
 } from "@/lib/editaisApi";
 
 /** Quantidade de editais na primeira carga (acelera muito o carregamento) */
@@ -13,7 +14,7 @@ const LIST_LIMIT = 250;
 export function useEditaisList(userId: string | undefined) {
   return useQuery({
     queryKey: ["editais-list", userId],
-    queryFn: () => fetchEditaisFromSupabase({ limit: LIST_LIMIT, offset: 0 }),
+    queryFn: (): Promise<EditaisListResponse> => fetchEditaisFromSupabase({ limit: LIST_LIMIT, offset: 0 }),
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,  // 5 min
     cacheTime: 10 * 60 * 1000, // 10 min

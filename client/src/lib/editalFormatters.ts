@@ -2,6 +2,13 @@
  * Funções utilitárias para formatar e normalizar dados de editais
  */
 
+import {
+  extractBRLAmountsFromText,
+  formatValorPlainTextForDisplay,
+  parseBrazilianMoneyToken,
+} from "./editalValorExtract";
+import { normalizePrazoInscricaoPlainText } from "./editalPrazoNormalize";
+
 export interface FormattedValor {
   display: string;
   details?: string[];
@@ -54,8 +61,13 @@ export function formatValorProjeto(
     } else if (typeof valor_projeto === 'object') {
       parsed = valor_projeto;
     } else {
-      const { text, truncated } = truncateValorLine(valor_projeto);
-      return { display: text || valor_projeto, truncated };
+      const formatted = formatValorPlainTextForDisplay(String(valor_projeto));
+      const { text, truncated } = truncateValorLine(formatted.display);
+      return {
+        display: text || valor_projeto,
+        truncated,
+        details: formatted.details?.map((d) => truncateValorLine(d).text),
+      };
     }
 
     // Filtrar valores null - se for {"valor": null} ou {"valor": null} em qualquer formato
@@ -109,8 +121,8 @@ export function formatValorProjeto(
         
         // Se houver múltiplos valores, mostrar o maior e listar os outros
         const valoresNumericos = valoresFormatados.map((v: string) => {
-          const numStr = v.replace(/[^\d,]/g, '').replace(',', '.');
-          return { original: v, numeric: parseFloat(numStr) || 0 };
+          const numeric = extractBRLAmountsFromText(v)[0] ?? parseBrazilianMoneyToken(v.replace(/r\s*\$\s*/i, "")) ?? 0;
+          return { original: v, numeric };
         }).sort((a: { original: string; numeric: number }, b: { original: string; numeric: number }) => b.numeric - a.numeric);
         
         const main = truncateValorLine(valoresNumericos[0].original);
@@ -248,8 +260,11 @@ export function formatPrazoInscricao(prazo_inscricao: string | null | undefined)
     } else if (typeof prazo_inscricao === 'object') {
       parsed = prazo_inscricao;
     } else {
-      // Se for string simples, retornar como está
-      return { display: prazo_inscricao };
+      const normalized = normalizePrazoInscricaoPlainText(String(prazo_inscricao));
+      return {
+        display: normalized.display,
+        details: normalized.original ? [normalized.original] : undefined,
+      };
     }
 
     // Se for objeto com chave "prazos" que é array
@@ -337,8 +352,11 @@ export function formatPrazoInscricao(prazo_inscricao: string | null | undefined)
     // Se não conseguiu extrair, retornar string do JSON
     return { display: JSON.stringify(parsed) };
   } catch (e) {
-    // Se não for JSON válido, retornar como string simples
-    return { display: prazo_inscricao };
+    const normalized = normalizePrazoInscricaoPlainText(String(prazo_inscricao ?? ""));
+    return {
+      display: normalized.display,
+      details: normalized.original ? [normalized.original] : undefined,
+    };
   }
 }
 
