@@ -13,7 +13,13 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import { canAccessEditalCatalog, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
+import { buildLockedPreviewEditais, CatalogLockedEditalCard } from "@/components/CatalogLockedBlurSection";
 import { toast } from "sonner";
+
+/** Quantos editais reais exibir na home — amostra para despertar interesse, não o catálogo inteiro. */
+const HOME_EDITAIS_PREVIEW = 3;
+/** Cards borrados extras para sugerir volume do catálogo. */
+const HOME_LOCKED_TEASER_COUNT = 3;
 
 interface EditalDisplay {
   id: string;
@@ -29,15 +35,19 @@ interface EditalDisplay {
   is_company: boolean | null;
 }
 
-type FilterType = "todos" | "alta-aderencia" | "prazo-proximo" | "alto-valor";
+type FilterType = "destaques" | "alta-aderencia" | "prazo-proximo" | "alto-valor";
 
 export default function IntelligentPanel() {
   const [editais, setEditais] = useState<EditalDisplay[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("todos");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("destaques");
   const { user } = useAuth();
   const { entitlements, proFeatures } = useSubscriptionEntitlements();
   const [, setLocation] = useLocation();
+
+  const anonymousPreview = buildLockedPreviewEditais(HOME_EDITAIS_PREVIEW);
+  const lockedTeaserCards = buildLockedPreviewEditais(HOME_LOCKED_TEASER_COUNT);
 
   useEffect(() => {
     void loadEditais();
@@ -46,17 +56,20 @@ export default function IntelligentPanel() {
   const loadEditais = async () => {
     if (!user) {
       setEditais([]);
+      setCatalogTotal(null);
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const { rows } = await fetchEditaisFromSupabase({ limit: 50, offset: 0 });
+      const { rows, count } = await fetchEditaisFromSupabase({ limit: 24, offset: 0 });
       setEditais((rows || []) as EditalDisplay[]);
+      setCatalogTotal(typeof count === "number" ? count : rows?.length ?? null);
     } catch (error) {
       console.error("Erro ao carregar editais:", error);
       setEditais([]);
+      setCatalogTotal(null);
     } finally {
       setLoading(false);
     }
@@ -67,9 +80,9 @@ export default function IntelligentPanel() {
 
     switch (activeFilter) {
       case "alta-aderencia":
-        filtered = filtered
-          .filter(e => e.descricao && e.valor_projeto && e.prazo_inscricao)
-          .slice(0, 5);
+        filtered = filtered.filter(
+          (e) => e.descricao && e.valor_projeto && e.prazo_inscricao,
+        );
         break;
 
       case "prazo-proximo": {
@@ -122,25 +135,27 @@ export default function IntelligentPanel() {
             return dataFim >= hoje && dataFim <= em120Dias;
           })
           .sort((a, b) => (a.dataFim?.getTime() || 0) - (b.dataFim?.getTime() || 0))
-          .map(({ edital }) => edital)
-          .slice(0, 5);
+          .map(({ edital }) => edital);
         break;
       }
 
       case "alto-valor":
-        filtered = filtered
-          .filter(e => e.valor_projeto)
-          .slice(0, 5);
+        filtered = filtered.filter((e) => e.valor_projeto);
         break;
 
+      case "destaques":
       default:
         break;
     }
 
-    return filtered;
+    return filtered.slice(0, HOME_EDITAIS_PREVIEW);
   };
 
   const filteredEditais = getFilteredEditais();
+  const hiddenCatalogCount =
+    catalogTotal != null
+      ? Math.max(0, catalogTotal - HOME_EDITAIS_PREVIEW)
+      : HOME_LOCKED_TEASER_COUNT;
 
   const handleOpenEdital = (editalId: string) => {
     if (!user) {
@@ -167,30 +182,75 @@ export default function IntelligentPanel() {
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             Editais apresentados com critérios claros de relevância
           </h2>
-          {!user && (
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Faça login para explorar o catálogo de editais.
-            </p>
-          )}
-          {user && !proFeatures && (
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Plano gratuito: navegue por páginas e abra qualquer edital. Assine o Pro para o catálogo completo sem blur.
-            </p>
-          )}
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            {!user
+              ? "Uma amostra das oportunidades monitoradas pela OrigemLab. Crie sua conta gratuita para ver editais compatíveis com o seu perfil e receber indicações personalizadas."
+              : user && !proFeatures
+                ? "Amostra em destaque do catálogo. Acesse o painel para explorar todas as oportunidades e indicações para o seu perfil."
+                : "Amostra em destaque. Acesse o painel para o catálogo completo com filtros e indicações por IA."}
+          </p>
         </div>
 
         {!user ? (
-          <div className="text-center py-12">
-            <Button asChild size="lg">
-              <Link href="/login">Entrar para ver editais</Link>
-            </Button>
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+              {anonymousPreview.map((edital) => (
+                <Link
+                  key={edital.id}
+                  href="/cadastro"
+                  className="group relative flex min-h-[20rem] flex-col overflow-hidden rounded-md border border-[color:var(--institutional-line)] bg-white p-6 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <div className="flex flex-1 flex-col blur-[4px]" aria-hidden="true">
+                    <h3 className="text-lg font-bold text-gray-900 line-clamp-2 mb-2">{edital.titulo}</h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+                      <Building2 className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium">{edital.orgao}</span>
+                    </div>
+                    <div className="mt-auto space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-gray-400" />
+                        <span className="font-semibold text-gray-900">{edital.valor}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-gray-400" />
+                        <span>{edital.area}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/60 px-4 text-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary shadow-sm">
+                      <Lock className="h-4 w-4 text-primary" aria-hidden="true" />
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">Cadastre-se para ver detalhes</span>
+                    <span className="text-xs text-gray-600">Conta gratuita · editais filtrados ao seu perfil</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="mt-10 max-w-2xl mx-auto text-center space-y-4">
+              <p className="text-sm text-gray-600">
+                + centenas de editais de fomento monitorados continuamente — pesquisadores, empresas e instituições.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button asChild size="lg">
+                  <Link href="/cadastro">
+                    Criar conta gratuita
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/login">Já tenho conta</Link>
+                </Button>
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               {(
                 [
-                  { key: "todos" as const, label: "Todos os editais", icon: null },
+                  { key: "destaques" as const, label: "Em destaque", icon: Sparkles },
                   { key: "alta-aderencia" as const, label: "Alta aderência", icon: TrendingUp },
                   { key: "prazo-proximo" as const, label: "Prazo próximo", icon: Clock },
                   { key: "alto-valor" as const, label: "Alto valor", icon: DollarSign },
@@ -313,16 +373,35 @@ export default function IntelligentPanel() {
               </div>
             )}
 
-            {!proFeatures && (
-              <div className="text-center mt-10">
-                <Button asChild variant="attention">
-                  <Link href="/planos">
-                    Ver planos Pro
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
-                </Button>
+            {filteredEditais.length > 0 && hiddenCatalogCount > 0 && (
+              <div className="mt-8 max-w-7xl mx-auto">
+                <p className="text-center text-sm font-medium text-gray-700 mb-4">
+                  +{hiddenCatalogCount} edital{hiddenCatalogCount === 1 ? "" : "is"} no catálogo completo
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {lockedTeaserCards.map((edital) => (
+                    <CatalogLockedEditalCard key={edital.id} edital={edital} />
+                  ))}
+                </div>
               </div>
             )}
+
+            <div className="text-center mt-10 space-y-3">
+              <Button asChild size="lg">
+                <Link href="/dashboard">
+                  Ir ao painel
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+              {!proFeatures && (
+                <p className="text-sm text-gray-600">
+                  Quer o catálogo completo sem limites?{" "}
+                  <Link href="/planos" className="font-semibold text-primary hover:underline">
+                    Conheça o plano Pro
+                  </Link>
+                </p>
+              )}
+            </div>
           </>
         )}
       </div>
