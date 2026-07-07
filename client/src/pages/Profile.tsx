@@ -26,7 +26,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { createBillingPortalSession, createCheckoutSession } from "@/lib/stripeBilling";
+import { createBillingPortalSession, createCheckoutSession, syncSubscriptionFromStripe } from "@/lib/stripeBilling";
 
 const AREA_LABELS: Record<string, string> = {
   tech: "Tecnologia",
@@ -61,6 +61,7 @@ export default function Profile() {
   const [loadingCPF, setLoadingCPF] = useState(false);
   const [importingPdf, setImportingPdf] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState<"pro" | "empresas" | null>(null);
   const hasRefetched = useRef(false);
 
@@ -104,6 +105,29 @@ export default function Profile() {
     if (!hasRefetched.current) {
       hasRefetched.current = true;
       refetch();
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      void (async () => {
+        try {
+          const out = await syncSubscriptionFromStripe();
+          await refetch();
+          toast.success(
+            out.plan_key === "empresas"
+              ? "Plano Empresas ativado!"
+              : out.plan_key === "pro"
+                ? "Plano Pro ativado!"
+                : "Assinatura sincronizada!",
+          );
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Erro ao sincronizar assinatura.");
+        } finally {
+          params.delete("checkout");
+          const qs = params.toString();
+          window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+        }
+      })();
     }
   }, [user, authLoading, setLocation, refetch]);
 
@@ -346,6 +370,40 @@ export default function Profile() {
                     )}
                   </Button>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600"
+                  disabled={syncLoading}
+                  onClick={async () => {
+                    setSyncLoading(true);
+                    try {
+                      const out = await syncSubscriptionFromStripe();
+                      await refetch();
+                      toast.success(
+                        out.plan_key === "empresas"
+                          ? "Plano Empresas sincronizado!"
+                          : out.plan_key === "pro"
+                            ? "Plano Pro sincronizado!"
+                            : "Assinatura sincronizada.",
+                      );
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Erro ao sincronizar assinatura.");
+                    } finally {
+                      setSyncLoading(false);
+                    }
+                  }}
+                >
+                  {syncLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sincronizando…
+                    </>
+                  ) : (
+                    "Sincronizar assinatura com Stripe"
+                  )}
+                </Button>
               </>
             ) : (
               <div className="space-y-2 text-sm">

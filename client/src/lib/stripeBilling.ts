@@ -59,3 +59,32 @@ export async function createBillingPortalSession(): Promise<string> {
   }
   return data.url;
 }
+
+export async function syncSubscriptionFromStripe(): Promise<{
+  ok: boolean;
+  plan_key?: string | null;
+}> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error("Faça login para sincronizar a assinatura.");
+  }
+
+  const res = await fetch(apiUrl("/api/stripe/sync-subscription"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    plan_key?: string | null;
+    error?: string;
+  };
+  if (!res.ok) {
+    throw new Error(data.error || "Não foi possível sincronizar a assinatura.");
+  }
+  return { ok: Boolean(data.ok), plan_key: data.plan_key };
+}

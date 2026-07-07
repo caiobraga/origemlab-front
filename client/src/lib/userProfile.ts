@@ -207,6 +207,25 @@ export async function resolvePostLoginPath(user: SessionUser): Promise<string> {
 /**
  * Extrai o perfil do usuário atual (tabela profiles via API ou Supabase).
  */
+function mergeSubscriptionFromAuthMetadata(
+  profile: UserProfile,
+  user?: { user_metadata?: Record<string, unknown> } | null,
+): UserProfile {
+  const sub = user?.user_metadata?.subscription;
+  if (!sub || typeof sub !== "object") return profile;
+  const s = sub as Record<string, unknown>;
+  return {
+    ...profile,
+    stripeCustomerId: profile.stripeCustomerId ?? (s.stripe_customer_id as string | undefined),
+    stripeSubscriptionId: profile.stripeSubscriptionId ?? (s.stripe_subscription_id as string | undefined),
+    subscriptionStatus: profile.subscriptionStatus ?? (s.subscription_status as string | undefined),
+    subscriptionPlanKey: profile.subscriptionPlanKey ?? (s.subscription_plan_key as string | undefined),
+    subscriptionPriceId: profile.subscriptionPriceId ?? (s.subscription_price_id as string | undefined),
+    subscriptionCurrentPeriodEnd:
+      profile.subscriptionCurrentPeriodEnd ?? (s.subscription_current_period_end as string | undefined),
+  };
+}
+
 export async function getUserProfile(user: SessionUser | null): Promise<UserProfile | null> {
   if (!user) return null;
   try {
@@ -214,12 +233,17 @@ export async function getUserProfile(user: SessionUser | null): Promise<UserProf
     const profile = out.row;
     if (!profile) return getProfileFromSupabase(user.id);
     const mapped = mapProfileRow(profile, out.entitlements);
+    const { data: authData } = await supabase.auth.getUser();
+    const merged = mergeSubscriptionFromAuthMetadata(mapped, authData.user);
     return {
-      ...mapped,
-      entitlements: out.entitlements ?? resolveEntitlementsFromProfile(mapped),
+      ...merged,
+      entitlements: out.entitlements ?? resolveEntitlementsFromProfile(merged),
     };
   } catch {
-    return getProfileFromSupabase(user.id);
+    const fromDb = await getProfileFromSupabase(user.id);
+    if (!fromDb) return null;
+    const { data: authData } = await supabase.auth.getUser();
+    return mergeSubscriptionFromAuthMetadata(fromDb, authData.user);
   }
 }
 
