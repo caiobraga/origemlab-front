@@ -167,7 +167,11 @@ export default function TextFieldWithAI({
 
     setIsGenerating(true);
     const toastId = `gerar-campo-${id}`;
-    toast.loading("Gerando texto com IA… pode levar até 2 minutos.", { id: toastId });
+    const waitHint =
+      wordLimit && wordLimit >= 600
+        ? "Campos longos podem levar até 5 minutos."
+        : "Pode levar até 2 minutos.";
+    toast.loading(`Gerando texto com IA… ${waitHint}`, { id: toastId });
     try {
       const generated = await generateFieldText({
         edital_id: editalId,
