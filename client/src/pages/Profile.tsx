@@ -413,6 +413,31 @@ export default function Profile() {
                 <p className="text-gray-600">
                   Você está no plano gratuito. Assine o Pro ou Empresas para desbloquear todos os recursos.
                 </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 px-0 h-auto"
+                  disabled={syncLoading}
+                  onClick={async () => {
+                    setSyncLoading(true);
+                    try {
+                      const out = await syncSubscriptionFromStripe();
+                      await refetch();
+                      if (out.plan_key) {
+                        toast.success("Assinatura encontrada e sincronizada!");
+                      } else {
+                        toast.info("Nenhuma assinatura ativa encontrada no Stripe.");
+                      }
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Erro ao sincronizar assinatura.");
+                    } finally {
+                      setSyncLoading(false);
+                    }
+                  }}
+                >
+                  {syncLoading ? "Sincronizando assinatura…" : "Já assinei? Sincronizar com Stripe"}
+                </Button>
               </div>
             )}
             <div className="pt-2">

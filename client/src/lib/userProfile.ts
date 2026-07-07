@@ -36,9 +36,11 @@ async function getProfileFromSupabase(userId: string): Promise<UserProfile | nul
   const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
   if (error || !data) return null;
   const mapped = mapProfileRow(data as Record<string, any>);
+  const { data: authData } = await supabase.auth.getUser();
+  const merged = mergeSubscriptionFromAuthMetadata(mapped, authData.user);
   return {
-    ...mapped,
-    entitlements: resolveEntitlementsFromProfile(mapped),
+    ...merged,
+    entitlements: resolveEntitlementsFromProfile(merged),
   };
 }
 
