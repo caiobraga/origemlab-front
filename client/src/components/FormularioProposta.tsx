@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { type PropostaFormData, FORM_OPTIONS } from "@/lib/propostaFormFields";
 import { Plus, Trash2 } from "lucide-react";
 import TextFieldWithAI from "./TextFieldWithAI";
+import { WordLimitedTextarea } from "./WordLimitedTextarea";
+import { PROPOSTA_WORD_LIMITS as WL } from "@/lib/propostaWordLimits";
 
 interface FormularioPropostaProps {
   data: PropostaFormData;
@@ -484,7 +485,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   )
                 }
                 rows={4}
-                wordLimit={null}
+                wordLimit={WL.coordExperiencia}
                 fieldDescription="Informar as habilidades e competências necessárias do coordenador que assegurem a realização do projeto."
                 editalId={editalId}
                 propostaId={propostaId}
@@ -565,13 +566,14 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 <Label htmlFor="possui_outras_fontes">Possui Outras Fontes de Fomento?</Label>
               </div>
               {data.detalhamento_projeto.possui_outras_fontes_fomento && (
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Especificar outras fontes"
                   value={data.detalhamento_projeto.outras_fontes_fomento || ""}
                   onChange={(e) =>
                     updateNestedField("detalhamento_projeto", "outras_fontes_fomento", e.target.value)
                   }
                   rows={2}
+                  wordLimit={WL.outrasFontesFomento}
                   className="mt-2"
                 />
               )}
@@ -737,17 +739,23 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
             </div>
             {data.detalhamento_projeto.tipo_contribuicao_inovacao?.length > 0 &&
               !data.detalhamento_projeto.tipo_contribuicao_inovacao.includes("nao_se_aplica") && (
-                <Textarea
-                  placeholder="Caracterização da Contribuição/Inovação (até 1000 palavras)"
+                <TextFieldWithAI
+                  id="caracterizacao_contribuicao"
+                  label={`Caracterização da Contribuição/Inovação (até ${WL.caracterizacaoContribuicaoInovacao} palavras)`}
                   value={data.detalhamento_projeto.caracterizacao_contribuicao_inovacao || ""}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     updateNestedField(
                       "detalhamento_projeto",
                       "caracterizacao_contribuicao_inovacao",
-                      e.target.value
+                      value
                     )
                   }
                   rows={8}
+                  wordLimit={WL.caracterizacaoContribuicaoInovacao}
+                  fieldDescription="Caracterize a contribuição ou inovação do projeto conforme os tipos selecionados."
+                  editalId={editalId}
+                  propostaId={propostaId}
+                  allFormData={data}
                   className="mt-2"
                 />
               )}
@@ -763,7 +771,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 updateNestedField("detalhamento_projeto", "resumo_publicavel", value)
               }
               rows={6}
-              wordLimit={500}
+              wordLimit={WL.resumoPublicavel}
               fieldDescription="Resumo do projeto que será publicado pela FAPES. Deve conter objetivo geral, caminho percorrido para desenvolvimento e resultados esperados."
               editalId={editalId}
                 propostaId={propostaId}
@@ -791,7 +799,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 updateNestedField("detalhamento_projeto", "caracterizacao_problema", value)
               }
               rows={12}
-              wordLimit={2500}
+              wordLimit={WL.problemaCientifico}
               fieldDescription="Descreva o problema científico/tecnológico a ser abordado, contextualizando e justificando a importância da proposta com base em bibliografias científicas atualizadas."
               editalId={editalId}
                 propostaId={propostaId}
@@ -800,7 +808,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
 
             <TextFieldWithAI
               id="potencial_fortalecimento"
-              label="3.4. Potencial da Proposta para o Fortalecimento da Linha de Pesquisa"
+              label={`3.4. Potencial da Proposta para o Fortalecimento da Linha de Pesquisa (até ${WL.potencialFortalecimento} palavras)`}
               value={data.detalhamento_projeto.potencial_fortalecimento_linha_pesquisa || ""}
               onChange={(value) =>
                 updateNestedField(
@@ -810,7 +818,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 )
               }
               rows={6}
-              wordLimit={null}
+              wordLimit={WL.potencialFortalecimento}
               fieldDescription="Descreva a importância da realização dessa pesquisa em sua região e seu potencial para fortalecer a linha de pesquisa."
               editalId={editalId}
                 propostaId={propostaId}
@@ -825,7 +833,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 updateNestedField("detalhamento_projeto", "descricao_avancao_cti", value)
               }
               rows={8}
-              wordLimit={1000}
+              wordLimit={WL.descricaoAvancoCti}
               fieldDescription="Descreva o avanço científico, tecnológico ou inovação proporcionado pelo projeto."
               editalId={editalId}
                 propostaId={propostaId}
@@ -834,13 +842,13 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
 
             <TextFieldWithAI
               id="qualificacao_equipe"
-              label="3.6. Qualificação da Equipe do Projeto"
+              label="3.6. Qualificação da Equipe do Projeto (até 2000 palavras)"
               value={data.detalhamento_projeto.qualificacao_equipe || ""}
               onChange={(value) =>
                 updateNestedField("detalhamento_projeto", "qualificacao_equipe", value)
               }
               rows={6}
-              wordLimit={null}
+              wordLimit={WL.qualificacaoEquipe}
               fieldDescription="Relate a experiência e qualificação do coordenador/proponente e dos pesquisadores principais quanto à quantidade e regularidade da produção científica/tecnológica e formação de recursos humanos nos últimos 10 anos."
               editalId={editalId}
                 propostaId={propostaId}
@@ -855,7 +863,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 updateNestedField("detalhamento_projeto", "objetivo_geral", value)
               }
               rows={3}
-              wordLimit={100}
+              wordLimit={WL.objetivoGeral}
               fieldDescription="Descreva as aspirações amplas e abrangentes ou resultados desejados que fornecem direção e propósito ao projeto."
               editalId={editalId}
                 propostaId={propostaId}
@@ -881,7 +889,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-                  <Textarea
+                  <WordLimitedTextarea
                     placeholder="Descrição do objetivo específico"
                     value={obj.descricao || ""}
                     onChange={(e) => {
@@ -892,6 +900,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       updateNestedField("detalhamento_projeto", "objetivos_especificos", newObjetivos);
                     }}
                     rows={3}
+                    wordLimit={WL.objetivoEspecifico}
                   />
                   {/* Aqui podemos adicionar campos para entregas, responsáveis e cronograma depois */}
                 </div>
@@ -920,7 +929,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 updateNestedField("detalhamento_projeto", "detalhamento_projeto", value)
               }
               rows={12}
-              wordLimit={3000}
+              wordLimit={WL.detalhamentoProjeto}
               fieldDescription="Descreva de forma categorizada o trabalho que será executado no projeto, incluindo metodologia aplicada, etapas e entregas, gestão e conclusão do projeto."
               editalId={editalId}
                 propostaId={propostaId}
@@ -939,7 +948,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 )
               }
               rows={8}
-              wordLimit={1000}
+              wordLimit={WL.interdisciplinaridade}
               fieldDescription="Descreva a interdisciplinaridade/multidisciplinaridade do projeto, intercâmbio institucional/interinstitucional e possibilidade de parcerias estaduais, nacionais e internacionais."
               editalId={editalId}
                 propostaId={propostaId}
@@ -965,7 +974,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     )
                   }
                   rows={4}
-                  wordLimit={300}
+                  wordLimit={WL.publicoAlvo}
                   fieldDescription="Descreva o público-alvo para promoção, popularização e divulgação científica e tecnológica, considerando a necessidade de popularização da ciência."
                   editalId={editalId}
                 propostaId={propostaId}
@@ -989,7 +998,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     )
                   }
                   rows={8}
-                  wordLimit={1000}
+                  wordLimit={WL.estrategiasTraducao}
                   fieldDescription="Descreva as estratégias para comunicar e disseminar os resultados da pesquisa, incluindo adaptação da linguagem, desenvolvimento de materiais de apoio e capacitação."
                   editalId={editalId}
                 propostaId={propostaId}
@@ -997,7 +1006,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 />
                 <TextFieldWithAI
                   id="estrategias_disseminacao"
-                  label="3.10.3. Estratégias de Disseminação do Conhecimento"
+                  label={`3.10.3. Estratégias de Disseminação do Conhecimento (até ${WL.estrategiasDisseminacao} palavras)`}
                   value={
                     data.detalhamento_projeto.promocao_popularizacao
                       ?.estrategias_disseminacao_conhecimento || ""
@@ -1013,7 +1022,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     )
                   }
                   rows={8}
-                  wordLimit={null}
+                  wordLimit={WL.estrategiasDisseminacao}
                   fieldDescription="Descreva as estratégias de disseminação do conhecimento, incluindo canais de comunicação, parcerias, eventos, workshops e plataformas online."
                   editalId={editalId}
                 propostaId={propostaId}
@@ -1034,7 +1043,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                 )
               }
               rows={8}
-              wordLimit={1000}
+              wordLimit={WL.beneficiosResultados}
               fieldDescription="Detalhe os benefícios e resultados esperados com o desenvolvimento do projeto, promovendo o desenvolvimento socioeconômico e ambiental local. Inclua produtos científicos, formação de recursos humanos, tecnologias e patentes."
               editalId={editalId}
                 propostaId={propostaId}
@@ -1046,8 +1055,8 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
               <h3 className="font-semibold text-gray-900">3.12. Impactos Esperados</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="impacto_cientifico">Impacto Científico</Label>
-                  <Textarea
+                  <Label htmlFor="impacto_cientifico">Impacto Científico (até {WL.impactoCampo} palavras)</Label>
+                  <WordLimitedTextarea
                     id="impacto_cientifico"
                     value={data.detalhamento_projeto.impactos_esperados?.impacto_cientifico || ""}
                     onChange={(e) =>
@@ -1061,11 +1070,12 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       )
                     }
                     rows={4}
+                    wordLimit={WL.impactoCampo}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="impacto_tecnologico">Impacto Tecnológico</Label>
-                  <Textarea
+                  <Label htmlFor="impacto_tecnologico">Impacto Tecnológico (até {WL.impactoCampo} palavras)</Label>
+                  <WordLimitedTextarea
                     id="impacto_tecnologico"
                     value={data.detalhamento_projeto.impactos_esperados?.impacto_tecnologico || ""}
                     onChange={(e) =>
@@ -1079,11 +1089,12 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       )
                     }
                     rows={4}
+                    wordLimit={WL.impactoCampo}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="impacto_economico">Impacto Econômico</Label>
-                  <Textarea
+                  <Label htmlFor="impacto_economico">Impacto Econômico (até {WL.impactoCampo} palavras)</Label>
+                  <WordLimitedTextarea
                     id="impacto_economico"
                     value={data.detalhamento_projeto.impactos_esperados?.impacto_economico || ""}
                     onChange={(e) =>
@@ -1097,11 +1108,12 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       )
                     }
                     rows={4}
+                    wordLimit={WL.impactoCampo}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="impacto_social">Impacto Social e Ambiental</Label>
-                  <Textarea
+                  <Label htmlFor="impacto_social">Impacto Social e Ambiental (até {WL.impactoCampo} palavras)</Label>
+                  <WordLimitedTextarea
                     id="impacto_social"
                     value={
                       data.detalhamento_projeto.impactos_esperados?.impacto_social_ambiental || ""
@@ -1117,6 +1129,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       )
                     }
                     rows={4}
+                    wordLimit={WL.impactoCampo}
                   />
                 </div>
               </div>
@@ -1321,7 +1334,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       }}
                     />
                   </div>
-                  <Textarea
+                  <WordLimitedTextarea
                     placeholder="Estratégia de Mitigação"
                     value={risco.estrategia_mitigacao || ""}
                     onChange={(e) => {
@@ -1330,6 +1343,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                       updateNestedField("detalhamento_projeto", "riscos_mitigacao", newRiscos);
                     }}
                     rows={3}
+                    wordLimit={WL.estrategiaMitigacao}
                   />
                 </div>
               ))}
@@ -1349,33 +1363,35 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
               </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="infraestrutura">
-                3.15. Infraestrutura e Apoio Técnico (até 1000 palavras)
-              </Label>
-              <Textarea
-                id="infraestrutura"
-                value={data.detalhamento_projeto.infraestrutura_apoio_tecnico || ""}
-                onChange={(e) =>
-                  updateNestedField(
-                    "detalhamento_projeto",
-                    "infraestrutura_apoio_tecnico",
-                    e.target.value
-                  )
-                }
-                rows={8}
-              />
-            </div>
+            <TextFieldWithAI
+              id="infraestrutura"
+              label={`3.15. Infraestrutura e Apoio Técnico (até ${WL.infraestruturaApoio} palavras)`}
+              value={data.detalhamento_projeto.infraestrutura_apoio_tecnico || ""}
+              onChange={(value) =>
+                updateNestedField(
+                  "detalhamento_projeto",
+                  "infraestrutura_apoio_tecnico",
+                  value
+                )
+              }
+              rows={8}
+              wordLimit={WL.infraestruturaApoio}
+              fieldDescription="Descreva a infraestrutura disponível e o apoio técnico necessário para a execução do projeto."
+              editalId={editalId}
+              propostaId={propostaId}
+              allFormData={data}
+            />
 
             <div className="space-y-2">
-              <Label htmlFor="referencias">3.16. Referências</Label>
-              <Textarea
+              <Label htmlFor="referencias">3.16. Referências (até {WL.referencias} palavras)</Label>
+              <WordLimitedTextarea
                 id="referencias"
                 value={data.detalhamento_projeto.referencias || ""}
                 onChange={(e) =>
                   updateNestedField("detalhamento_projeto", "referencias", e.target.value)
                 }
                 rows={6}
+                wordLimit={WL.referencias}
               />
             </div>
 
@@ -1469,7 +1485,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   }}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Responsabilidades"
                   value={membro.responsabilidades || ""}
                   onChange={(e) => {
@@ -1478,9 +1494,10 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateField("equipe_projeto", newEquipe);
                   }}
                   rows={3}
+                  wordLimit={WL.equipeResponsabilidades}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Descrição do Currículo Vitae"
                   value={membro.descricao_curriculo || ""}
                   onChange={(e) => {
@@ -1489,6 +1506,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateField("equipe_projeto", newEquipe);
                   }}
                   rows={3}
+                  wordLimit={WL.equipeCurriculo}
                   className="col-span-2"
                 />
                 <Input
@@ -1575,7 +1593,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   }}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Justificativa"
                   value={item.justificativa || ""}
                   onChange={(e) => {
@@ -1584,6 +1602,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateNestedField("recursos_financeiros", "materiais_permanentes", newItems);
                   }}
                   rows={2}
+                  wordLimit={WL.justificativaDespesa}
                   className="col-span-2"
                 />
                 <Input
@@ -1688,7 +1707,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   }}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Justificativa"
                   value={item.justificativa || ""}
                   onChange={(e) => {
@@ -1697,6 +1716,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateNestedField("recursos_financeiros", "materiais_consumo", newItems);
                   }}
                   rows={2}
+                  wordLimit={WL.justificativaDespesa}
                   className="col-span-2"
                 />
                 <Input
@@ -1801,7 +1821,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   }}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Justificativa"
                   value={item.justificativa || ""}
                   onChange={(e) => {
@@ -1810,6 +1830,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateNestedField("recursos_financeiros", "passagens_diarias", newItems);
                   }}
                   rows={2}
+                  wordLimit={WL.justificativaDespesa}
                   className="col-span-2"
                 />
                 <Input
@@ -1916,7 +1937,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   }}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Justificativa"
                   value={item.justificativa || ""}
                   onChange={(e) => {
@@ -1925,6 +1946,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateNestedField("recursos_financeiros", "servicos_terceiros", newItems);
                   }}
                   rows={2}
+                  wordLimit={WL.justificativaDespesa}
                   className="col-span-2"
                 />
                 <Input
@@ -2029,7 +2051,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                   }}
                   className="col-span-2"
                 />
-                <Textarea
+                <WordLimitedTextarea
                   placeholder="Justificativa"
                   value={item.justificativa || ""}
                   onChange={(e) => {
@@ -2038,6 +2060,7 @@ export default function FormularioProposta({ data, onChange, editalId, propostaI
                     updateNestedField("recursos_financeiros", "bolsas", newItems);
                   }}
                   rows={2}
+                  wordLimit={WL.justificativaDespesa}
                   className="col-span-2"
                 />
                 <Input

@@ -198,7 +198,9 @@ export default function TextFieldWithAI({
         wordLimit != null &&
         wordLimit >= 600;
       const msg = /timeout/i.test(raw)
-        ? "A IA demorou demais. Verifique se o Ollama está rodando (`ollama serve`) e tente de novo."
+        ? wordLimit && wordLimit >= 600
+          ? "A IA demorou demais para este campo longo. Tente novamente — se persistir, preencha parte do texto manualmente e use «Melhorar com IA»."
+          : "A IA demorou demais. Tente novamente em instantes."
         : looksLikeProxyTimeout
           ? "A conexão com a API foi interrompida antes da IA terminar (comum em campos longos). Tente novamente em instantes."
           : raw;
