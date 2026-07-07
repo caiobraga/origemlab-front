@@ -3,6 +3,8 @@ import { useUserProfile } from "./useUserProfile";
 import {
   type EntitlementsPayload,
   hasProFeatures,
+  canUsePropostas,
+  canUseAiProposal,
   resolveEntitlementsFromProfile,
 } from "@/lib/subscriptionEntitlements";
 
@@ -18,6 +20,8 @@ export function useSubscriptionEntitlements() {
     loading,
     entitlements,
     proFeatures: hasProFeatures(entitlements),
+    canUsePropostas: canUsePropostas(entitlements),
+    canUseAiProposal: canUseAiProposal(entitlements),
     tier: entitlements.tier,
     planName: entitlements.plan_name,
   };

@@ -1,6 +1,6 @@
 import { apiFetch } from "./backendApi";
 import { supabase } from "./supabase";
-import type { EntitlementsPayload } from "./subscriptionEntitlements";
+import { type EntitlementsPayload, resolveEntitlementsFromProfile } from "./subscriptionEntitlements";
 import type { User } from "@supabase/supabase-js";
 type SessionUser = { id: string; user_metadata?: any } ;
 
@@ -35,7 +35,11 @@ function mapProfileRow(
 async function getProfileFromSupabase(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
   if (error || !data) return null;
-  return mapProfileRow(data as Record<string, any>);
+  const mapped = mapProfileRow(data as Record<string, any>);
+  return {
+    ...mapped,
+    entitlements: resolveEntitlementsFromProfile(mapped),
+  };
 }
 
 async function patchProfileWithFallback(userId: string, patch: Record<string, unknown>): Promise<void> {
@@ -209,7 +213,11 @@ export async function getUserProfile(user: SessionUser | null): Promise<UserProf
     const out = await apiFetch<{ row: any; entitlements?: EntitlementsPayload }>("/api/profile", { method: "GET" });
     const profile = out.row;
     if (!profile) return getProfileFromSupabase(user.id);
-    return mapProfileRow(profile, out.entitlements);
+    const mapped = mapProfileRow(profile, out.entitlements);
+    return {
+      ...mapped,
+      entitlements: out.entitlements ?? resolveEntitlementsFromProfile(mapped),
+    };
   } catch {
     return getProfileFromSupabase(user.id);
   }

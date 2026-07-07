@@ -24,7 +24,7 @@ interface PropostaDisplay extends Proposta {
 
 export default function MinhasPropostas() {
   const { user } = useAuth();
-  const { proFeatures } = useSubscriptionEntitlements();
+  const { canUsePropostas } = useSubscriptionEntitlements();
   const [, setLocation] = useLocation();
   const [filtroStatus, setFiltroStatus] = useState<StatusProposta | "todos">("todos");
   const [propostas, setPropostas] = useState<PropostaDisplay[]>([]);
@@ -103,7 +103,7 @@ export default function MinhasPropostas() {
   );
 
   const handleContinuarRedacao = (id: string) => {
-    if (!proFeatures) {
+    if (!canUsePropostas) {
       toast.error(subscriptionUpgradeMessage("propostas"));
       setLocation("/planos");
       return;

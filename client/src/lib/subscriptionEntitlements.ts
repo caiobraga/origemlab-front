@@ -51,28 +51,19 @@ export function hasProFeatures(entitlements?: EntitlementsPayload | null): boole
   return Boolean(entitlements?.pro_features);
 }
 
+export function canUsePropostas(entitlements?: EntitlementsPayload | null): boolean {
+  return Boolean(entitlements?.features?.propostas);
+}
+
+export function canUseAiProposal(entitlements?: EntitlementsPayload | null): boolean {
+  return Boolean(entitlements?.features?.ai_proposal);
+}
+
 export function resolveEntitlementsFromProfile(profile: {
   isAdmin?: boolean;
   subscriptionStatus?: string;
   subscriptionPlanKey?: string;
 } | null): EntitlementsPayload {
-  if (profile?.isAdmin) {
-    return {
-      tier: "institucional",
-      plan_name: "Institucional",
-      pro_features: true,
-      limits: { editais_per_month: null },
-      features: {
-        editais_catalog: true,
-        edital_chat: true,
-        ai_proposal: true,
-        propostas: true,
-        indicacoes: true,
-        dashboard_metrics: true,
-      },
-    };
-  }
-
   const status = profile?.subscriptionStatus || "";
   const activeLike = status === "active" || status === "trialing" || status === "past_due";
   const key = profile?.subscriptionPlanKey || "";
@@ -125,6 +116,8 @@ export function isSubscriptionError(error: unknown): error is Error & { message:
   return (
     error.message.includes("subscription_required") ||
     error.message.includes("subscription_limit") ||
-    error.message.includes("plano Pro")
+    error.message.includes("plano Pro") ||
+    error.message.includes("Assine em /planos") ||
+    error.message.includes("Assine o Pro")
   );
 }

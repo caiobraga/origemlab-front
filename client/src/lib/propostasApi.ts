@@ -1,5 +1,10 @@
 import { apiFetch } from "./backendApi";
 import { createEmptyPropostaForm, type PropostaFormData } from "./propostaFormFields";
+import {
+  canUsePropostas,
+  resolveEntitlementsFromProfile,
+  subscriptionUpgradeMessage,
+} from "./subscriptionEntitlements";
 
 export type StatusProposta = "rascunho" | "em_redacao" | "revisao" | "submetida" | "aprovada" | "rejeitada";
 
@@ -110,6 +115,11 @@ export async function gerarPropostaComIA(
   user: any,
   profile: any
 ): Promise<Proposta> {
+  const entitlements = profile?.entitlements ?? resolveEntitlementsFromProfile(profile);
+  if (!canUsePropostas(entitlements)) {
+    throw new Error(subscriptionUpgradeMessage("propostas"));
+  }
+
   try {
     // Verificar se já existe uma proposta para este edital (via backend)
     const all = await fetchPropostas(userId);

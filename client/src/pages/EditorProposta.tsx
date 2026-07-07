@@ -36,7 +36,7 @@ export default function EditorProposta() {
   const params = useParams();
   const propostaId = params.id || "";
   const { user } = useAuth();
-  const { proFeatures, loading: entitlementsLoading } = useSubscriptionEntitlements();
+  const { canUsePropostas, loading: entitlementsLoading } = useSubscriptionEntitlements();
 
   const [proposta, setProposta] = useState<Proposta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,7 +147,7 @@ export default function EditorProposta() {
   };
 
   const handleRefazerResumoProjeto = useCallback(async () => {
-    if (!proFeatures) {
+    if (!canUsePropostas) {
       toast.error(subscriptionUpgradeMessage("ai_proposal"));
       return;
     }
@@ -209,7 +209,7 @@ export default function EditorProposta() {
     } finally {
       setRefazendoResumo(false);
     }
-  }, [propostaId, proposta, isCNPq, refazendoResumo, proFeatures]);
+  }, [propostaId, proposta, isCNPq, refazendoResumo, canUsePropostas]);
 
   const handleSave = useCallback(async () => {
     if (!proposta || !user) return;
@@ -686,7 +686,7 @@ export default function EditorProposta() {
     );
   }
 
-  if (!proFeatures) {
+  if (!canUsePropostas) {
     return (
       <div className="min-h-screen bg-[color:var(--background)]">
         <div className="container max-w-2xl py-16">
@@ -806,7 +806,7 @@ export default function EditorProposta() {
                 type="button"
                 variant="outline"
                 onClick={handleRefazerResumoProjeto}
-                disabled={saving || refazendoResumo || !proFeatures}
+                disabled={saving || refazendoResumo || !canUsePropostas}
                 size="sm"
               >
                 {refazendoResumo ? (

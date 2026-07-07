@@ -16,7 +16,7 @@ import EditalChat from "@/components/EditalChat";
 import { supabase } from "@/lib/supabase";
 import { DatabaseEdital, fetchEditalById } from "@/lib/editaisApi";
 import UpgradePlanBanner from "@/components/UpgradePlanBanner";
-import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
+import { subscriptionUpgradeMessage, type EntitlementsPayload } from "@/lib/subscriptionEntitlements";
 import { formatValorProjeto, formatPrazoInscricao } from "@/lib/editalFormatters";
 import { getPrazoInscricaoDisplayPreferindoTimeline, shouldShowPrazoInscricaoReferencia } from "@/lib/editalSubmissionDeadline";
 import { normalizeJsonLikeToMarkdown } from "@/lib/editalRichText";
@@ -68,9 +68,13 @@ export default function EditalDetails() {
   const [loadingPdfs, setLoadingPdfs] = useState(true);
   const [linkCopiado, setLinkCopiado] = useState(false);
   const [gerandoProposta, setGerandoProposta] = useState(false);
+  const [pageEntitlements, setPageEntitlements] = useState<EntitlementsPayload | null>(null);
   const { user, loading: authLoading } = useAuth();
   const { profile, refetch: refetchProfile } = useUserProfile();
-  const { proFeatures } = useSubscriptionEntitlements();
+  const { entitlements: profileEntitlements, loading: entitlementsLoading } =
+    useSubscriptionEntitlements();
+  const entitlements = pageEntitlements ?? profileEntitlements;
+  const canGenerateProposta = entitlements.features.propostas;
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const scrollPositionKey = `scroll_edital_${editalId}`;
@@ -165,6 +169,7 @@ export default function EditalDetails() {
         const out = await fetchEditalById(editalId);
         setEdital(out.row as any);
         if (out.entitlements) {
+          setPageEntitlements(out.entitlements);
           void refetchProfile();
           void queryClient.invalidateQueries({ queryKey: ["editais-list"] });
         }
@@ -516,7 +521,8 @@ export default function EditalDetails() {
       toast.error("Faça login para gerar uma proposta");
       return;
     }
-    if (!proFeatures) {
+    if (entitlementsLoading) return;
+    if (!canGenerateProposta) {
       toast.error(subscriptionUpgradeMessage("propostas"));
       setLocation("/planos");
       return;
@@ -530,7 +536,7 @@ export default function EditalDetails() {
       toast.error("Faça login para gerar uma proposta");
       return;
     }
-    if (!proFeatures) {
+    if (!canGenerateProposta) {
       toast.error(subscriptionUpgradeMessage("propostas"));
       setLocation("/planos");
       return;
@@ -551,10 +557,11 @@ export default function EditalDetails() {
       setLocation(`/propostas/${proposta.id}`);
     } catch (error) {
       console.error("Erro ao criar proposta:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao criar proposta",
-        { id: "gerar-proposta" }
-      );
+      const msg = error instanceof Error ? error.message : "Erro ao criar proposta";
+      if (msg.includes("plano Pro") || msg.includes("subscription_required") || msg.includes("Assine")) {
+        setLocation("/planos");
+      }
+      toast.error(msg, { id: "gerar-proposta" });
     } finally {
       setGerandoProposta(false);
     }
@@ -596,7 +603,7 @@ export default function EditalDetails() {
               <Button 
                 className="bg-primary hover:bg-primary/90 hidden sm:flex"
                 onClick={handleGerarPropostaClick}
-                disabled={gerandoProposta || !user}
+                disabled={gerandoProposta || !user || entitlementsLoading}
                 size="sm"
               >
                 {gerandoProposta ? (
@@ -604,7 +611,7 @@ export default function EditalDetails() {
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Gerando...
                   </>
-                ) : proFeatures ? (
+                ) : canGenerateProposta ? (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
                     Gerar proposta
@@ -629,7 +636,7 @@ export default function EditalDetails() {
                 <Button 
                   className="bg-primary hover:bg-primary/90"
                   onClick={handleGerarPropostaClick}
-                  disabled={gerandoProposta || !user}
+                  disabled={gerandoProposta || !user || entitlementsLoading}
                   size="sm"
                 >
                   {gerandoProposta ? (
@@ -1113,7 +1120,7 @@ export default function EditalDetails() {
             <div className="bg-white rounded-md p-4 md:p-6 shadow-sm border border-border">
               <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4">Ações</h3>
               <div className="space-y-3">
-                {!proFeatures && (
+                {!canGenerateProposta && !entitlementsLoading && (
                   <UpgradePlanBanner
                     compact
                     message={subscriptionUpgradeMessage("propostas")}
@@ -1122,14 +1129,14 @@ export default function EditalDetails() {
                 <Button 
                   className="w-full bg-primary hover:bg-primary/90"
                   onClick={handleGerarPropostaClick}
-                  disabled={gerandoProposta || !user}
+                  disabled={gerandoProposta || !user || entitlementsLoading}
                 >
                   {gerandoProposta ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Gerando...
                     </>
-                  ) : proFeatures ? (
+                  ) : canGenerateProposta ? (
                     <>
                   <Sparkles className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">Gerar proposta com IA</span>

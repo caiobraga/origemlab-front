@@ -74,7 +74,7 @@ export default function TextFieldWithAI({
   placeholder,
   className,
 }: TextFieldWithAIProps) {
-  const { proFeatures } = useSubscriptionEntitlements();
+  const { canUseAiProposal } = useSubscriptionEntitlements();
   const [isImproving, setIsImproving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -106,7 +106,7 @@ export default function TextFieldWithAI({
   const minFieldHeightPx = useMemo(() => Math.max(120, rows * 24), [rows]);
 
   const guardProAi = () => {
-    if (proFeatures) return true;
+    if (canUseAiProposal) return true;
     toast.error(subscriptionUpgradeMessage("ai_proposal"));
     return false;
   };
@@ -462,7 +462,7 @@ export default function TextFieldWithAI({
         >
           <Copy className="w-4 h-4" />
         </Button>
-        {proFeatures && (
+        {canUseAiProposal && (
           <>
             <Button
               type="button"
@@ -593,11 +593,11 @@ export default function TextFieldWithAI({
         />
       )}
 
-      {!proFeatures && (
+      {!canUseAiProposal && (
         <UpgradePlanBanner compact message={subscriptionUpgradeMessage("ai_proposal")} />
       )}
 
-      {proFeatures && !showPreview && (
+      {canUseAiProposal && !showPreview && (
         <Button
           type="button"
           variant="outline"
@@ -617,7 +617,7 @@ export default function TextFieldWithAI({
         </Button>
       )}
 
-      {proFeatures && (
+      {canUseAiProposal && (
         <>
       <Button
         type="button"
