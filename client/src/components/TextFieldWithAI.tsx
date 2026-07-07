@@ -193,9 +193,15 @@ export default function TextFieldWithAI({
     } catch (error: any) {
       console.error("Erro ao gerar texto:", error);
       const raw = error?.message || "Erro ao gerar texto. Tente novamente.";
+      const looksLikeProxyTimeout =
+        /Failed to fetch|NetworkError|Load failed|CORS/i.test(raw) &&
+        wordLimit != null &&
+        wordLimit >= 600;
       const msg = /timeout/i.test(raw)
         ? "A IA demorou demais. Verifique se o Ollama está rodando (`ollama serve`) e tente de novo."
-        : raw;
+        : looksLikeProxyTimeout
+          ? "A conexão com a API foi interrompida antes da IA terminar (comum em campos longos). Tente novamente em instantes."
+          : raw;
       toast.error(msg, { id: toastId });
     } finally {
       setIsGenerating(false);
