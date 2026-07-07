@@ -22,6 +22,7 @@ import { getPrazoInscricaoDisplayPreferindoTimeline, shouldShowPrazoInscricaoRef
 import { normalizeJsonLikeToMarkdown } from "@/lib/editalRichText";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import { gerarPropostaComIA } from "@/lib/propostasApi";
 import { useLocation } from "wouter";
 import {
@@ -69,6 +70,7 @@ export default function EditalDetails() {
   const [gerandoProposta, setGerandoProposta] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, refetch: refetchProfile } = useUserProfile();
+  const { proFeatures } = useSubscriptionEntitlements();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const scrollPositionKey = `scroll_edital_${editalId}`;
@@ -509,10 +511,28 @@ export default function EditalDetails() {
     }
   };
 
+  const handleGerarPropostaClick = () => {
+    if (!user) {
+      toast.error("Faça login para gerar uma proposta");
+      return;
+    }
+    if (!proFeatures) {
+      toast.error(subscriptionUpgradeMessage("propostas"));
+      setLocation("/planos");
+      return;
+    }
+    void handleGerarProposta();
+  };
+
   // Função para gerar proposta com IA
   const handleGerarProposta = async () => {
     if (!user) {
       toast.error("Faça login para gerar uma proposta");
+      return;
+    }
+    if (!proFeatures) {
+      toast.error(subscriptionUpgradeMessage("propostas"));
+      setLocation("/planos");
       return;
     }
 
@@ -575,7 +595,7 @@ export default function EditalDetails() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button 
                 className="bg-primary hover:bg-primary/90 hidden sm:flex"
-                onClick={handleGerarProposta}
+                onClick={handleGerarPropostaClick}
                 disabled={gerandoProposta || !user}
                 size="sm"
               >
@@ -584,10 +604,15 @@ export default function EditalDetails() {
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Gerando...
                   </>
-                ) : (
+                ) : proFeatures ? (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
                     Gerar proposta
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Assinar Pro
                   </>
                 )}
               </Button>
@@ -603,7 +628,7 @@ export default function EditalDetails() {
               <div className="flex gap-1 sm:hidden">
                 <Button 
                   className="bg-primary hover:bg-primary/90"
-                  onClick={handleGerarProposta}
+                  onClick={handleGerarPropostaClick}
                   disabled={gerandoProposta || !user}
                   size="sm"
                 >
@@ -1088,9 +1113,15 @@ export default function EditalDetails() {
             <div className="bg-white rounded-md p-4 md:p-6 shadow-sm border border-border">
               <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4">Ações</h3>
               <div className="space-y-3">
+                {!proFeatures && (
+                  <UpgradePlanBanner
+                    compact
+                    message={subscriptionUpgradeMessage("propostas")}
+                  />
+                )}
                 <Button 
                   className="w-full bg-primary hover:bg-primary/90"
-                  onClick={handleGerarProposta}
+                  onClick={handleGerarPropostaClick}
                   disabled={gerandoProposta || !user}
                 >
                   {gerandoProposta ? (
@@ -1098,11 +1129,16 @@ export default function EditalDetails() {
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Gerando...
                     </>
-                  ) : (
+                  ) : proFeatures ? (
                     <>
                   <Sparkles className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">Gerar proposta com IA</span>
                   <span className="sm:hidden">Gerar proposta</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Assinar Pro para gerar
                     </>
                   )}
                 </Button>

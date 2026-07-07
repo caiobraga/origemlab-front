@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   ArrowLeft, FileText, Clock, CheckCircle2, Send, AlertCircle,
   Edit3, Trash2, Download, Eye, Sparkles, Calendar, DollarSign,
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
+import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import { fetchPropostas, deleteProposta, type Proposta, type StatusProposta } from "@/lib/propostasApi";
 import { formatValorProjeto } from "@/lib/editalFormatters";
 import Header from "@/components/Header";
@@ -22,6 +24,8 @@ interface PropostaDisplay extends Proposta {
 
 export default function MinhasPropostas() {
   const { user } = useAuth();
+  const { proFeatures } = useSubscriptionEntitlements();
+  const [, setLocation] = useLocation();
   const [filtroStatus, setFiltroStatus] = useState<StatusProposta | "todos">("todos");
   const [propostas, setPropostas] = useState<PropostaDisplay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +103,11 @@ export default function MinhasPropostas() {
   );
 
   const handleContinuarRedacao = (id: string) => {
-    // Navegar para o editor usando Link do wouter
+    if (!proFeatures) {
+      toast.error(subscriptionUpgradeMessage("propostas"));
+      setLocation("/planos");
+      return;
+    }
     window.location.href = `/propostas/${id}`;
   };
 

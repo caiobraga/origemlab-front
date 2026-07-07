@@ -23,6 +23,9 @@ import {
   type StatusProposta,
 } from "@/lib/propostasApi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
+import UpgradePlanBanner from "@/components/UpgradePlanBanner";
+import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import FormularioProposta from "@/components/FormularioProposta";
 import FormularioCNPq from "@/components/FormularioCNPq";
 import { type PropostaFormData, createEmptyPropostaForm } from "@/lib/propostaFormFields";
@@ -33,6 +36,7 @@ export default function EditorProposta() {
   const params = useParams();
   const propostaId = params.id || "";
   const { user } = useAuth();
+  const { proFeatures, loading: entitlementsLoading } = useSubscriptionEntitlements();
 
   const [proposta, setProposta] = useState<Proposta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,6 +147,10 @@ export default function EditorProposta() {
   };
 
   const handleRefazerResumoProjeto = useCallback(async () => {
+    if (!proFeatures) {
+      toast.error(subscriptionUpgradeMessage("ai_proposal"));
+      return;
+    }
     if (!propostaId) return;
     if (!proposta) return;
     if (refazendoResumo) return;
@@ -201,7 +209,7 @@ export default function EditorProposta() {
     } finally {
       setRefazendoResumo(false);
     }
-  }, [propostaId, proposta, isCNPq, refazendoResumo]);
+  }, [propostaId, proposta, isCNPq, refazendoResumo, proFeatures]);
 
   const handleSave = useCallback(async () => {
     if (!proposta || !user) return;
@@ -670,10 +678,26 @@ export default function EditorProposta() {
     };
   }, [handleSave, proposta, user]);
 
-  if (loading) {
+  if (loading || entitlementsLoading) {
     return (
       <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!proFeatures) {
+    return (
+      <div className="min-h-screen bg-[color:var(--background)]">
+        <div className="container max-w-2xl py-16">
+          <Link href="/dashboard">
+            <Button variant="ghost" size="sm" className="mb-6">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
+          </Link>
+          <UpgradePlanBanner message={subscriptionUpgradeMessage("propostas")} />
+        </div>
       </div>
     );
   }
@@ -782,7 +806,7 @@ export default function EditorProposta() {
                 type="button"
                 variant="outline"
                 onClick={handleRefazerResumoProjeto}
-                disabled={saving || refazendoResumo}
+                disabled={saving || refazendoResumo || !proFeatures}
                 size="sm"
               >
                 {refazendoResumo ? (

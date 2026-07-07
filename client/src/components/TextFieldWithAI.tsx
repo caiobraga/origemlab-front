@@ -462,35 +462,39 @@ export default function TextFieldWithAI({
         >
           <Copy className="w-4 h-4" />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleAnalyze}
-          disabled={isAnalyzing || !canImprove}
-          className="h-8 px-2"
-          aria-label="Analisar campo com IA"
-          title="Analisar"
-        >
-          {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanText className="w-4 h-4" />}
-        </Button>
-        {showGroundingAction && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleGroundWithReferences}
-            disabled={isGrounding || !canImprove}
-            className="h-8 px-2 text-emerald-800 hover:text-emerald-900 hover:bg-emerald-50"
-            aria-label="Embasar com referências (pesquisa web)"
-            title="Pesquisar referências na internet e reescrever o campo"
-          >
-            {isGrounding ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Globe className="w-4 h-4" />
+        {proFeatures && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || !canImprove}
+              className="h-8 px-2"
+              aria-label="Analisar campo com IA"
+              title="Analisar"
+            >
+              {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanText className="w-4 h-4" />}
+            </Button>
+            {showGroundingAction && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleGroundWithReferences}
+                disabled={isGrounding || !canImprove}
+                className="h-8 px-2 text-emerald-800 hover:text-emerald-900 hover:bg-emerald-50"
+                aria-label="Embasar com referências (pesquisa web)"
+                title="Pesquisar referências na internet e reescrever o campo"
+              >
+                {isGrounding ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Globe className="w-4 h-4" />
+                )}
+              </Button>
             )}
-          </Button>
+          </>
         )}
         <Button
           type="button"
@@ -593,7 +597,7 @@ export default function TextFieldWithAI({
         <UpgradePlanBanner compact message={subscriptionUpgradeMessage("ai_proposal")} />
       )}
 
-      {!showPreview && (
+      {proFeatures && !showPreview && (
         <Button
           type="button"
           variant="outline"
@@ -613,6 +617,8 @@ export default function TextFieldWithAI({
         </Button>
       )}
 
+      {proFeatures && (
+        <>
       <Button
         type="button"
         variant="outline"
@@ -677,6 +683,8 @@ export default function TextFieldWithAI({
           </>
         )}
       </Button>
+        </>
+      )}
 
       {isOverLimit && (
         <p className="text-sm text-red-600 flex items-center gap-1">

@@ -114,6 +114,9 @@ export function subscriptionUpgradeMessage(feature?: string): string {
   if (feature === "editais_catalog") {
     return "Explore o catálogo no plano gratuito. Assine o Pro para ver todos os editais sem blur e recursos avançados.";
   }
+  if (feature === "propostas" || feature === "ai_proposal") {
+    return "Gerar e editar propostas com IA está disponível no plano Pro. Assine para desbloquear.";
+  }
   return "Recurso disponível no plano Pro. Assine em /planos para desbloquear.";
 }
 
