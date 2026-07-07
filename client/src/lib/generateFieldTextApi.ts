@@ -1,3 +1,5 @@
+import { apiFetch } from "./backendApi";
+
 export interface GenerateFieldTextParams {
   edital_id?: string;
   proposta_id?: string;
@@ -12,12 +14,6 @@ export interface GenerateFieldTextParams {
 
 export interface GenerateFieldTextResponse {
   generated_text: string;
-}
-
-const API_BASE = String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
-function apiUrl(path: string) {
-  if (!API_BASE) return path;
-  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export async function generateFieldText(
@@ -38,26 +34,10 @@ export async function generateFieldText(
     throw new Error("É necessário edital_id ou proposta_id para gerar o texto.");
   }
 
-  // Envia bearer quando houver sessão: permite auditoria (redacoes_ai) e controles (admin).
-  const { supabase } = await import("./supabase");
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token || null;
-
-  const response = await fetch(apiUrl("/api/generate-field-text"), {
+  const data = await apiFetch<GenerateFieldTextResponse>("/api/generate-field-text", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error((error as any).error || "Erro ao gerar texto");
-  }
-
-  const data: GenerateFieldTextResponse = await response.json();
   return String(data.generated_text || "").trim();
 }
-
