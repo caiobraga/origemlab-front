@@ -28,6 +28,7 @@ import Cookies from "./pages/Cookies";
 import Planos from "./pages/Planos";
 import AdminDashboard from "./pages/AdminDashboard";
 import CookieBanner from "./components/CookieBanner";
+import RouteScrollRestoration from "./components/RouteScrollRestoration";
 import { useEffect } from "react";
 import { captureAttributionFromUrl } from "@/lib/attribution";
 
@@ -95,6 +96,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <AttributionCapture />
+            <RouteScrollRestoration />
             <Router />
             <CookieBanner />
           </TooltipProvider>

@@ -26,6 +26,7 @@ import {
   type AdminEditalDocumentsResponse,
 } from "@/lib/adminApi";
 import { toast } from "sonner";
+import { usePageScrollRestoration, useTabScrollRestoration } from "@/hooks/usePageScrollRestoration";
 import { formatValorProjeto } from "@/lib/editalFormatters";
 
 type Tab = "propostas" | "editais" | "usuarios" | "pagamentos";
@@ -64,11 +65,13 @@ export default function AdminDashboard() {
   const [, setLocation] = useLocation();
 
   const [tab, setTab] = useState<Tab>("propostas");
+  const { selectTab } = useTabScrollRestoration(tab, setTab);
   const [busy, setBusy] = useState(false);
 
   const isAdmin = Boolean(profile?.isAdmin);
   const [adminVerified, setAdminVerified] = useState<boolean | null>(null);
   const [adminVerifyError, setAdminVerifyError] = useState<string | null>(null);
+  usePageScrollRestoration("scroll_admin", { ready: adminVerified === true });
 
   // Gate (login)
   useEffect(() => {
@@ -359,16 +362,16 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-600">Controle de usuários.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant={tab === "propostas" ? "default" : "outline"} onClick={() => setTab("propostas")}>
+            <Button variant={tab === "propostas" ? "default" : "outline"} onClick={() => selectTab("propostas")}>
               Propostas
             </Button>
-            <Button variant={tab === "editais" ? "default" : "outline"} onClick={() => setTab("editais")}>
+            <Button variant={tab === "editais" ? "default" : "outline"} onClick={() => selectTab("editais")}>
               Editais
             </Button>
-            <Button variant={tab === "usuarios" ? "default" : "outline"} onClick={() => setTab("usuarios")}>
+            <Button variant={tab === "usuarios" ? "default" : "outline"} onClick={() => selectTab("usuarios")}>
               Usuários
             </Button>
-            <Button variant={tab === "pagamentos" ? "default" : "outline"} onClick={() => setTab("pagamentos")}>
+            <Button variant={tab === "pagamentos" ? "default" : "outline"} onClick={() => selectTab("pagamentos")}>
               Pagamentos
             </Button>
           </div>

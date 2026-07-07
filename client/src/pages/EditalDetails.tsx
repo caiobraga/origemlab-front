@@ -25,6 +25,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import { gerarPropostaComIA } from "@/lib/propostasApi";
 import { useLocation } from "wouter";
+import { usePageScrollRestoration } from "@/hooks/usePageScrollRestoration";
 import {
   Accordion,
   AccordionContent,
@@ -77,75 +78,10 @@ export default function EditalDetails() {
   const canGenerateProposta = entitlements.features.propostas;
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const scrollPositionKey = `scroll_edital_${editalId}`;
-  const [scrollRestored, setScrollRestored] = useState(false);
-
-  useEffect(() => {
-    if (!editalId) return;
-
-    const saveScroll = () => {
-      try {
-        sessionStorage.setItem(scrollPositionKey, window.scrollY.toString());
-      } catch {
-      }
-    };
-
-    const restoreScroll = () => {
-      try {
-        const saved = sessionStorage.getItem(scrollPositionKey);
-        if (!saved) return;
-        const y = parseInt(saved, 10);
-        if (Number.isFinite(y)) {
-          requestAnimationFrame(() => window.scrollTo(0, y));
-        }
-      } catch {
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        saveScroll();
-      } else {
-        restoreScroll();
-      }
-    };
-
-    window.addEventListener("scroll", saveScroll, { passive: true });
-    window.addEventListener("beforeunload", saveScroll);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("scroll", saveScroll);
-      window.removeEventListener("beforeunload", saveScroll);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [editalId, scrollPositionKey]);
-
-  useEffect(() => {
-    if (!editalId) return;
-    if (scrollRestored) return;
-    if (loading) return;
-    if (!edital) return;
-
-    try {
-      const saved = sessionStorage.getItem(scrollPositionKey);
-      if (!saved) {
-        setScrollRestored(true);
-        return;
-      }
-      const y = parseInt(saved, 10);
-      if (!Number.isFinite(y)) {
-        setScrollRestored(true);
-        return;
-      }
-      setTimeout(() => {
-        window.scrollTo(0, y);
-        setScrollRestored(true);
-      }, 50);
-    } catch {
-      setScrollRestored(true);
-    }
-  }, [editalId, loading, edital, scrollPositionKey, scrollRestored]);
+  usePageScrollRestoration(`scroll_edital_${editalId}`, {
+    enabled: Boolean(editalId),
+    ready: !loading && Boolean(edital),
+  });
 
   // Redirecionar para login se não estiver autenticado
   useEffect(() => {

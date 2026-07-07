@@ -43,8 +43,39 @@ export async function fetchPropostas(userId: string): Promise<Proposta[]> {
 export async function fetchPropostaById(propostaId: string, userId: string): Promise<Proposta | null> {
   try {
     const out = await apiFetch<{ row: Proposta }>(`/api/propostas/${encodeURIComponent(propostaId)}`, { method: "GET" });
-    return out.row;
+    return out.row ?? null;
   } catch (e) {
+    return null;
+  }
+}
+
+/** Busca com retentativas curtas (útil logo após criar a proposta). */
+export async function fetchPropostaByIdWithRetry(
+  propostaId: string,
+  userId: string,
+  attempts = 4,
+): Promise<Proposta | null> {
+  for (let i = 0; i < attempts; i++) {
+    const row = await fetchPropostaById(propostaId, userId);
+    if (row) return row;
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+    }
+  }
+  return null;
+}
+
+/**
+ * Verifica se já existe proposta para um edital (sem listar todas).
+ */
+export async function fetchPropostaByEdital(userId: string, editalId: string): Promise<Proposta | null> {
+  try {
+    const out = await apiFetch<{ rows: Proposta[] }>(
+      `/api/propostas?edital_id=${encodeURIComponent(editalId)}`,
+      { method: "GET" },
+    );
+    return out.rows?.[0] ?? null;
+  } catch {
     return null;
   }
 }
@@ -121,9 +152,8 @@ export async function gerarPropostaComIA(
   }
 
   try {
-    // Verificar se já existe uma proposta para este edital (via backend)
-    const all = await fetchPropostas(userId);
-    const existing = all.find((p) => p.edital_id === editalId);
+    // Verificar se já existe uma proposta para este edital
+    const existing = await fetchPropostaByEdital(userId, editalId);
     if (existing) return existing;
 
     // Criar proposta vazia no banco com estrutura completa do formulário

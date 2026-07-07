@@ -166,6 +166,8 @@ export default function TextFieldWithAI({
     }
 
     setIsGenerating(true);
+    const toastId = `gerar-campo-${id}`;
+    toast.loading("Gerando texto com IA… pode levar até 2 minutos.", { id: toastId });
     try {
       const generated = await generateFieldText({
         edital_id: editalId,
@@ -183,10 +185,14 @@ export default function TextFieldWithAI({
         return;
       }
       onChange(generated);
-      toast.success("Texto gerado do zero!");
+      toast.success("Texto gerado do zero!", { id: toastId });
     } catch (error: any) {
       console.error("Erro ao gerar texto:", error);
-      toast.error(error?.message || "Erro ao gerar texto. Tente novamente.");
+      const raw = error?.message || "Erro ao gerar texto. Tente novamente.";
+      const msg = /timeout/i.test(raw)
+        ? "A IA demorou demais. Verifique se o Ollama está rodando (`ollama serve`) e tente de novo."
+        : raw;
+      toast.error(msg, { id: toastId });
     } finally {
       setIsGenerating(false);
     }

@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { generateFieldText } from "@/lib/generateFieldTextApi";
 import {
-  fetchPropostaById,
+  fetchPropostaByIdWithRetry,
   updateProposta,
   type Proposta,
   type StatusProposta,
@@ -30,6 +30,7 @@ import FormularioProposta from "@/components/FormularioProposta";
 import FormularioCNPq from "@/components/FormularioCNPq";
 import { type PropostaFormData, createEmptyPropostaForm } from "@/lib/propostaFormFields";
 import { type CNPqFormData, createEmptyCNPqForm } from "@/lib/cnpqFormFields";
+import { usePageScrollRestoration } from "@/hooks/usePageScrollRestoration";
 
 
 export default function EditorProposta() {
@@ -40,6 +41,7 @@ export default function EditorProposta() {
 
   const [proposta, setProposta] = useState<Proposta | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refazendoResumo, setRefazendoResumo] = useState(false);
   const [campos, setCampos] = useState<PropostaFormData | CNPqFormData>(createEmptyPropostaForm());
@@ -47,11 +49,10 @@ export default function EditorProposta() {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUnsavedChangesRef = useRef(false);
   const camposRef = useRef<PropostaFormData | CNPqFormData>(createEmptyPropostaForm());
-  const scrollPositionKey = `scroll_${propostaId}`;
-  const [scrollRestored, setScrollRestored] = useState(false);
-  const latestScrollYRef = useRef(0);
-  const isRestoringScrollRef = useRef(false);
-  const restoreRunIdRef = useRef(0);
+  const { persistScroll, latestYRef } = usePageScrollRestoration(
+    `scroll_${propostaId}`,
+    { enabled: Boolean(propostaId), ready: !loading && Boolean(proposta) },
+  );
   const [activeSection, setActiveSection] = useState<string>("");
   const statusPanelStorageKey = "editor_proposta_status_panel_collapsed";
   const [statusPanelCollapsed, setStatusPanelCollapsed] = useState<boolean>(() => {
@@ -74,14 +75,21 @@ export default function EditorProposta() {
 
   useEffect(() => {
     async function loadProposta() {
-      if (!propostaId || !user) return;
+      if (!propostaId || !user) {
+        setLoading(false);
+        return;
+      }
+
+      setNotFound(false);
+      setLoading(true);
+      setProposta(null);
 
       try {
-        setLoading(true);
-        const data = await fetchPropostaById(propostaId, user.id);
+        const data = await fetchPropostaByIdWithRetry(propostaId, user.id);
 
         if (!data) {
-          toast.error("Proposta não encontrada");
+          setNotFound(true);
+          setProposta(null);
           return;
         }
 
@@ -96,13 +104,10 @@ export default function EditorProposta() {
         const isCNPqEdital = editalFonte?.toLowerCase() === 'cnpq';
         setIsCNPq(isCNPqEdital);
         
-        console.log('Fonte do edital:', editalFonte, 'É CNPq?', isCNPqEdital);
-        
         // Garantir que os campos tenham a estrutura correta
         const camposFormulario = data.campos_formulario || {};
         
         if (isCNPqEdital) {
-          // Usar estrutura CNPq
           const camposCompletos = {
             ...createEmptyCNPqForm(),
             ...camposFormulario,
@@ -110,7 +115,6 @@ export default function EditorProposta() {
           setCampos(camposCompletos as CNPqFormData);
           camposRef.current = camposCompletos as CNPqFormData;
         } else {
-          // Usar estrutura padrão
           const camposCompletos = {
             ...createEmptyPropostaForm(),
             ...camposFormulario,
@@ -127,7 +131,7 @@ export default function EditorProposta() {
     }
 
     loadProposta();
-  }, [propostaId, user]);
+  }, [propostaId, user?.id]);
 
   const handleFormChange = (newData: PropostaFormData | CNPqFormData) => {
     setCampos(newData);
@@ -217,12 +221,8 @@ export default function EditorProposta() {
     try {
       setSaving(true);
       // Preservar posição do scroll durante o save (evita “voltar pro topo” em re-render)
-      const yBeforeSave = latestScrollYRef.current || window.scrollY;
-      try {
-        sessionStorage.setItem(scrollPositionKey, yBeforeSave.toString());
-      } catch {
-        // ignore
-      }
+      const yBeforeSave = latestYRef.current || window.scrollY;
+      persistScroll(yBeforeSave);
 
       // Calcular progresso baseado em campos preenchidos
       // Função recursiva para verificar se um campo está preenchido
@@ -413,7 +413,7 @@ export default function EditorProposta() {
     } finally {
       setSaving(false);
     }
-  }, [proposta, user, scrollPositionKey, isCNPq]);
+  }, [proposta, user, persistScroll, isCNPq]);
 
   const handleStatusChange = async (newStatus: StatusProposta) => {
     if (!proposta || !user) return;
@@ -421,12 +421,8 @@ export default function EditorProposta() {
     try {
       setSaving(true);
       // Preservar scroll durante a troca de status também
-      const yBeforeSave = latestScrollYRef.current || window.scrollY;
-      try {
-        sessionStorage.setItem(scrollPositionKey, yBeforeSave.toString());
-      } catch {
-        // ignore
-      }
+      const yBeforeSave = latestYRef.current || window.scrollY;
+      persistScroll(yBeforeSave);
       await updateProposta(proposta.id, user.id, { status: newStatus });
       setProposta({ ...proposta, status: newStatus });
       requestAnimationFrame(() => window.scrollTo(0, yBeforeSave));
@@ -507,144 +503,6 @@ export default function EditorProposta() {
     };
   }, [proposta]);
 
-  // Preservar/restaurar scroll ao trocar de aba do navegador (e ao voltar para a página)
-  useEffect(() => {
-    if (!propostaId) return;
-
-    const saveScroll = () => {
-      if (isRestoringScrollRef.current) return;
-      try {
-        sessionStorage.setItem(scrollPositionKey, String(latestScrollYRef.current || 0));
-      } catch {
-        // ignore
-      }
-    };
-
-    const restoreScroll = () => {
-      try {
-        const saved = sessionStorage.getItem(scrollPositionKey);
-        if (!saved) return;
-        const y = parseInt(saved, 10);
-        if (!Number.isFinite(y)) return;
-        const runId = ++restoreRunIdRef.current;
-        isRestoringScrollRef.current = true;
-        // Alguns navegadores/app re-render podem “puxar” o scroll após voltar para a aba.
-        // Restauramos mais de uma vez para garantir.
-        requestAnimationFrame(() => {
-          window.scrollTo(0, y);
-          requestAnimationFrame(() => window.scrollTo(0, y));
-        });
-        setTimeout(() => window.scrollTo(0, y), 120);
-        setTimeout(() => window.scrollTo(0, y), 300);
-        setTimeout(() => {
-          // libera novamente o salvamento; evita sobrescrever com 0 durante a restauração
-          if (restoreRunIdRef.current === runId) {
-            isRestoringScrollRef.current = false;
-            latestScrollYRef.current = window.scrollY;
-          }
-        }, 650);
-      } catch {
-        // ignore
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        saveScroll();
-      } else {
-        restoreScroll();
-        setTimeout(() => restoreScroll(), 120);
-        setTimeout(() => restoreScroll(), 350);
-        setTimeout(() => restoreScroll(), 900);
-      }
-    };
-
-    const handlePageHide = () => {
-      saveScroll();
-    };
-
-    const handlePageShow = () => {
-      restoreScroll();
-      setTimeout(() => restoreScroll(), 120);
-      setTimeout(() => restoreScroll(), 350);
-      setTimeout(() => restoreScroll(), 900);
-    };
-
-    const handleScrollUpdate = () => {
-      if (isRestoringScrollRef.current) return;
-      latestScrollYRef.current = window.scrollY;
-      saveScroll();
-    };
-
-    const handleFocus = () => {
-      // Ao voltar para a aba, alguns navegadores podem “resetar” antes de disparar visibilitychange
-      restoreScroll();
-      setTimeout(() => restoreScroll(), 120);
-      setTimeout(() => restoreScroll(), 350);
-      setTimeout(() => restoreScroll(), 900);
-    };
-
-    const handleBlur = () => {
-      saveScroll();
-    };
-
-    window.addEventListener("scroll", handleScrollUpdate, { passive: true });
-    window.addEventListener("beforeunload", saveScroll);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("pageshow", handlePageShow);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("blur", handleBlur);
-
-    return () => {
-      window.removeEventListener("scroll", handleScrollUpdate);
-      window.removeEventListener("beforeunload", saveScroll);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("pageshow", handlePageShow);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, [propostaId, scrollPositionKey]);
-
-  // Restaurar scroll uma vez, após carregar a proposta (garante altura suficiente)
-  useEffect(() => {
-    if (!propostaId) return;
-    if (scrollRestored) return;
-    if (loading) return;
-    if (!proposta) return;
-
-    try {
-      const saved = sessionStorage.getItem(scrollPositionKey);
-      if (!saved) {
-        setScrollRestored(true);
-        return;
-      }
-      const y = parseInt(saved, 10);
-      if (!Number.isFinite(y)) {
-        setScrollRestored(true);
-        return;
-      }
-      const runId = ++restoreRunIdRef.current;
-      isRestoringScrollRef.current = true;
-      requestAnimationFrame(() => {
-        window.scrollTo(0, y);
-        requestAnimationFrame(() => window.scrollTo(0, y));
-      });
-      setTimeout(() => window.scrollTo(0, y), 80);
-      setTimeout(() => {
-        window.scrollTo(0, y);
-        setScrollRestored(true);
-        if (restoreRunIdRef.current === runId) {
-          isRestoringScrollRef.current = false;
-          latestScrollYRef.current = window.scrollY;
-        }
-      }, 250);
-    } catch {
-      setScrollRestored(true);
-    }
-  }, [propostaId, loading, proposta, scrollPositionKey, scrollRestored]);
-
   // Auto-save quando o usuário muda de tab ou sai da página
   // IMPORTANTE: Este useEffect deve estar ANTES dos early returns para evitar erro de hooks
   useEffect(() => {
@@ -680,8 +538,9 @@ export default function EditorProposta() {
 
   if (loading || entitlementsLoading) {
     return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Carregando proposta…</p>
       </div>
     );
   }
@@ -702,7 +561,7 @@ export default function EditorProposta() {
     );
   }
 
-  if (!proposta) {
+  if (!proposta || notFound) {
     return (
       <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="text-center">
@@ -710,6 +569,9 @@ export default function EditorProposta() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Proposta não encontrada
           </h2>
+          <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+            Não foi possível abrir esta proposta. Tente criar novamente ou volte à lista.
+          </p>
           <Link href="/minhas-propostas">
             <Button variant="outline">Voltar para Minhas Propostas</Button>
           </Link>

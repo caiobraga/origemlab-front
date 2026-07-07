@@ -49,7 +49,7 @@ function readStoredAccessToken(): string | null {
 export function getApiConnectionHelpMessage(): string {
   const apiBase = readApiBaseUrl();
   if (import.meta.env.DEV && !apiBase) {
-    return "Se a sessão expirou, saia e entre de novo. Em desenvolvimento local, confira se o backend está rodando em localhost:8080.";
+    return "Se a sessão expirou, saia e entre de novo. Em desenvolvimento local, confira se o backend está rodando em localhost:8081.";
   }
   if (apiBase) {
     const frontOrigin = typeof window !== "undefined" ? window.location.origin : "";
