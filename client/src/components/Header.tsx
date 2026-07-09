@@ -117,12 +117,6 @@ export default function Header() {
                 Planos
               </a>
               <a 
-                href="#depoimentos" 
-                className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
-              >
-                Depoimentos
-              </a>
-              <a 
                 href="#faq" 
                 className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
@@ -296,7 +290,7 @@ export default function Header() {
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px] sm:w-[400px] overflow-y-auto">
                 <div className="flex flex-col gap-4 mt-8">
-                  {/* Mobile Navigation - esconder Como funciona, Planos, Depoimentos quando dentro do dashboard */}
+                  {/* Mobile Navigation - esconder Como funciona, Planos quando dentro do dashboard */}
                   {!isInDashboardArea && (
                     <nav className="flex flex-col gap-4" role="navigation" aria-label="Navegação mobile">
                       <a 
@@ -310,12 +304,6 @@ export default function Header() {
                         className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
                         Planos
-                      </a>
-                      <a 
-                        href="#depoimentos" 
-                        className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
-                      >
-                        Depoimentos
                       </a>
                       <a 
                         href="#faq" 
