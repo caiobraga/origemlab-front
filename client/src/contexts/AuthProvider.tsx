@@ -10,6 +10,7 @@ import {
 } from "@/lib/backendApi";
 import { supabase } from "@/lib/supabase";
 import { AuthContext, type AuthContextType, type AuthUser } from "./auth-context";
+import { getEmailConfirmRedirectUrl } from "@/lib/authEmailConfirmation";
 
 type SignInResponse = {
   ok?: boolean;
@@ -158,10 +159,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp: AuthContextType["signUp"] = async (email, password) => {
     try {
       setStoredAccessToken(null);
-      const signUpBody = await authPublicFetch<SignInResponse>("/api/auth/sign-up", {
+      const emailRedirectTo =
+        typeof window !== "undefined" ? getEmailConfirmRedirectUrl() : undefined;
+      const signUpBody = await authPublicFetch<
+        SignInResponse & { needsEmailConfirmation?: boolean; message?: string }
+      >("/api/auth/sign-up", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          emailRedirectTo,
+        }),
       });
+
+      if (signUpBody.needsEmailConfirmation || !signUpBody.accessToken) {
+        toast.success(
+          signUpBody.message ||
+            "Conta criada! Verifique seu email para confirmar antes de entrar.",
+        );
+        throw new Error("EMAIL_CONFIRMATION_REQUIRED");
+      }
 
       persistSignInResponse(signUpBody);
       if (signUpBody.accessToken) {
@@ -187,6 +204,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success("Conta criada com sucesso!");
       return resolvedUser;
     } catch (error) {
+      if ((error as Error)?.message === "EMAIL_CONFIRMATION_REQUIRED") {
+        throw error;
+      }
       toast.error((error as Error)?.message || "Erro ao criar conta");
       throw error;
     }

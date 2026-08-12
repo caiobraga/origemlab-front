@@ -51,8 +51,11 @@ export const supabase = (() => {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true
-      }
+        // PKCE: emails de confirmação voltam com ?code= (não só #access_token).
+        // A troca do code é feita em /auth/callback para não perder o parâmetro.
+        flowType: "pkce",
+        detectSessionInUrl: true,
+      },
     });
   }
   

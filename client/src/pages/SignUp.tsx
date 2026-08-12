@@ -21,7 +21,7 @@ import {
   recordReferralConversion,
 } from "@/lib/referralApi";
 import { recordSignupAttribution } from "@/lib/attribution";
-import { getEmailConfirmRedirectUrl } from "@/lib/authEmailConfirmation";
+import { getEmailConfirmRedirectUrl, isLikelyExistingUnconfirmedSignup, resendSignupConfirmationEmail } from "@/lib/authEmailConfirmation";
 
 export default function SignUp() {
   const [, setLocation] = useLocation();
@@ -119,6 +119,22 @@ export default function SignUp() {
       if (!signUpData.user) {
         console.error("Usuário não retornado do signup");
         toast.error("Erro ao criar conta. Tente novamente.");
+        return;
+      }
+
+      // Email já cadastrado: Supabase pode retornar user sem identities e sem enviar email.
+      if (isLikelyExistingUnconfirmedSignup(signUpData.user)) {
+        const { error: resendError } = await resendSignupConfirmationEmail(email);
+        if (resendError) {
+          toast.error(
+            "Este email já está cadastrado. Tente entrar ou reenviar a confirmação na tela de login.",
+          );
+        } else {
+          toast.success(
+            "Este email já tinha cadastro. Reenviamos o link de confirmação — confira a caixa de entrada e o spam.",
+          );
+        }
+        setLocation(`/login?precisaConfirmar=1&email=${encodeURIComponent(email)}`);
         return;
       }
 

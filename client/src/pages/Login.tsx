@@ -31,22 +31,33 @@ export default function Login() {
       sessionStorage.setItem("loginRedirect", redirect);
     }
 
-    const hash = window.location.hash || "";
-    const stripQueryKeepHash = () => {
-      window.history.replaceState({}, "", `/login${hash}`);
+    // Nunca apague ?code= / token_hash — isso quebra a confirmação PKCE.
+    // Links de email devem ir para /auth/callback; aqui só limpamos flags de UI.
+    const stripUiFlagsOnly = () => {
+      const next = new URL(window.location.href);
+      next.searchParams.delete("emailConfirmado");
+      next.searchParams.delete("precisaConfirmar");
+      next.searchParams.delete("email");
+      next.searchParams.delete("erro");
+      next.searchParams.delete("redirect");
+      const qs = next.searchParams.toString();
+      window.history.replaceState({}, "", `${next.pathname}${qs ? `?${qs}` : ""}${next.hash}`);
     };
 
     if (urlParams.get("emailConfirmado") === "1") {
       toast.success("Email confirmado! Agora faça login com sua senha.");
-      // Deixa o Supabase processar #access_token na URL antes de limpar a query (detectSessionInUrl).
-      const t = window.setTimeout(() => stripQueryKeepHash(), 0);
+      const t = window.setTimeout(() => stripUiFlagsOnly(), 50);
       return () => window.clearTimeout(t);
     }
     if (urlParams.get("precisaConfirmar") === "1") {
       const em = urlParams.get("email");
       if (em) setEmail(decodeURIComponent(em));
       setShowConfirmHelp(true);
-      const t = window.setTimeout(() => stripQueryKeepHash(), 0);
+      const err = urlParams.get("erro");
+      if (err) {
+        toast.error(decodeURIComponent(err));
+      }
+      const t = window.setTimeout(() => stripUiFlagsOnly(), 50);
       return () => window.clearTimeout(t);
     }
   }, []);
@@ -138,7 +149,7 @@ export default function Login() {
                 <AlertTitle>Confirme seu email</AlertTitle>
                 <AlertDescription className="text-amber-900/90 space-y-3 mt-1">
                   <p>
-                    O Supabase envia um link de confirmação após o cadastro.{" "}
+                    Enviamos um link de confirmação após o cadastro.{" "}
                     <strong>Enquanto não clicar nesse link, o login falha.</strong> Verifique spam e
                     a pasta Promoções.
                   </p>

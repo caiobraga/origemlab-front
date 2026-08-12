@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import AuthCallback from "./pages/AuthCallback";
 import EditalDetails from "./pages/EditalDetails";
 import MinhasPropostas from "./pages/MinhasPropostas";
 import EditorProposta from "./pages/EditorProposta";
@@ -45,6 +46,7 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/inicio"} component={Inicio} />
       <Route path={"/login"} component={Login} />
+      <Route path={"/auth/callback"} component={AuthCallback} />
       <Route path={"/cadastro"} component={SignUp} />
       <Route path={"/onboarding"} component={Onboarding} />
       <Route path={"/dashboard"} component={Dashboard} />

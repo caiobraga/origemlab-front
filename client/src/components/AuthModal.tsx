@@ -26,12 +26,24 @@ export default function AuthModal({ open, onOpenChange, defaultMode = "signin" }
     try {
       if (mode === "signin") {
         await signIn(email, password);
+        onOpenChange(false);
+        setEmail("");
+        setPassword("");
       } else {
-        await signUp(email, password);
+        try {
+          await signUp(email, password);
+          onOpenChange(false);
+          setEmail("");
+          setPassword("");
+        } catch (error) {
+          if ((error as Error)?.message === "EMAIL_CONFIRMATION_REQUIRED") {
+            onOpenChange(false);
+            window.location.href = `/login?precisaConfirmar=1&email=${encodeURIComponent(email)}`;
+            return;
+          }
+          throw error;
+        }
       }
-      onOpenChange(false);
-      setEmail("");
-      setPassword("");
     } catch (error) {
       // Error is already handled in AuthContext
     } finally {
