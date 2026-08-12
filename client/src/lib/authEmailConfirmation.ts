@@ -40,7 +40,19 @@ export async function resendSignupConfirmationEmail(
       emailRedirectTo: getEmailConfirmRedirectUrl(),
     },
   });
-  return { error: error ? new Error(error.message) : null };
+  if (error) {
+    const msg = error.message || "Falha ao reenviar email";
+    // Erros típicos de SMTP mal configurado no painel Supabase
+    if (/smtp|mail|535|auth/i.test(msg)) {
+      return {
+        error: new Error(
+          `Falha no envio (SMTP): ${msg}. Verifique Authentication → SMTP no Supabase (Gmail costuma falhar; use Resend).`,
+        ),
+      };
+    }
+    return { error: new Error(msg) };
+  }
+  return { error: null };
 }
 
 /**

@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { AuthContext, type AuthContextType, type AuthUser } from "./auth-context";
 import { getEmailConfirmRedirectUrl } from "@/lib/authEmailConfirmation";
+import { flushPendingSignupProfile } from "@/lib/pendingSignupProfile";
 
 type SignInResponse = {
   ok?: boolean;
@@ -148,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(resolvedUser);
+      void flushPendingSignupProfile(resolvedUser.id, trimmedEmail);
       toast.success("Login realizado com sucesso!");
       return resolvedUser;
     } catch (error) {

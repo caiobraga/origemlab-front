@@ -22,6 +22,7 @@ import {
 } from "@/lib/referralApi";
 import { recordSignupAttribution } from "@/lib/attribution";
 import { getEmailConfirmRedirectUrl, isLikelyExistingUnconfirmedSignup, resendSignupConfirmationEmail } from "@/lib/authEmailConfirmation";
+import { stashPendingSignupProfile } from "@/lib/pendingSignupProfile";
 
 export default function SignUp() {
   const [, setLocation] = useLocation();
@@ -102,12 +103,21 @@ export default function SignUp() {
 
       console.log("Dados do perfil a serem salvos:", profileData);
 
-      // Fazer o signUp básico
+      // Fazer o signUp básico (perfil em user_metadata — funciona sem sessão)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: getEmailConfirmRedirectUrl(),
+          data: {
+            profile: profileData,
+            userType: profileData.userType,
+            hasCnpj: profileData.hasCnpj || false,
+            cpf: profileData.cpf,
+            cnpj: profileData.cnpj,
+            dataCollectionConsent: profileData.dataCollectionConsent,
+            consentVersion: profileData.consentVersion,
+          },
         },
       });
 
@@ -140,85 +150,35 @@ export default function SignUp() {
 
       console.log("Usuário criado:", signUpData.user.id);
 
-      // Aguardar um pouco para garantir que o usuário foi criado no banco
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Com "Confirm email" ativo NÃO há sessão → /api/profile retorna 401 (esperado).
+      // Guardamos o perfil e salvamos após confirmar + login.
+      stashPendingSignupProfile(email, profileData);
 
-      // Salvar dados adicionais no perfil do usuário imediatamente após o signup
-      let profileSaved = false;
-      try {
-        console.log("Tentando salvar perfil para userId:", signUpData.user.id);
-        console.log("Dados do perfil:", profileData);
-        
-        await saveUserProfile(signUpData.user.id, profileData);
-        console.log("✅ Perfil salvo com sucesso na tabela profiles");
-        profileSaved = true;
-        toast.success("Conta criada com sucesso! Verifique seu email para confirmar.");
-      } catch (profileError: any) {
-        console.error("❌ Erro ao salvar perfil:", profileError);
-        console.error("Código do erro:", profileError?.code);
-        console.error("Mensagem do erro:", profileError?.message);
-        console.error("Detalhes completos:", JSON.stringify(profileError, null, 2));
-        
-        // Fallback: salvar no user_metadata só se houver sessão (evita AuthSessionMissingError)
+      if (signUpData.session) {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            toast.success("Conta criada! Confirme seu email para acessar. Você poderá completar o perfil após o login.");
-          } else {
-            console.log("Tentando salvar no user_metadata como fallback...");
-            const metadataProfile: any = {
-              userType: profileData.userType,
-              hasCnpj: profileData.hasCnpj || false,
-            };
-            if (profileData.cpf) metadataProfile.cpf = profileData.cpf;
-            if (profileData.cnpj) metadataProfile.cnpj = profileData.cnpj;
-
-            const { error: metadataError } = await supabase.auth.updateUser({
-              data: { profile: metadataProfile },
-            });
-            if (metadataError) {
-              console.error("Erro ao salvar no metadata:", metadataError);
-              toast.warning("Conta criada, mas houve um problema ao salvar o perfil. Você pode atualizar depois.");
-            } else {
-              console.log("✅ Perfil salvo no user_metadata como fallback");
-              toast.success("Conta criada com sucesso! Verifique seu email para confirmar.");
-            }
-          }
-        } catch (metadataError: unknown) {
-          const isSessionMissing = metadataError && typeof (metadataError as Error).name === 'string' && ((metadataError as Error).name === 'AuthSessionMissingError' || (metadataError as Error).message?.includes('session missing'));
-          if (isSessionMissing) {
-            toast.success("Conta criada! Confirme seu email para acessar. Você poderá completar o perfil após o login.");
-          } else {
-            console.error("Erro ao salvar no metadata também:", metadataError);
-            toast.warning("Conta criada, mas houve um problema ao salvar o perfil. Você pode atualizar depois.");
-          }
+          await saveUserProfile(signUpData.user.id, profileData);
+        } catch (profileError) {
+          console.warn("Perfil será aplicado no próximo login:", profileError);
         }
-      }
-      
-      // Verificar se o perfil foi realmente salvo
-      if (profileSaved) {
         try {
-          const { data: verifyProfile, error: verifyError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', signUpData.user.id)
-            .maybeSingle();
-          
-          if (verifyError && verifyError.code !== 'PGRST116') {
-            console.warn("⚠️ Erro ao verificar perfil salvo:", verifyError);
-          } else if (verifyProfile) {
-            console.log("✅ Perfil verificado com sucesso:", verifyProfile);
-          } else {
-            console.warn("⚠️ Perfil não encontrado após salvar. Pode ser necessário confirmar o email primeiro.");
-          }
-        } catch (verifyError) {
-          console.warn("⚠️ Erro ao verificar perfil:", verifyError);
+          await signIn(email, password);
+        } catch (signInError) {
+          console.warn("Login no backend após cadastro:", signInError);
         }
+        toast.success("Conta criada com sucesso!");
+        setLocation("/onboarding?new=1");
+      } else {
+        toast.success(
+          "Conta criada! Enviamos um email de confirmação — confira também spam/Promoções.",
+        );
+        setLocation(
+          `/login?precisaConfirmar=1&email=${encodeURIComponent(email)}`,
+        );
       }
 
-      // Registrar referência se veio de um link de indicação
+      // Registrar referência se veio de um link de indicação (best-effort; pode falhar sem sessão)
       const referralCode = getStoredReferralCode();
-      if (referralCode) {
+      if (referralCode && signUpData.session) {
         try {
           const referrerId = await getReferrerByCode(referralCode);
           if (referrerId && referrerId !== signUpData.user.id) {
@@ -233,21 +193,8 @@ export default function SignUp() {
         }
       }
 
-      // Afiliados / campanhas: gravar código aff e UTMs capturados na primeira visita
-      await recordSignupAttribution(signUpData.user.id);
-      
-      // Com "Confirm email" ativo no Supabase não há session até confirmar — ir ao login com aviso
       if (signUpData.session) {
-        try {
-          await signIn(email, password);
-        } catch (signInError) {
-          console.warn("Login no backend após cadastro:", signInError);
-        }
-        setLocation("/onboarding?new=1");
-      } else {
-        setLocation(
-          `/login?precisaConfirmar=1&email=${encodeURIComponent(email)}`,
-        );
+        await recordSignupAttribution(signUpData.user.id);
       }
     } catch (error: any) {
       console.error("Erro completo no signup:", error);
