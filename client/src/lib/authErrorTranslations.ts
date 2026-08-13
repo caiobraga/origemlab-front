@@ -51,6 +51,15 @@ export function translateSupabaseAuthError(
     return "Email inválido.";
   }
 
+  if (
+    normalized.includes("error sending confirmation email") ||
+    normalized.includes("error sending email") ||
+    normalized.includes("unable to send") ||
+    (normalized.includes("smtp") && normalized.includes("error"))
+  ) {
+    return "Não foi possível enviar o email de confirmação. O SMTP do Supabase está falhando (Gmail costuma bloquear). Configure Resend/SendGrid em Authentication → SMTP, ou desative temporariamente Confirm email.";
+  }
+
   if (normalized.includes("too many requests") || normalized.includes("rate limit") || normalized.includes("email rate limit exceeded")) {
     return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
   }
