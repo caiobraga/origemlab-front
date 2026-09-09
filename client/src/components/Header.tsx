@@ -6,6 +6,7 @@ import { APP_TITLE } from "@/const";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useActiveEmpresa } from "@/contexts/ActiveEmpresaProvider";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import SkipLink from "@/components/SkipLink";
 export default function Header() {
   const { user, signOut, loading } = useAuth();
   const { profile } = useUserProfile();
+  const { empresas, activeEmpresaId, setActiveEmpresa, isConsultor } = useActiveEmpresa();
   const [location, setLocation] = useLocation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
@@ -34,11 +36,15 @@ export default function Header() {
     user &&
     (location === "/dashboard" ||
       location === "/minhas-propostas" ||
+      location === "/minhas-empresas" ||
+      location === "/meus-projetos" ||
       location === "/planos" ||
       location === "/perfil" ||
       location.startsWith("/perfil/") ||
+      location.startsWith("/empresas/") ||
       location.startsWith("/edital/") ||
-      location.startsWith("/propostas/"));
+      location.startsWith("/propostas/") ||
+      location.startsWith("/projetos/"));
 
   const paidActive =
     profile?.subscriptionStatus === "active" || profile?.subscriptionStatus === "trialing";
@@ -145,6 +151,36 @@ export default function Header() {
                 Painel
               </Link>
               <Link
+                href="/meus-projetos"
+                className={cn(
+                  "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                  isActive("/meus-projetos") || location.startsWith("/projetos/")
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                )}
+                aria-current={isActive("/meus-projetos") || location.startsWith("/projetos/") ? "page" : undefined}
+              >
+                Projetos
+              </Link>
+              {isConsultor && (
+                <Link
+                  href="/minhas-empresas"
+                  className={cn(
+                    "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                    location === "/minhas-empresas" || location.startsWith("/empresas/")
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                  )}
+                  aria-current={
+                    location === "/minhas-empresas" || location.startsWith("/empresas/")
+                      ? "page"
+                      : undefined
+                  }
+                >
+                  Empresas
+                </Link>
+              )}
+              <Link
                 href="/minhas-propostas"
                 className={cn(
                   "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
@@ -168,18 +204,20 @@ export default function Header() {
               >
                 Rede de acesso
               </Link>
-              <Link
-                href="/planos"
-                className={cn(
-                  "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
-                  isActive("/planos")
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
-                )}
-                aria-current={isActive("/planos") ? "page" : undefined}
-              >
-                Planos
-              </Link>
+              {isConsultor && (
+                <Link
+                  href="/planos"
+                  className={cn(
+                    "flex items-center border-b-2 px-0 text-sm font-medium transition-colors",
+                    isActive("/planos")
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-700 hover:border-primary/50 hover:text-primary"
+                  )}
+                  aria-current={isActive("/planos") ? "page" : undefined}
+                >
+                  Planos
+                </Link>
+              )}
             </nav>
           )}
 
@@ -187,6 +225,24 @@ export default function Header() {
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {user && !loading ? (
               <>
+                {isConsultor && empresas.length > 0 ? (
+                  <label className="hidden lg:flex items-center gap-2 text-xs text-gray-600">
+                    <span className="whitespace-nowrap font-medium">Empresa</span>
+                    <select
+                      className="max-w-[180px] rounded-sm border border-border bg-white px-2 py-1.5 text-sm text-gray-900"
+                      value={activeEmpresaId || ""}
+                      onChange={(e) => setActiveEmpresa(e.target.value || null)}
+                      aria-label="Empresa ativa do workspace"
+                    >
+                      <option value="">Selecionar…</option>
+                      {empresas.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.nome_fantasia || e.razao_social}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 {planBadgeLabel ? (
                   <Badge
                     variant="default"
@@ -335,6 +391,30 @@ export default function Header() {
                             Meu Painel
                           </Button>
                         </Link>
+                        <Link href="/meus-projetos">
+                          <Button
+                            variant={isActive("/meus-projetos") || location.startsWith("/projetos/") ? "secondary" : "ghost"}
+                            className="w-full justify-start"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Meus Projetos
+                          </Button>
+                        </Link>
+                        {isConsultor && (
+                          <Link href="/minhas-empresas">
+                            <Button
+                              variant={
+                                location === "/minhas-empresas" || location.startsWith("/empresas/")
+                                  ? "secondary"
+                                  : "ghost"
+                              }
+                              className="w-full justify-start"
+                            >
+                              <LayoutDashboard className="w-4 h-4 mr-2" />
+                              Minhas Empresas
+                            </Button>
+                          </Link>
+                        )}
                         <Link href="/minhas-propostas">
                           <Button 
                             variant={isActive("/minhas-propostas") ? "secondary" : "ghost"}
@@ -362,14 +442,16 @@ export default function Header() {
                             Indique e Ganhe
                           </Button>
                         </Link>
-                        <Link href="/planos">
-                          <Button
-                            variant={isActive("/planos") ? "secondary" : "ghost"}
-                            className="w-full justify-start"
-                          >
-                            Planos
-                          </Button>
-                        </Link>
+                        {isConsultor && (
+                          <Link href="/planos">
+                            <Button
+                              variant={isActive("/planos") ? "secondary" : "ghost"}
+                              className="w-full justify-start"
+                            >
+                              Planos
+                            </Button>
+                          </Link>
+                        )}
                         <Button 
                           variant="ghost"
                           className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"

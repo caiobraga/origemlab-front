@@ -1,5 +1,8 @@
 # Static site: npm build → aws s3 sync → optional CloudFront invalidation.
 #
+# **Deprecated after Cloudflare cutover** — use `.github/workflows/deploy-cloudflare-pages.yml`.
+# Keep this workflow during parallel run; disable after DNS points to Pages.
+#
 # GitHub Variables: AWS_REGION, AWS_ROLE_ARN (OIDC deploy role), S3_BUCKET,
 # optional CLOUDFRONT_DISTRIBUTION_ID.
 #

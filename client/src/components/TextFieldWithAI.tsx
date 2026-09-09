@@ -52,6 +52,7 @@ interface TextFieldWithAIProps {
   fieldDescription: string;
   editalId?: string;
   propostaId?: string;
+  projetoId?: string;
   allFormData?: unknown;
   placeholder?: string;
   className?: string;
@@ -70,6 +71,7 @@ export default function TextFieldWithAI({
   fieldDescription,
   editalId,
   propostaId,
+  projetoId,
   allFormData,
   placeholder,
   className,
@@ -81,6 +83,7 @@ export default function TextFieldWithAI({
   const [isRegeneratingFromAnalysis, setIsRegeneratingFromAnalysis] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [confirmRegenerateOpen, setConfirmRegenerateOpen] = useState(false);
+  const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
   const [analysisMarkdown, setAnalysisMarkdown] = useState<string>("");
   const [needsScientificGrounding, setNeedsScientificGrounding] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -97,7 +100,9 @@ export default function TextFieldWithAI({
   const isOverCharLimit = charLimit ? charCount > charLimit : false;
   const isOverLimit = isOverWordLimit || isOverCharLimit;
   const isEmpty = !value || !value.trim();
-  const canImprove = !!(editalId || propostaId);
+  const canImprove = !!(editalId || propostaId || projetoId);
+  const contextMissingMsg =
+    "Contexto não identificado (edital, proposta ou projeto). Recarregue a página e tente novamente.";
   const suggestsGrounding = useMemo(
     () => fieldSuggestsScientificGrounding(fieldDescription),
     [fieldDescription],
@@ -118,7 +123,7 @@ export default function TextFieldWithAI({
       return;
     }
     if (!canImprove) {
-      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
+      toast.error(contextMissingMsg);
       return;
     }
 
@@ -127,6 +132,7 @@ export default function TextFieldWithAI({
       const improvedText = await improveText({
         edital_id: editalId,
         proposta_id: propostaId,
+        projeto_id: projetoId,
         field_name: label,
         field_description: fieldDescription,
         current_text: value,
@@ -150,21 +156,7 @@ export default function TextFieldWithAI({
     return "pt";
   };
 
-  const handleGenerateFromScratch = async () => {
-    if (!guardProAi()) return;
-    if (!canImprove) {
-      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
-      return;
-    }
-
-    const hasText = !!value && value.trim().length > 0;
-    if (hasText) {
-      const ok = window.confirm(
-        "Isso vai gerar um novo texto e substituir o conteúdo atual deste campo. Deseja continuar?"
-      );
-      if (!ok) return;
-    }
-
+  const doGenerateFromScratch = async () => {
     setIsGenerating(true);
     const toastId = `gerar-campo-${id}`;
     const waitHint =
@@ -176,6 +168,7 @@ export default function TextFieldWithAI({
       const generated = await generateFieldText({
         edital_id: editalId,
         proposta_id: propostaId,
+        projeto_id: projetoId,
         field_id: id,
         field_name: label,
         field_description: fieldDescription,
@@ -208,6 +201,22 @@ export default function TextFieldWithAI({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGenerateFromScratch = async () => {
+    if (!guardProAi()) return;
+    if (!canImprove) {
+      toast.error(contextMissingMsg);
+      return;
+    }
+
+    const hasText = !!value && value.trim().length > 0;
+    if (hasText) {
+      setConfirmGenerateOpen(true);
+      return;
+    }
+
+    await doGenerateFromScratch();
   };
 
   const handleCopy = async () => {
@@ -255,7 +264,7 @@ export default function TextFieldWithAI({
       return;
     }
     if (!canImprove) {
-      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
+      toast.error(contextMissingMsg);
       return;
     }
     if (!hasSelection()) {
@@ -274,6 +283,7 @@ export default function TextFieldWithAI({
       const improved = await improveText({
         edital_id: editalId,
         proposta_id: propostaId,
+        projeto_id: projetoId,
         field_name: `${label} (trecho selecionado)`,
         field_description: `${fieldDescription}\n\nInstrução: melhore APENAS o trecho selecionado abaixo. Não adicione conteúdo fora desse trecho. Não inclua explicações.`,
         current_text: selectedText,
@@ -306,7 +316,7 @@ export default function TextFieldWithAI({
   const handleAnalyze = async () => {
     if (!guardProAi()) return;
     if (!canImprove) {
-      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
+      toast.error(contextMissingMsg);
       return;
     }
     setIsAnalyzing(true);
@@ -314,6 +324,7 @@ export default function TextFieldWithAI({
       const out = await analyzeField({
         edital_id: editalId,
         proposta_id: propostaId,
+        projeto_id: projetoId,
         field_id: id,
         field_name: label,
         field_description: fieldDescription,
@@ -339,7 +350,7 @@ export default function TextFieldWithAI({
 
   const doRegenerateUsingAnalysis = async () => {
     if (!canImprove) {
-      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
+      toast.error(contextMissingMsg);
       return;
     }
     const analysis = String(analysisMarkdown || "").trim();
@@ -357,6 +368,7 @@ export default function TextFieldWithAI({
       const regenerated = await generateFieldText({
         edital_id: editalId,
         proposta_id: propostaId,
+        projeto_id: projetoId,
         field_id: id,
         field_name: label,
         field_description: `${fieldDescription}\n\n${guidance}`,
@@ -384,7 +396,7 @@ export default function TextFieldWithAI({
   const handleGroundWithReferences = async () => {
     if (!guardProAi()) return;
     if (!canImprove) {
-      toast.error("Edital ou proposta não identificada. Recarregue a página e tente novamente.");
+      toast.error(contextMissingMsg);
       return;
     }
 
@@ -393,6 +405,7 @@ export default function TextFieldWithAI({
       const out = await groundFieldWithReferences({
         edital_id: editalId,
         proposta_id: propostaId,
+        projeto_id: projetoId,
         field_id: id,
         field_name: label,
         field_description: fieldDescription,
@@ -813,6 +826,30 @@ export default function TextFieldWithAI({
                 await doRegenerateUsingAnalysis();
               }}
               disabled={isRegeneratingFromAnalysis}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmGenerateOpen} onOpenChange={setConfirmGenerateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar do zero com IA</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso vai gerar um novo texto e substituir o conteúdo atual deste campo. Deseja
+              continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isGenerating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setConfirmGenerateOpen(false);
+                await doGenerateFromScratch();
+              }}
+              disabled={isGenerating}
             >
               Confirmar
             </AlertDialogAction>

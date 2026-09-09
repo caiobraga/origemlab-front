@@ -206,6 +206,11 @@ async function sendViaWebhook(
   if (!endpoint) throw new Error("Chat endpoint não configurado.");
 
   const useOllama = isProbablyOllamaEndpoint(endpoint);
+  if (useOllama && import.meta.env.PROD) {
+    throw new Error(
+      "Chat direto no Ollama (:11434) não é suportado em produção. Defina VITE_API_BASE_URL para usar /api/edital-chat.",
+    );
+  }
   const url = useOllama ? normalizeOllamaChatUrl(endpoint) : endpoint;
 
   const body = useOllama

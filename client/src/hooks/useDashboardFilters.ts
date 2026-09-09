@@ -28,6 +28,7 @@ export function useDashboardFilters() {
     filters.mostrarInativos,
     filters.ignorarFiltroPerfil,
     filters.apenasIndicacoes,
+    filters.filtroProjetoId,
     filters.ordenacao,
   ]);
 
@@ -49,6 +50,7 @@ export function useDashboardFilters() {
     setFiltroTipoEdital: (filtroTipoEdital: DashboardFiltersState["filtroTipoEdital"]) =>
       patchFilters({ filtroTipoEdital }),
     setApenasIndicacoes: (apenasIndicacoes: boolean) => patchFilters({ apenasIndicacoes }),
+    setFiltroProjetoId: (filtroProjetoId: string) => patchFilters({ filtroProjetoId }),
     setOrdenacao: (ordenacao: DashboardFiltersState["ordenacao"]) => patchFilters({ ordenacao }),
     setCurrentPage: (currentPage: number) => patchFilters({ currentPage }),
     clearFilters,

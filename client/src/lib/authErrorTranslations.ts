@@ -20,7 +20,7 @@ export function translateSupabaseAuthError(
     normalized.includes("confirm your email") ||
     normalized.includes("email address is not confirmed")
   ) {
-    return "Seu email ainda não foi confirmado. Abra o link que enviamos (verifique spam). Você pode reenviar o email na tela de login.";
+    return "Seu email ainda não foi confirmado no servidor. Se você já clicou no link, use «Reenviar email» na tela de login e abra o novo link neste mesmo navegador (não no app do email). Ou tente entrar de novo — às vezes a confirmação já valeu.";
   }
 
   if (
@@ -41,6 +41,13 @@ export function translateSupabaseAuthError(
 
   if (normalized.includes("password should be at least") || normalized.includes("password length")) {
     return "A senha deve ter pelo menos 6 caracteres.";
+  }
+
+  if (
+    normalized.includes("same password") ||
+    normalized.includes("should be different from the old password")
+  ) {
+    return "A nova senha precisa ser diferente da atual.";
   }
 
   if (normalized.includes("signup requires a valid password")) {
@@ -75,6 +82,11 @@ export function translateSupabaseAuthError(
 
   if (normalized.includes("invalid url")) {
     return "URL do Supabase inválida. Verifique as configurações.";
+  }
+
+  // Worker/API could not reach Supabase (misconfigured secret or edge fetch).
+  if (normalized === "fetch failed" || normalized.includes("supabase network")) {
+    return "A API não conseguiu falar com o Supabase. Confira secrets (SUPABASE_URL / ANON_KEY) no Worker e tente de novo.";
   }
 
   return raw || fallbackMessage;

@@ -22,6 +22,7 @@ import { getPrazoInscricaoDisplayPreferindoTimeline, shouldShowPrazoInscricaoRef
 import { normalizeJsonLikeToMarkdown } from "@/lib/editalRichText";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useActiveEmpresa } from "@/contexts/ActiveEmpresaProvider";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import { gerarPropostaComIA } from "@/lib/propostasApi";
 import { useLocation } from "wouter";
@@ -72,6 +73,7 @@ export default function EditalDetails() {
   const [pageEntitlements, setPageEntitlements] = useState<EntitlementsPayload | null>(null);
   const { user, loading: authLoading } = useAuth();
   const { profile, refetch: refetchProfile } = useUserProfile();
+  const { activeEmpresaId, isConsultor } = useActiveEmpresa();
   const { entitlements: profileEntitlements, loading: entitlementsLoading } =
     useSubscriptionEntitlements();
   const entitlements = pageEntitlements ?? profileEntitlements;
@@ -487,7 +489,9 @@ export default function EditalDetails() {
       setGerandoProposta(true);
       toast.loading("Criando proposta...", { id: "gerar-proposta" });
 
-      const proposta = await gerarPropostaComIA(editalId, user.id, user, profile);
+      const proposta = await gerarPropostaComIA(editalId, user.id, user, profile, {
+        empresaId: isConsultor ? activeEmpresaId : null,
+      });
 
       toast.success("Proposta criada com sucesso!", { id: "gerar-proposta" });
       setLocation(`/propostas/${proposta.id}`);

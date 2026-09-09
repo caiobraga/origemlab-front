@@ -16,8 +16,11 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { createBillingPortalSession, createCheckoutSession } from "@/lib/stripeBilling";
 import { Check, CreditCard, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { isOpenAccessMode } from "@/lib/subscriptionEntitlements";
 
 type PaidPlanKey = "pro" | "empresas";
+
+const openAccess = isOpenAccessMode();
 
 const accountPlans: Array<{
   key: "free" | PaidPlanKey | "institucional";
@@ -29,23 +32,28 @@ const accountPlans: Array<{
 }> = [
   {
     key: "free",
-    name: "Gratuito",
+    name: openAccess ? "Acesso aberto" : "Gratuito",
     price: "R$ 0/mês",
-    description: "Acesso inicial para consultar oportunidades e conhecer o fluxo.",
-    features: ["3 editais por mês", "Perfil básico", "Alertas essenciais"],
+    description: openAccess
+      ? "Período de testes com todos os recursos liberados."
+      : "Acesso inicial para consultar oportunidades e conhecer o fluxo.",
+    features: openAccess
+      ? ["Editais ilimitados", "Propostas com IA", "Indicações e chat", "Painel completo"]
+      : ["3 editais por mês", "Perfil básico", "Alertas essenciais"],
+    recommended: openAccess,
   },
   {
     key: "pro",
     name: "Pro",
-    price: "R$ 1,99/mês",
+    price: openAccess ? "Em breve" : "R$ 1,99/mês",
     description: "Para quem acompanha editais com frequência e prepara propostas.",
     features: ["Editais ilimitados", "Geração de propostas com IA", "Indicações personalizadas", "Histórico de submissões"],
-    recommended: true,
+    recommended: !openAccess,
   },
   {
     key: "empresas",
     name: "Empresas",
-    price: "R$ 199/mês",
+    price: openAccess ? "Em breve" : "R$ 199/mês",
     description: "Para equipes que precisam organizar oportunidades e propostas.",
     features: ["Recursos do Pro", "Operação multiusuário", "Relatórios executivos", "Acompanhamento prioritário"],
   },
@@ -59,6 +67,7 @@ const accountPlans: Array<{
 ];
 
 function statusLabel(status?: string) {
+  if (openAccess) return "Acesso aberto (testes)";
   if (status === "active") return "Assinatura ativa";
   if (status === "trialing") return "Período de teste";
   if (status === "past_due") return "Pagamento em atraso";
@@ -67,6 +76,7 @@ function statusLabel(status?: string) {
 }
 
 function planLabel(planKey?: string) {
+  if (openAccess) return "Acesso aberto (testes)";
   if (planKey === "empresas") return "Empresas";
   if (planKey === "pro") return "Pro";
   return "Gratuito";
@@ -83,6 +93,10 @@ function LoggedInPlans() {
   const currentPlanKey = activeLike && profile?.subscriptionPlanKey ? profile.subscriptionPlanKey : "free";
 
   const handleCheckout = async (planKey: PaidPlanKey) => {
+    if (openAccess) {
+      toast.info("Cobrança pausada — acesso liberado para testes.");
+      return;
+    }
     if (!user) {
       toast.info("Faça login para assinar.");
       return;
@@ -119,7 +133,9 @@ function LoggedInPlans() {
             <p className="institutional-kicker mb-2">Gestão de assinatura</p>
             <h1 className="text-2xl font-bold tracking-tight text-gray-950 md:text-3xl">Planos e cobrança</h1>
             <p className="mt-2 max-w-2xl text-sm text-gray-700 md:text-base">
-              Consulte seu plano atual, faça upgrade ou acesse a área segura de cobrança.
+              {openAccess
+                ? "Cobrança pausada: use o sistema completo sem assinatura enquanto coletamos feedback."
+                : "Consulte seu plano atual, faça upgrade ou acesse a área segura de cobrança."}
             </p>
           </div>
           <Link href="/dashboard">
@@ -144,20 +160,30 @@ function LoggedInPlans() {
               </div>
               <h2 className="text-xl font-semibold text-gray-950">Plano atual: {profileLoading ? "..." : planLabel(currentPlanKey)}</h2>
               <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                Sua assinatura é gerenciada pelo Stripe. Alterações de cartão, notas e cancelamento ficam disponíveis no portal seguro de cobrança.
+                {openAccess
+                  ? "Neste período de testes, catálogo, propostas com IA, chat e indicações estão liberados sem Stripe."
+                  : "Sua assinatura é gerenciada pelo Stripe. Alterações de cartão, notas e cancelamento ficam disponíveis no portal seguro de cobrança."}
               </p>
             </div>
             <div className="flex flex-col justify-center gap-3 bg-secondary/40 p-6">
-              <Button
-                type="button"
-                className="w-full bg-primary hover:bg-primary/90"
-                onClick={handlePortal}
-                disabled={portalLoading || !profile?.stripeCustomerId}
-              >
-                {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                Gerenciar cobrança
-              </Button>
-              {!profile?.stripeCustomerId ? (
+              {openAccess ? (
+                <Link href="/dashboard">
+                  <Button type="button" className="w-full bg-primary hover:bg-primary/90">
+                    Ir ao painel
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  type="button"
+                  className="w-full bg-primary hover:bg-primary/90"
+                  onClick={handlePortal}
+                  disabled={portalLoading || !profile?.stripeCustomerId}
+                >
+                  {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                  Gerenciar cobrança
+                </Button>
+              )}
+              {!openAccess && !profile?.stripeCustomerId ? (
                 <p className="text-xs leading-relaxed text-gray-600">
                   O portal de cobrança aparece após a primeira assinatura paga.
                 </p>
@@ -209,11 +235,15 @@ function LoggedInPlans() {
                         type="button"
                         variant={plan.recommended ? "attention" : "outline"}
                         className={`w-full ${plan.recommended ? "" : "border-border bg-white hover:bg-secondary"}`}
-                        disabled={checkoutLoadingPlan !== null}
+                        disabled={openAccess || checkoutLoadingPlan !== null}
                         onClick={() => void handleCheckout(plan.key as PaidPlanKey)}
                       >
                         {loadingPlan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        {loadingPlan ? "Redirecionando..." : `Assinar ${plan.name}`}
+                        {openAccess
+                          ? "Incluído nos testes"
+                          : loadingPlan
+                            ? "Redirecionando..."
+                            : `Assinar ${plan.name}`}
                       </Button>
                     ) : plan.key === "institucional" ? (
                       <Link href="/contato">
@@ -235,9 +265,13 @@ function LoggedInPlans() {
         </div>
 
         <div className="mt-8 rounded-sm border border-[color:var(--institutional-line)] bg-white p-5 text-sm text-gray-700">
-          <p className="font-semibold text-gray-950">Observação sobre sucesso do projeto</p>
+          <p className="font-semibold text-gray-950">
+            {openAccess ? "Sobre o período de testes" : "Observação sobre sucesso do projeto"}
+          </p>
           <p className="mt-1">
-            Planos pagos podem incluir success fee de 3% sobre projetos aprovados, conforme condições comerciais vigentes.
+            {openAccess
+              ? "A cobrança via Stripe está pausada. Quando reativarmos os planos pagos, avisaremos na plataforma."
+              : "Planos pagos podem incluir success fee de 3% sobre projetos aprovados, conforme condições comerciais vigentes."}
           </p>
         </div>
       </main>

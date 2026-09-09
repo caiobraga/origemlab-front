@@ -14,7 +14,7 @@ export interface Edital {
     cpf?: boolean;
     cnpj?: boolean;
     lattesId?: boolean;
-    tipoUsuario?: ("pesquisador" | "pessoa-empresa" | "ambos")[];
+    tipoUsuario?: ("pesquisador" | "consultor" | "pessoa-empresa" | "ambos")[];
   };
   descricao?: string;
 }
@@ -42,7 +42,11 @@ export function isEditalRelevantForUser(edital: Edital, user: User | null): bool
         if (userType === "pesquisador" && !req.tipoUsuario.includes("pesquisador")) {
           return false;
         }
-        if (userType === "pessoa-empresa" && !req.tipoUsuario.includes("pessoa-empresa")) {
+        if (
+          userType === "consultor" &&
+          !req.tipoUsuario.includes("consultor") &&
+          !req.tipoUsuario.includes("pessoa-empresa")
+        ) {
           return false;
         }
       }
@@ -83,8 +87,8 @@ export function isEditalRelevantForUser(edital: Edital, user: User | null): bool
     }
   }
 
-  // Empresas geralmente precisam de CNPJ
-  if (userType === "pessoa-empresa") {
+  // Consultores / empresas geralmente precisam de CNPJ
+  if (userType === "consultor") {
     if (
       tituloLower.includes("empresa") ||
       tituloLower.includes("startup") ||
@@ -142,9 +146,13 @@ export function getEditalRelevanceInfo(edital: Edital, user: User | null): {
     if (req.tipoUsuario && req.tipoUsuario.length > 0) {
       if (!req.tipoUsuario.includes("ambos")) {
         if (userType === "pesquisador" && !req.tipoUsuario.includes("pesquisador")) {
-          reasons.push("Este edital é apenas para pessoas físicas/empresas");
+          reasons.push("Este edital é apenas para empresas/consultores");
         }
-        if (userType === "pessoa-empresa" && !req.tipoUsuario.includes("pessoa-empresa")) {
+        if (
+          userType === "consultor" &&
+          !req.tipoUsuario.includes("consultor") &&
+          !req.tipoUsuario.includes("pessoa-empresa")
+        ) {
           reasons.push("Este edital é apenas para pesquisadores");
         }
       }
@@ -176,7 +184,7 @@ export function getEditalRelevanceInfo(edital: Edital, user: User | null): {
     }
   }
 
-  if (userType === "pessoa-empresa" && !userHasCnpj) {
+  if (userType === "consultor" && !userHasCnpj) {
     if (
       tituloLower.includes("empresa") ||
       tituloLower.includes("startup") ||

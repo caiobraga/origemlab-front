@@ -50,8 +50,9 @@ export async function groundFieldWithReferences(
   };
   if (params.edital_id) body.edital_id = params.edital_id;
   if (params.proposta_id) body.proposta_id = params.proposta_id;
-  if (!body.edital_id && !body.proposta_id) {
-    throw new Error("É necessário edital_id ou proposta_id.");
+  if (params.projeto_id) body.projeto_id = params.projeto_id;
+  if (!body.edital_id && !body.proposta_id && !body.projeto_id) {
+    throw new Error("É necessário edital_id, proposta_id ou projeto_id.");
   }
 
   const response = await fetch(apiUrl("/api/ground-field-with-references"), {

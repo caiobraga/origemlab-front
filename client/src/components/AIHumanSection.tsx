@@ -1,7 +1,22 @@
 import { Brain, Users, CheckCircle2, Sparkles } from "lucide-react";
 import ScrollReveal from "@/components/ScrollReveal";
+import { useQuery } from "@tanstack/react-query";
+import { fetchPublicCatalogStats, formatCountPlus } from "@/lib/catalogStatsApi";
 
 export default function AIHumanSection() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["public-catalog-stats"],
+    queryFn: fetchPublicCatalogStats,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+
+  const editaisAnalisados = isLoading
+    ? "…"
+    : stats && stats.editaisAnalisadosCount > 0
+      ? formatCountPlus(stats.editaisAnalisadosCount)
+      : "10.000+";
+
   return (
     <section className="py-20 text-white bg-primary">
       <div className="container">
@@ -131,7 +146,7 @@ export default function AIHumanSection() {
             <div className="text-sm text-gray-300 font-medium">Taxa de aprovação</div>
           </div>
           <div className="text-center">
-            <div className="text-4xl font-bold text-white mb-2">10.000+</div>
+            <div className="text-4xl font-bold text-white mb-2">{editaisAnalisados}</div>
             <div className="text-sm text-gray-300 font-medium">Editais analisados</div>
           </div>
         </ScrollReveal>

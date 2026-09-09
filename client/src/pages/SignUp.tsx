@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Spinner } from "@/components/ui/spinner";
 import Header from "@/components/Header";
-import { saveUserProfile } from "@/lib/userProfile";
+import { saveUserProfile, type UserType } from "@/lib/userProfile";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { translateSupabaseAuthError } from "@/lib/authErrorTranslations";
@@ -21,22 +21,31 @@ import {
   recordReferralConversion,
 } from "@/lib/referralApi";
 import { recordSignupAttribution } from "@/lib/attribution";
-import { getEmailConfirmRedirectUrl, isLikelyExistingUnconfirmedSignup, resendSignupConfirmationEmail } from "@/lib/authEmailConfirmation";
+import {
+  getEmailConfirmRedirectUrl,
+  isLikelyExistingUnconfirmedSignup,
+  resendSignupConfirmationEmail,
+} from "@/lib/authEmailConfirmation";
+import { markPendingAuthFlow } from "@/lib/authCallbackUrl";
 import { stashPendingSignupProfile } from "@/lib/pendingSignupProfile";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignUp() {
   const [, setLocation] = useLocation();
-  const [userType, setUserType] = useState<"pesquisador" | "pessoa-empresa" | "ambos">("pesquisador");
+  const [userType, setUserType] = useState<UserType>("pesquisador");
   
   // Campos comuns
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [cpf, setCpf] = useState("");
   
-  // Campos específicos de pessoa física/empresa
+  // Campos específicos de consultor (primeira empresa opcional)
   const [hasCnpj, setHasCnpj] = useState<string>("nao");
   const [cnpj, setCnpj] = useState("");
+  const [razaoSocial, setRazaoSocial] = useState("");
   
   // Consentimento de coleta de dados (LGPD)
   const [dataCollectionConsent, setDataCollectionConsent] = useState(false);
@@ -74,8 +83,8 @@ export default function SignUp() {
       return;
     }
 
-    if (userType === "pessoa-empresa" && hasCnpj === "sim" && !cnpj) {
-      toast.error("CNPJ é obrigatório quando você possui CNPJ");
+    if (userType === "consultor" && hasCnpj === "sim" && !cnpj) {
+      toast.error("CNPJ é obrigatório quando você informa a primeira empresa");
       return;
     }
 
@@ -94,14 +103,16 @@ export default function SignUp() {
       
       const profileData = {
         cpf: cpfLimpo || undefined,
-        cnpj: (userType === "pessoa-empresa" || userType === "ambos") && hasCnpj === "sim" && cnpjLimpo ? cnpjLimpo : undefined,
-        userType: userType,
-        hasCnpj: (userType === "pessoa-empresa" || userType === "ambos") && hasCnpj === "sim",
+        cnpj: userType === "consultor" && hasCnpj === "sim" && cnpjLimpo ? cnpjLimpo : undefined,
+        userType,
+        hasCnpj: userType === "consultor" && hasCnpj === "sim",
         dataCollectionConsent: dataCollectionConsent,
         consentVersion: "1.0", // Versão atual do termo de consentimento
       };
 
       console.log("Dados do perfil a serem salvos:", profileData);
+
+      markPendingAuthFlow("signup");
 
       // Fazer o signUp básico (perfil em user_metadata — funciona sem sessão)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -235,16 +246,13 @@ export default function SignUp() {
               </p>
             </div>
 
-            <Tabs value={userType} onValueChange={(value) => setUserType(value as "pesquisador" | "pessoa-empresa" | "ambos")} className="w-full">
-              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 h-auto p-1 gap-1 sm:gap-0 sm:h-9">
+            <Tabs value={userType} onValueChange={(value) => setUserType(value as UserType)} className="w-full">
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 mb-6 h-auto p-1 gap-1 sm:gap-0 sm:h-9">
                 <TabsTrigger value="pesquisador" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
                   Pesquisador
                 </TabsTrigger>
-                <TabsTrigger value="pessoa-empresa" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
-                  Pessoa Física/Empresa
-                </TabsTrigger>
-                <TabsTrigger value="ambos" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
-                  Ambos
+                <TabsTrigger value="consultor" className="whitespace-normal py-3 sm:py-1 min-h-[44px] sm:min-h-0 text-center">
+                  Consultor
                 </TabsTrigger>
               </TabsList>
 
@@ -273,17 +281,34 @@ export default function SignUp() {
                       Senha <span className="text-red-600" aria-hidden="true">*</span>
                       <span className="sr-only"> (obrigatório)</span>
                     </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      minLength={6}
-                      className="w-full"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={loading}
+                        minLength={6}
+                        className="w-full pr-10"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                        aria-pressed={showPassword}
+                        disabled={loading}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <Eye className="h-4 w-4" aria-hidden />
+                        )}
+                      </button>
+                    </div>
                     <p className="text-xs text-gray-500">Mínimo de 6 caracteres</p>
                   </div>
 
@@ -292,17 +317,34 @@ export default function SignUp() {
                       Confirmar Senha <span className="text-red-600" aria-hidden="true">*</span>
                       <span className="sr-only"> (obrigatório)</span>
                     </Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      minLength={6}
-                      className="w-full"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        disabled={loading}
+                        minLength={6}
+                        className="w-full pr-10"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        aria-label={showConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
+                        aria-pressed={showConfirmPassword}
+                        disabled={loading}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <Eye className="h-4 w-4" aria-hidden />
+                        )}
+                      </button>
+                    </div>
                     {password && confirmPassword && password !== confirmPassword && (
                       <p className="text-xs text-red-500">As senhas não coincidem</p>
                     )}
@@ -329,83 +371,63 @@ export default function SignUp() {
 
                 {/* Aba Pesquisador */}
                 <TabsContent value="pesquisador" className="space-y-6">
-                  <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil após o cadastro.</p>
+                  <p className="text-sm text-gray-600">
+                    Conta individual gratuita. Cadastre projetos e encontre editais compatíveis. Você pode enviar o currículo (Lattes/PDF) depois no perfil.
+                  </p>
                 </TabsContent>
 
-                {/* Aba Pessoa Física/Empresa */}
-                <TabsContent value="pessoa-empresa" className="space-y-6">
+                {/* Aba Consultor */}
+                <TabsContent value="consultor" className="space-y-6">
+                  <div className="rounded-lg border border-border bg-secondary/40 p-4 mb-2">
+                    <p className="text-sm text-gray-800">
+                      <strong>Consultor:</strong> gerencie várias empresas e projetos por empresa. Você pode cadastrar a primeira empresa agora ou depois em Minhas empresas.
+                    </p>
+                  </div>
+
                   <div className="space-y-4">
-                    <Label>Você possui CNPJ?</Label>
+                    <Label>Cadastrar primeira empresa agora?</Label>
                     <RadioGroup value={hasCnpj} onValueChange={setHasCnpj} disabled={loading}>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="sim" id="cnpj-sim" />
-                        <Label htmlFor="cnpj-sim" className="cursor-pointer font-normal">Sim, tenho CNPJ</Label>
+                        <Label htmlFor="cnpj-sim" className="cursor-pointer font-normal">Sim, informar CNPJ</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="nao" id="cnpj-nao" />
-                        <Label htmlFor="cnpj-nao" className="cursor-pointer font-normal">Não tenho CNPJ</Label>
+                        <Label htmlFor="cnpj-nao" className="cursor-pointer font-normal">Depois</Label>
                       </div>
                     </RadioGroup>
 
                     {hasCnpj === "sim" && (
-                      <div className="space-y-2 mt-4">
-                        <Label htmlFor="cnpj">
-                          CNPJ <span className="text-red-600" aria-hidden="true">*</span>
-                          <span className="sr-only"> (obrigatório)</span>
-                        </Label>
-                        <Input
-                          id="cnpj"
-                          type="text"
-                          placeholder="00.000.000/0000-00"
-                          value={cnpj}
-                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
-                          required={hasCnpj === "sim"}
-                          disabled={loading}
-                          maxLength={18}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* Aba Ambos */}
-                <TabsContent value="ambos" className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-blue-800">
-                      <strong>Perfil Ambos:</strong> Você poderá visualizar editais tanto para pesquisadores quanto para empresas. 
-                      Use o filtro no dashboard para alternar entre os tipos.
-                    </p>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil.</p>
-
-                  <div className="space-y-4">
-                    <Label>Você possui CNPJ?</Label>
-                    <RadioGroup value={hasCnpj} onValueChange={setHasCnpj} disabled={loading}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="sim" id="cnpj-sim-ambos" />
-                        <Label htmlFor="cnpj-sim-ambos" className="cursor-pointer font-normal">Sim, tenho CNPJ</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="nao" id="cnpj-nao-ambos" />
-                        <Label htmlFor="cnpj-nao-ambos" className="cursor-pointer font-normal">Não tenho CNPJ</Label>
-                      </div>
-                    </RadioGroup>
-
-                    {hasCnpj === "sim" && (
-                      <div className="space-y-2 mt-4">
-                        <Label htmlFor="cnpj-ambos">CNPJ</Label>
-                        <Input
-                          id="cnpj-ambos"
-                          type="text"
-                          placeholder="00.000.000/0000-00"
-                          value={cnpj}
-                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
-                          disabled={loading}
-                          maxLength={18}
-                          className="w-full"
-                        />
+                      <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="razao-social">Razão social</Label>
+                          <Input
+                            id="razao-social"
+                            type="text"
+                            placeholder="Empresa Exemplo Ltda"
+                            value={razaoSocial}
+                            onChange={(e) => setRazaoSocial(e.target.value)}
+                            disabled={loading}
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cnpj">
+                            CNPJ <span className="text-red-600" aria-hidden="true">*</span>
+                            <span className="sr-only"> (obrigatório)</span>
+                          </Label>
+                          <Input
+                            id="cnpj"
+                            type="text"
+                            placeholder="00.000.000/0000-00"
+                            value={cnpj}
+                            onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                            required={hasCnpj === "sim"}
+                            disabled={loading}
+                            maxLength={18}
+                            className="w-full"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -456,7 +478,7 @@ export default function SignUp() {
                     loading || 
                     !cpf ||
                     (password !== confirmPassword && confirmPassword !== "") ||
-                    (userType === "pessoa-empresa" && hasCnpj === "sim" && !cnpj) ||
+                    (userType === "consultor" && hasCnpj === "sim" && !cnpj) ||
                     !dataCollectionConsent
                   }
                 >

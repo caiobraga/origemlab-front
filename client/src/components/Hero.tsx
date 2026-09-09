@@ -5,10 +5,44 @@ import DemoModal from "@/components/DemoModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "wouter";
 import ScrollReveal from "@/components/ScrollReveal";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchPublicCatalogStats,
+  formatCountPlus,
+  formatPotencialLanding,
+} from "@/lib/catalogStatsApi";
 
 export default function Hero() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const { user, loading } = useAuth();
+  const { data: stats, isLoading, isError } = useQuery({
+    queryKey: ["public-catalog-stats"],
+    queryFn: fetchPublicCatalogStats,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+
+  const instrumentos = isLoading
+    ? "…"
+    : stats && stats.editaisCorretosCount > 0
+      ? formatCountPlus(stats.editaisCorretosCount)
+      : isError
+        ? "—"
+        : "+2.000";
+  const potencial = isLoading
+    ? "…"
+    : stats && stats.potencialBRL > 0
+      ? formatPotencialLanding(stats.potencialBRL)
+      : isError
+        ? "—"
+        : "R$ 20bi";
+  const fontes = isLoading
+    ? "…"
+    : stats && stats.fontesCount > 0
+      ? formatCountPlus(stats.fontesCount)
+      : isError
+        ? "—"
+        : "20+";
 
   return (
     <section className="relative overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,color-mix(in_oklab,var(--institutional-paper)_78%,white)_100%)] pt-24 pb-20">
@@ -87,16 +121,16 @@ export default function Hero() {
           <ScrollReveal delay={0.2} className="mt-14">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
               <div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">+2.000</div>
+                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">{instrumentos}</div>
                 <div className="text-sm text-gray-600">Instrumentos monitorados</div>
               </div>
               <div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">R$ 20bi</div>
+                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">{potencial}</div>
                 <div className="text-sm text-gray-600">Potencial em projetos de inovação</div>
               </div>
               <div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">20.000+</div>
-                <div className="text-sm text-gray-600">Organizações atendidas pelo ecossistema</div>
+                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">{fontes}</div>
+                <div className="text-sm text-gray-600">Fontes de fomento monitoradas</div>
               </div>
             </div>
           </ScrollReveal>

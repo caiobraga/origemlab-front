@@ -1,0 +1,6 @@
+name = "origemlab-front"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-08-01"
+
+[vars]
+# Build-time vars are set in GitHub Actions / Cloudflare Pages dashboard.

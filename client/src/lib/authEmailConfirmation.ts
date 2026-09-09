@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { markPendingAuthFlow } from "@/lib/authCallbackUrl";
 
 /**
  * Base URL do front para links de confirmação.
@@ -26,6 +27,24 @@ export function getEmailConfirmRedirectUrl(): string {
   return origin ? `${origin}/auth/callback` : "/auth/callback";
 }
 
+/** Redirect do email de recuperação de senha (allowlist no Supabase). */
+export function getPasswordResetRedirectUrl(): string {
+  const origin = getAppOrigin();
+  // Site URL do Supabase costuma ser a home — main.tsx redireciona ?code= para /redefinir-senha.
+  return origin ? `${origin}/redefinir-senha` : "/redefinir-senha";
+}
+
+function smtpAwareError(error: { message?: string } | null): Error | null {
+  if (!error) return null;
+  const msg = error.message || "Falha ao enviar email";
+  if (/smtp|mail|535|auth/i.test(msg)) {
+    return new Error(
+      `Falha no envio (SMTP): ${msg}. Verifique Authentication → SMTP no Supabase (Gmail costuma falhar; use Resend).`,
+    );
+  }
+  return new Error(msg);
+}
+
 export async function resendSignupConfirmationEmail(
   email: string,
 ): Promise<{ error: Error | null }> {
@@ -40,19 +59,21 @@ export async function resendSignupConfirmationEmail(
       emailRedirectTo: getEmailConfirmRedirectUrl(),
     },
   });
-  if (error) {
-    const msg = error.message || "Falha ao reenviar email";
-    // Erros típicos de SMTP mal configurado no painel Supabase
-    if (/smtp|mail|535|auth/i.test(msg)) {
-      return {
-        error: new Error(
-          `Falha no envio (SMTP): ${msg}. Verifique Authentication → SMTP no Supabase (Gmail costuma falhar; use Resend).`,
-        ),
-      };
-    }
-    return { error: new Error(msg) };
+  if (!error) markPendingAuthFlow("signup");
+  return { error: smtpAwareError(error) };
+}
+
+export async function requestPasswordResetEmail(
+  email: string,
+): Promise<{ error: Error | null }> {
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return { error: new Error("Informe seu email.") };
   }
-  return { error: null };
+  const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+    redirectTo: getPasswordResetRedirectUrl(),
+  });
+  return { error: smtpAwareError(error) };
 }
 
 /**

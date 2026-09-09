@@ -240,6 +240,78 @@ export async function apiFetch<T>(path: string, init?: RequestInit, retryCount =
   return json as T;
 }
 
+/**
+ * POST que responde em NDJSON (uma linha JSON por evento).
+ * Útil para progresso longo (ex.: gerar proposta a partir de projeto).
+ */
+export async function* apiFetchNdjson(
+  path: string,
+  init?: RequestInit,
+): AsyncGenerator<Record<string, unknown>> {
+  if (!/^\/api\/auth\/(sign-in|sign-up|sign-out)$/.test(path)) {
+    await ensureApiAuth();
+  }
+  const authHeader = await supabaseAuthHeader();
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (err) {
+    throw wrapFetchError(err);
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = `HTTP ${res.status}`;
+    try {
+      const json = JSON.parse(text);
+      msg = String(json?.error || json?.message || msg);
+    } catch {
+      if (text.trim()) msg = text.trim().slice(0, 300);
+    }
+    throw new Error(msg);
+  }
+
+  if (!res.body) {
+    throw new Error("Resposta sem corpo (stream indisponível).");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        yield JSON.parse(trimmed) as Record<string, unknown>;
+      } catch {
+        // ignore malformed line
+      }
+    }
+  }
+  const tail = buffer.trim();
+  if (tail) {
+    try {
+      yield JSON.parse(tail) as Record<string, unknown>;
+    } catch {
+      // ignore
+    }
+  }
+}
+
 /** Persiste token retornado pelo POST /api/auth/sign-in (fallback quando cookie cross-site falha). */
 export function persistSignInResponse(body: unknown) {
   if (!body || typeof body !== "object") return;

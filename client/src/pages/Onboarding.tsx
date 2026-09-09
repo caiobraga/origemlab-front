@@ -10,6 +10,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { fetchEditaisStatsForOnboarding } from "@/lib/editaisApi";
 import { parseCurriculumFromPdf } from "@/lib/externalAPIs";
 import { saveCurriculumToMetadata, setOnboardingCompleted, updateProfileFromOnboarding, type CurriculumData } from "@/lib/userProfile";
+import { createEmpresa, fetchEmpresas } from "@/lib/empresasApi";
 import Header from "@/components/Header";
 import { Spinner } from "@/components/ui/spinner";
 import { Progress } from "@/components/ui/progress";
@@ -54,8 +55,8 @@ export default function Onboarding() {
 
   const isOnboarding1 = Boolean(user && isNewSignup);
 
-  /** Tipo de onboarding conforme perfil do usuário (pesquisador, pessoa-empresa ou ambos). */
-  const onboardingVariant = (profile?.userType ?? "pesquisador") as "pesquisador" | "pessoa-empresa" | "ambos";
+  /** Tipo de onboarding conforme perfil (pesquisador | consultor). */
+  const onboardingVariant = profile?.userType === "consultor" ? "consultor" : "pesquisador";
 
   const [stepCompletar, setStepCompletar] = useState<StepCompletarPerfil>("telefone");
   const [stepConhecer, setStepConhecer] = useState<StepConhecerEditais>("userType");
@@ -91,10 +92,29 @@ export default function Onboarding() {
         cnpj: data.cnpj.trim() ? data.cnpj : undefined,
         hasCnpj: data.cnpj.replace(/\D/g, "").length === 14,
         userType: opts?.userType
-          ? (opts.userType as "pesquisador" | "pessoa-empresa" | "ambos")
+          ? (opts.userType === "consultor" || opts.userType === "pessoa-empresa" || opts.userType === "ambos"
+              ? "consultor"
+              : "pesquisador")
           : undefined,
         markOnboardingCompleted: opts?.markCompleted !== false,
       });
+
+      // Consultor com CNPJ: cria primeira empresa se ainda não houver
+      const cnpjDigits = data.cnpj.replace(/\D/g, "");
+      if ((profile?.userType === "consultor" || opts?.userType === "consultor") && cnpjDigits.length === 14) {
+        try {
+          const existing = await fetchEmpresas();
+          if (!existing.some((e) => String(e.cnpj || "").replace(/\D/g, "") === cnpjDigits)) {
+            await createEmpresa({
+              razao_social: `Empresa ${cnpjDigits.slice(-4)}`,
+              cnpj: cnpjDigits,
+              area: data.area || profile?.area || null,
+            });
+          }
+        } catch (empresaErr) {
+          console.warn("Empresa inicial não criada:", empresaErr);
+        }
+      }
     } catch (firstError) {
       try {
         await setOnboardingCompleted(user.id);
@@ -235,10 +255,10 @@ export default function Onboarding() {
                 </>
               )}
 
-              {stepCompletar === "curriculo" && onboardingVariant === "pessoa-empresa" && (
+              {stepCompletar === "curriculo" && onboardingVariant === "consultor" && (
                 <>
                   <p className="text-gray-600 mb-4">
-                    Informe o CNPJ da empresa (opcional). Você pode preencher depois na página de perfil.
+                    Informe o CNPJ da primeira empresa (opcional). Você poderá cadastrar e gerenciar várias empresas depois em Minhas empresas.
                   </p>
                   <Input
                     placeholder="00.000.000/0001-00"
@@ -261,104 +281,6 @@ export default function Onboarding() {
                 </>
               )}
 
-              {stepCompletar === "curriculo" && onboardingVariant === "ambos" && (
-                <>
-                  <p className="text-gray-600 mb-4">
-                    Você é pesquisador e empresa. Informe o CNPJ (opcional) e envie o currículo Lattes.
-                  </p>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ da empresa (opcional)</label>
-                      <Input
-                        placeholder="00.000.000/0001-00"
-                        value={data.cnpj}
-                        onChange={(e) => {
-                          const n = e.target.value.replace(/\D/g, "").slice(0, 14);
-                          let formatted = n;
-                          if (n.length > 12) formatted = n.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, "$1.$2.$3/$4-$5");
-                          else if (n.length > 8) formatted = n.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, "$1.$2.$3/$4");
-                          else if (n.length > 5) formatted = n.replace(/(\d{2})(\d{3})(\d+)/, "$1.$2.$3");
-                          else if (n.length > 2) formatted = n.replace(/(\d{2})(\d+)/, "$1.$2");
-                          setData((d) => ({ ...d, cnpj: formatted }));
-                        }}
-                        maxLength={18}
-                        className="font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Currículo Lattes (obrigatório)</label>
-                      <a
-                        href="https://www.lattes.cnpq.br/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 hover:underline mb-2"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Abrir Plataforma Lattes (CNPq) para baixar ou imprimir seu currículo em PDF
-                      </a>
-                      <input
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        className="hidden"
-                        id="onb-pdf-ambos"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleUploadCurriculo(f);
-                          e.target.value = "";
-                        }}
-                      />
-                      {!(curriculumExtracted || (profile?.curriculumData && typeof profile.curriculumData === "object")) && (
-                        <Button variant="outline" className="w-full" onClick={() => document.getElementById("onb-pdf-ambos")?.click()} disabled={uploadingPdf}>
-                          <FileText className="w-4 h-4 mr-2" />
-                          {uploadingPdf ? "Enviando e extraindo dados..." : "Enviar PDF do currículo"}
-                        </Button>
-                      )}
-                      {uploadingPdf && (
-                        <div className="w-full mt-2 space-y-2">
-                          <div className="flex justify-between text-sm text-gray-600">
-                            <span>Extraindo dados do PDF...</span>
-                            <span>{Math.round(Math.min(pdfExtractProgress, 100))}%</span>
-                          </div>
-                          <Progress value={Math.min(pdfExtractProgress, 100)} className="h-2" />
-                        </div>
-                      )}
-                      {(curriculumExtracted || (profile?.curriculumData && typeof profile.curriculumData === "object")) && !uploadingPdf && (
-                        <div className="w-full p-4 bg-green-50 border border-green-200 rounded-lg">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-                              <span className="text-sm font-medium text-green-800 truncate">
-                                {uploadedFileName ? uploadedFileName : "Currículo cadastrado"}
-                              </span>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-shrink-0 border-green-300 text-green-700 hover:bg-green-100"
-                              onClick={() => document.getElementById("onb-pdf-ambos")?.click()}
-                            >
-                              <RefreshCw className="w-4 h-4 mr-1.5" />
-                              Trocar arquivo
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full mt-3"
-                    onClick={() => setStepCompletar("area")}
-                    disabled={!curriculumExtracted && !(profile?.curriculumData && typeof profile.curriculumData === "object")}
-                  >
-                    Continuar <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                  {!curriculumExtracted && !(profile?.curriculumData && typeof profile.curriculumData === "object") && (
-                    <p className="text-sm text-amber-700 mt-2">
-                      Envie o PDF do currículo para continuar.
-                    </p>
-                  )}
-                </>
-              )}
 
               {stepCompletar === "curriculo" && onboardingVariant === "pesquisador" && (
                 <>

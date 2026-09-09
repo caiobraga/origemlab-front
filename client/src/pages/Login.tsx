@@ -39,13 +39,19 @@ export default function Login() {
       next.searchParams.delete("precisaConfirmar");
       next.searchParams.delete("email");
       next.searchParams.delete("erro");
+      next.searchParams.delete("aviso");
       next.searchParams.delete("redirect");
       const qs = next.searchParams.toString();
       window.history.replaceState({}, "", `${next.pathname}${qs ? `?${qs}` : ""}${next.hash}`);
     };
 
     if (urlParams.get("emailConfirmado") === "1") {
-      toast.success("Email confirmado! Agora faça login com sua senha.");
+      const aviso = urlParams.get("aviso");
+      toast.success(
+        aviso
+          ? decodeURIComponent(aviso)
+          : "Email confirmado! Agora faça login com sua senha.",
+      );
       const t = window.setTimeout(() => stripUiFlagsOnly(), 50);
       return () => window.clearTimeout(t);
     }
@@ -150,8 +156,9 @@ export default function Login() {
                 <AlertDescription className="text-amber-900/90 space-y-3 mt-1">
                   <p>
                     Enviamos um link de confirmação após o cadastro.{" "}
-                    <strong>Enquanto não clicar nesse link, o login falha.</strong> Verifique spam e
-                    a pasta Promoções.
+                    <strong>Abra o link no mesmo navegador em que você se cadastrou</strong>{" "}
+                    (copiar o link do app do email para o Chrome/Firefox costuma funcionar melhor).
+                    Se já clicou e o login ainda falha, reenvie o email abaixo.
                   </p>
                   <Button
                     type="button"
@@ -228,6 +235,14 @@ export default function Login() {
                   </button>
                 </div>
                 <span id="password-description" className="sr-only">Digite sua senha (mínimo de 6 caracteres)</span>
+              </div>
+
+              <div className="flex justify-end -mt-2">
+                <Link href="/esqueci-a-senha">
+                  <span className="text-sm text-primary hover:text-primary/80 font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded">
+                    Esqueci a senha
+                  </span>
+                </Link>
               </div>
 
               <Button

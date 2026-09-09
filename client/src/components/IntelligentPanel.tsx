@@ -8,6 +8,7 @@ import {
   TrendingUp, Clock, Sparkles, ArrowRight, Lock
 } from "lucide-react";
 import { fetchEditaisFromSupabase } from "@/lib/editaisApi";
+import { fetchPublicCatalogStats, formatCountPlus } from "@/lib/catalogStatsApi";
 import { formatValorProjeto, formatPrazoInscricao } from "@/lib/editalFormatters";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +16,7 @@ import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements
 import { canAccessEditalCatalog, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import { buildLockedPreviewEditais, CatalogLockedEditalCard } from "@/components/CatalogLockedBlurSection";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 /** Quantos editais reais exibir na home — amostra para despertar interesse, não o catálogo inteiro. */
 const HOME_EDITAIS_PREVIEW = 3;
@@ -45,6 +47,11 @@ export default function IntelligentPanel() {
   const { user } = useAuth();
   const { entitlements, proFeatures } = useSubscriptionEntitlements();
   const [, setLocation] = useLocation();
+  const { data: publicStats } = useQuery({
+    queryKey: ["public-catalog-stats"],
+    queryFn: fetchPublicCatalogStats,
+    staleTime: 5 * 60_000,
+  });
 
   const anonymousPreview = buildLockedPreviewEditais(HOME_EDITAIS_PREVIEW);
   const lockedTeaserCards = buildLockedPreviewEditais(HOME_LOCKED_TEASER_COUNT);
@@ -230,7 +237,9 @@ export default function IntelligentPanel() {
 
             <div className="mt-10 max-w-2xl mx-auto text-center space-y-4">
               <p className="text-sm text-gray-600">
-                + centenas de editais de fomento monitorados continuamente — pesquisadores, empresas e instituições.
+                {publicStats && publicStats.editaisCorretosCount > 0
+                  ? `${formatCountPlus(publicStats.editaisCorretosCount)} editais de fomento monitorados continuamente — pesquisadores, empresas e instituições.`
+                  : "+ centenas de editais de fomento monitorados continuamente — pesquisadores, empresas e instituições."}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button asChild size="lg">

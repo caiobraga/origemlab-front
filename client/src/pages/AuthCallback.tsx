@@ -1,125 +1,66 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import {
-  setStoredAccessToken,
-  syncBackendSessionFromSupabase,
-} from "@/lib/backendApi";
 import Header from "@/components/Header";
+import {
+  establishAuthSessionFromUrl,
+  humanizeAuthLinkError,
+  isRecoveryAuthUrl,
+  stripAuthParamsFromPath,
+} from "@/lib/authCallbackUrl";
 
 /**
- * Landing page dos links de email do Supabase (confirmação, recovery, etc.).
- * Troca ?code= (PKCE) ou token_hash / hash legado por sessão antes de limpar a URL.
+ * Landing page dos links de email do Supabase (confirmação de cadastro, etc.).
+ * Recuperação de senha vai para /redefinir-senha (bootstrap em main.tsx).
  */
 export default function AuthCallback() {
   const [, setLocation] = useLocation();
   const [message, setMessage] = useState("Confirmando seu email…");
+  const [softError, setSoftError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const finishOk = async (nextPath: string) => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.access_token) {
-        setStoredAccessToken(
-          data.session.access_token,
-          data.session.expires_at ? data.session.expires_at * 1000 : undefined,
-        );
-        try {
-          await syncBackendSessionFromSupabase();
-        } catch {
-          // Login ainda funciona via Supabase mesmo se o cookie do backend falhar.
-        }
-      }
-      if (!cancelled) setLocation(nextPath);
-    };
-
     const run = async () => {
       try {
         const url = new URL(window.location.href);
-        const code = url.searchParams.get("code");
-        const tokenHash = url.searchParams.get("token_hash");
-        const type = url.searchParams.get("type");
+        const recovery = isRecoveryAuthUrl(url);
         const errorDescription =
-          url.searchParams.get("error_description") ||
-          url.searchParams.get("error");
+          url.searchParams.get("error_description") || url.searchParams.get("error");
 
         if (errorDescription) {
-          setMessage("Link inválido ou expirado.");
-          setTimeout(() => {
-            if (!cancelled) {
-              setLocation(
-                `/login?precisaConfirmar=1&erro=${encodeURIComponent(errorDescription)}`,
-              );
-            }
-          }, 1200);
-          return;
-        }
-
-        if (code) {
-          // detectSessionInUrl pode já ter trocado o code na inicialização do client.
-          const existing = await supabase.auth.getSession();
-          if (existing.data.session) {
-            await finishOk("/login?emailConfirmado=1");
-            return;
+          const friendly = humanizeAuthLinkError(errorDescription, { recovery });
+          if (!cancelled) {
+            setSoftError(friendly);
+            setMessage("");
           }
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            const again = await supabase.auth.getSession();
-            if (again.data.session) {
-              await finishOk("/login?emailConfirmado=1");
-              return;
-            }
-            throw error;
+          return;
+        }
+
+        const result = await establishAuthSessionFromUrl(url);
+        if (!result.ok) {
+          if (!cancelled) {
+            setSoftError(result.error);
+            setMessage("");
           }
-          await finishOk("/login?emailConfirmado=1");
           return;
         }
 
-        if (tokenHash && type) {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: type as "signup" | "email" | "recovery" | "invite" | "magiclink" | "email_change",
-          });
-          if (error) throw error;
-          await finishOk(
-            type === "recovery" ? "/login?emailConfirmado=1" : "/login?emailConfirmado=1",
-          );
+        stripAuthParamsFromPath("/auth/callback");
+
+        if (result.flow === "recovery") {
+          if (!cancelled) setLocation("/redefinir-senha");
           return;
         }
 
-        // Hash implícito legado (#access_token=...) — detectSessionInUrl já pode ter tratado.
-        const hash = window.location.hash?.replace(/^#/, "") || "";
-        if (hash.includes("access_token") || hash.includes("error")) {
-          // Aguarda o client processar o hash
-          await new Promise((r) => setTimeout(r, 150));
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          if (data.session) {
-            await finishOk("/login?emailConfirmado=1");
-            return;
-          }
-        }
-
-        // Sem parâmetros úteis: tenta sessão já existente
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          await finishOk("/login?emailConfirmado=1");
-          return;
-        }
-
-        setMessage("Não encontramos um link de confirmação válido.");
-        setTimeout(() => {
-          if (!cancelled) setLocation("/login?precisaConfirmar=1");
-        }, 1500);
-      } catch (e) {
-        console.error("Auth callback failed:", e);
         if (!cancelled) {
-          setMessage("Não foi possível confirmar o email. Tente reenviar o link.");
-          setTimeout(() => {
-            if (!cancelled) setLocation("/login?precisaConfirmar=1");
-          }, 1800);
+          setLocation("/login?emailConfirmado=1");
+        }
+      } catch (e) {
+        console.warn("Auth callback failed:", e);
+        if (!cancelled) {
+          setSoftError(humanizeAuthLinkError(e, { recovery: isRecoveryAuthUrl() }));
+          setMessage("");
         }
       }
     };
@@ -134,9 +75,34 @@ export default function AuthCallback() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 flex items-center justify-center px-4">
-        <div className="text-center space-y-3">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden />
-          <p className="text-gray-700">{message}</p>
+        <div className="max-w-md text-center space-y-4">
+          {softError ? (
+            <>
+              <p className="text-gray-800">{softError}</p>
+              <div className="flex flex-col gap-2">
+                <Link href="/cadastro">
+                  <span className="block rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 cursor-pointer">
+                    Criar nova conta
+                  </span>
+                </Link>
+                <Link href="/esqueci-a-senha">
+                  <span className="block text-sm text-primary hover:text-primary/80 font-medium cursor-pointer">
+                    Recuperar senha
+                  </span>
+                </Link>
+                <Link href="/login">
+                  <span className="block text-sm text-gray-600 hover:text-gray-800 cursor-pointer">
+                    Voltar ao login
+                  </span>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden />
+              <p className="text-gray-700">{message}</p>
+            </>
+          )}
         </div>
       </main>
     </div>

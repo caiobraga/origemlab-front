@@ -51,10 +51,11 @@ export const supabase = (() => {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        // PKCE: emails de confirmação voltam com ?code= (não só #access_token).
-        // A troca do code é feita em /auth/callback para não perder o parâmetro.
+        // PKCE: emails com ?code= exigem o mesmo browser do cadastro.
+        // detectSessionInUrl=false evita corrida com /auth/callback (que troca o code).
+        // Preferir template com token_hash (ver docs Auth) — funciona em qualquer browser.
         flowType: "pkce",
-        detectSessionInUrl: true,
+        detectSessionInUrl: false,
       },
     });
   }

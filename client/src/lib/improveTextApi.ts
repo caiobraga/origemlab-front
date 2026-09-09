@@ -6,6 +6,7 @@ import { apiFetch } from "./backendApi";
 export interface ImproveTextParams {
   edital_id?: string;
   proposta_id?: string;
+  projeto_id?: string;
   field_name: string;
   field_description: string;
   current_text: string;
@@ -18,7 +19,7 @@ export interface ImproveTextResponse {
 }
 
 /**
- * Melhora um texto de campo usando IA com contexto do edital
+ * Melhora um texto de campo usando IA com contexto do edital/proposta/projeto
  */
 export async function improveText(params: ImproveTextParams): Promise<string> {
   const body: Record<string, unknown> = {
@@ -30,8 +31,9 @@ export async function improveText(params: ImproveTextParams): Promise<string> {
   };
   if (params.edital_id) body.edital_id = params.edital_id;
   if (params.proposta_id) body.proposta_id = params.proposta_id;
-  if (!body.edital_id && !body.proposta_id) {
-    throw new Error("É necessário edital_id ou proposta_id para melhorar o texto.");
+  if (params.projeto_id) body.projeto_id = params.projeto_id;
+  if (!body.edital_id && !body.proposta_id && !body.projeto_id) {
+    throw new Error("É necessário edital_id, proposta_id ou projeto_id para melhorar o texto.");
   }
 
   const data = await apiFetch<ImproveTextResponse>("/api/improve-text", {

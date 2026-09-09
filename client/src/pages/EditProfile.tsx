@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spinner } from "@/components/ui/spinner";
 import Header from "@/components/Header";
-import { saveUserProfile, getUserProfile } from "@/lib/userProfile";
+import { saveUserProfile, getUserProfile, type UserType } from "@/lib/userProfile";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -32,7 +32,7 @@ function formatTelefoneDisplay(v: string): string {
 export default function EditProfile() {
   const [, setLocation] = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const [userType, setUserType] = useState<"pesquisador" | "pessoa-empresa" | "ambos">("pesquisador");
+  const [userType, setUserType] = useState<UserType>("pesquisador");
   
   const [cpf, setCpf] = useState("");
   const [hasCnpj, setHasCnpj] = useState<string>("nao");
@@ -40,6 +40,8 @@ export default function EditProfile() {
   const [telefone, setTelefone] = useState("");
   const [area, setArea] = useState<string>("");
   const [sexo, setSexo] = useState<"masculino" | "feminino" | "outro" | "nao_informar" | "">("");
+  const [dataCollectionConsent, setDataCollectionConsent] = useState<boolean | undefined>(undefined);
+  const [consentVersion, setConsentVersion] = useState<string | undefined>(undefined);
 
   const [loading, setLoading] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -69,6 +71,8 @@ export default function EditProfile() {
         setTelefone(existingProfile.phone ? formatTelefoneDisplay(existingProfile.phone) : "");
         setArea(existingProfile.area || "");
         setSexo(existingProfile.sexo || "");
+        setDataCollectionConsent(existingProfile.dataCollectionConsent);
+        setConsentVersion(existingProfile.consentVersion);
       }
     } catch (error) {
       console.error("Erro ao carregar perfil:", error);
@@ -81,8 +85,8 @@ export default function EditProfile() {
     e.preventDefault();
     
     // Validações específicas
-    if (userType === "pessoa-empresa" && hasCnpj === "sim" && !cnpj) {
-      toast.error("CNPJ é obrigatório quando você possui CNPJ");
+    if (userType === "consultor" && hasCnpj === "sim" && !cnpj) {
+      toast.error("CNPJ é obrigatório quando informado");
       return;
     }
 
@@ -101,12 +105,14 @@ export default function EditProfile() {
 
       await saveUserProfile(user.id, {
         cpf: cpf,
-        cnpj: (userType === "pessoa-empresa" || userType === "ambos") && hasCnpj === "sim" ? cnpj : undefined,
-        userType: userType,
-        hasCnpj: (userType === "pessoa-empresa" || userType === "ambos") && hasCnpj === "sim",
+        cnpj: userType === "consultor" && hasCnpj === "sim" ? cnpj : undefined,
+        userType,
+        hasCnpj: userType === "consultor" && hasCnpj === "sim",
         phone: telefone.replace(/\D/g, "") || undefined,
         area: area || undefined,
         sexo: (sexo || undefined) as any,
+        dataCollectionConsent,
+        consentVersion,
       });
 
       toast.success("Perfil atualizado com sucesso!");
@@ -176,11 +182,10 @@ export default function EditProfile() {
               </p>
             </div>
 
-            <Tabs value={userType} onValueChange={(value) => setUserType(value as "pesquisador" | "pessoa-empresa" | "ambos")} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6">
+            <Tabs value={userType} onValueChange={(value) => setUserType(value as UserType)} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="pesquisador">Pesquisador</TabsTrigger>
-                <TabsTrigger value="pessoa-empresa">Pessoa Física/Empresa</TabsTrigger>
-                <TabsTrigger value="ambos">Ambos</TabsTrigger>
+                <TabsTrigger value="consultor">Consultor</TabsTrigger>
               </TabsList>
 
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -255,18 +260,21 @@ export default function EditProfile() {
                   <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil.</p>
                 </TabsContent>
 
-                {/* Aba Pessoa Física/Empresa */}
-                <TabsContent value="pessoa-empresa" className="space-y-6">
+                {/* Aba Consultor */}
+                <TabsContent value="consultor" className="space-y-6">
+                  <p className="text-sm text-gray-600">
+                    Empresas são gerenciadas em <a href="/minhas-empresas" className="text-primary underline">Minhas empresas</a>. O CNPJ abaixo é opcional no perfil.
+                  </p>
                   <div className="space-y-4">
-                    <Label>Você possui CNPJ?</Label>
+                    <Label>Informar CNPJ no perfil?</Label>
                     <RadioGroup value={hasCnpj} onValueChange={setHasCnpj} disabled={loading}>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="sim" id="cnpj-sim" />
-                        <Label htmlFor="cnpj-sim" className="cursor-pointer font-normal">Sim, tenho CNPJ</Label>
+                        <Label htmlFor="cnpj-sim" className="cursor-pointer font-normal">Sim</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="nao" id="cnpj-nao" />
-                        <Label htmlFor="cnpj-nao" className="cursor-pointer font-normal">Não tenho CNPJ</Label>
+                        <Label htmlFor="cnpj-nao" className="cursor-pointer font-normal">Não</Label>
                       </div>
                     </RadioGroup>
 
@@ -289,55 +297,13 @@ export default function EditProfile() {
                   </div>
                 </TabsContent>
 
-                {/* Aba Ambos */}
-                <TabsContent value="ambos" className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-blue-800">
-                      <strong>Perfil Ambos:</strong> Você poderá visualizar editais tanto para pesquisadores quanto para empresas. 
-                      Use o filtro no dashboard para alternar entre os tipos.
-                    </p>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil.</p>
-
-                  <div className="space-y-4">
-                    <Label>Você possui CNPJ?</Label>
-                    <RadioGroup value={hasCnpj} onValueChange={setHasCnpj} disabled={loading}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="sim" id="cnpj-sim-ambos" />
-                        <Label htmlFor="cnpj-sim-ambos" className="cursor-pointer font-normal">Sim, tenho CNPJ</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="nao" id="cnpj-nao-ambos" />
-                        <Label htmlFor="cnpj-nao-ambos" className="cursor-pointer font-normal">Não tenho CNPJ</Label>
-                      </div>
-                    </RadioGroup>
-
-                    {hasCnpj === "sim" && (
-                      <div className="space-y-2 mt-4">
-                        <Label htmlFor="cnpj-ambos">CNPJ</Label>
-                        <Input
-                          id="cnpj-ambos"
-                          type="text"
-                          placeholder="00.000.000/0000-00"
-                          value={cnpj}
-                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
-                          disabled={loading}
-                          maxLength={18}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
                 <Button
                   type="submit"
                   className="w-full bg-primary hover:bg-primary/90 text-white mt-6"
                   disabled={
                     loading || 
                     !cpf ||
-                    (userType === "pessoa-empresa" && hasCnpj === "sim" && !cnpj)
+                    (userType === "consultor" && hasCnpj === "sim" && !cnpj)
                   }
                 >
                   {loading ? (

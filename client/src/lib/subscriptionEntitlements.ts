@@ -4,6 +4,15 @@ export const FREE_EDITAIS_PER_MONTH = 3;
 /** Quantos editais o plano gratuito vê em destaque no dashboard (upsell abaixo). */
 export const FREE_CATALOG_PREVIEW = FREE_EDITAIS_PER_MONTH;
 
+/**
+ * Acesso aberto para testes. Default true — desligue com VITE_OPEN_ACCESS=false
+ * quando for reativar cobrança (e SUBSCRIPTION_ENFORCE=true no API).
+ */
+export function isOpenAccessMode(): boolean {
+  const v = String((import.meta as any).env?.VITE_OPEN_ACCESS ?? "true").toLowerCase();
+  return v !== "false" && v !== "0" && v !== "no";
+}
+
 export type PlanTier = "free" | "pro" | "empresas" | "institucional";
 
 export type EntitlementsPayload = {
@@ -26,6 +35,23 @@ export type EntitlementsPayload = {
   };
 };
 
+export function buildOpenAccessEntitlements(tier: PlanTier = "free"): EntitlementsPayload {
+  return {
+    tier,
+    plan_name: "Acesso aberto (testes)",
+    pro_features: true,
+    limits: { editais_per_month: null },
+    features: {
+      editais_catalog: true,
+      edital_chat: true,
+      ai_proposal: true,
+      propostas: true,
+      indicacoes: true,
+      dashboard_metrics: true,
+    },
+  };
+}
+
 export function canAccessEditalCatalog(
   _entitlements?: EntitlementsPayload | null,
   _editalId?: string,
@@ -36,26 +62,29 @@ export function canAccessEditalCatalog(
 
 /** Plano gratuito no dashboard: exibe só os N primeiros da lista filtrada. */
 export function sliceCatalogForFreePreview<T>(rows: T[], entitlements?: EntitlementsPayload | null): T[] {
-  if (hasProFeatures(entitlements)) return rows;
+  if (isOpenAccessMode() || hasProFeatures(entitlements)) return rows;
   return rows.slice(0, FREE_CATALOG_PREVIEW);
 }
 
 export function editalCatalogUsageLabel(entitlements?: EntitlementsPayload | null): string | null {
-  if (hasProFeatures(entitlements)) return null;
+  if (isOpenAccessMode() || hasProFeatures(entitlements)) return null;
   const usage = entitlements?.usage?.editais_views;
   if (!usage) return null;
   return `${usage.used}/${usage.limit} editais este mês`;
 }
 
 export function hasProFeatures(entitlements?: EntitlementsPayload | null): boolean {
+  if (isOpenAccessMode()) return true;
   return Boolean(entitlements?.pro_features);
 }
 
 export function canUsePropostas(entitlements?: EntitlementsPayload | null): boolean {
+  if (isOpenAccessMode()) return true;
   return Boolean(entitlements?.features?.propostas);
 }
 
 export function canUseAiProposal(entitlements?: EntitlementsPayload | null): boolean {
+  if (isOpenAccessMode()) return true;
   return Boolean(entitlements?.features?.ai_proposal);
 }
 
@@ -64,6 +93,10 @@ export function resolveEntitlementsFromProfile(profile: {
   subscriptionStatus?: string;
   subscriptionPlanKey?: string;
 } | null): EntitlementsPayload {
+  if (isOpenAccessMode()) {
+    return buildOpenAccessEntitlements("free");
+  }
+
   const status = profile?.subscriptionStatus || "";
   const activeLike = status === "active" || status === "trialing" || status === "past_due";
   const key = profile?.subscriptionPlanKey || "";
@@ -102,6 +135,9 @@ export function resolveEntitlementsFromProfile(profile: {
 }
 
 export function subscriptionUpgradeMessage(feature?: string): string {
+  if (isOpenAccessMode()) {
+    return "Acesso aberto para testes — todos os recursos estão liberados.";
+  }
   if (feature === "editais_catalog") {
     return "Explore o catálogo no plano gratuito. Assine o Pro para ver todos os editais sem blur e recursos avançados.";
   }

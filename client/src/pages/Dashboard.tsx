@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { 
   Search, Filter, Calendar, DollarSign, Target, AlertCircle,
   Sparkles, Loader2, Share2, ChevronLeft, ChevronRight
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useActiveEmpresa } from "@/contexts/ActiveEmpresaProvider";
 import { UserProfile } from "@/lib/userProfile";
 import Header from "@/components/Header";
 import {
@@ -48,6 +49,12 @@ import {
   buildLockedPreviewEditais,
 } from "@/components/CatalogLockedBlurSection";
 import { FREE_CATALOG_PREVIEW, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
+import {
+  fetchProjetos,
+  matchEditaisForProjeto,
+  type Projeto,
+  type ProjetoEditalMatch,
+} from "@/lib/projetosApi";
 
 interface EditalDisplay extends DatabaseEdital {
   prazo: string;
@@ -93,6 +100,8 @@ export default function Dashboard() {
     setFiltroTipoEdital,
     apenasIndicacoes,
     setApenasIndicacoes,
+    filtroProjetoId,
+    setFiltroProjetoId,
     ordenacao,
     setOrdenacao,
     currentPage,
@@ -102,13 +111,91 @@ export default function Dashboard() {
   const [gerandoProposta, setGerandoProposta] = useState<string | null>(null);
   const [filtrosSheetOpen, setFiltrosSheetOpen] = useState(false);
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
+  const { activeEmpresaId, activeEmpresa, isConsultor } = useActiveEmpresa();
   const { proFeatures: proFeaturesFromProfile, entitlements: profileEntitlements } = useSubscriptionEntitlements();
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [projetoMatches, setProjetoMatches] = useState<ProjetoEditalMatch[]>([]);
+  const [projetoMatchLoading, setProjetoMatchLoading] = useState(false);
+  const [projetoMatchError, setProjetoMatchError] = useState("");
+
+  // Deep-link: /dashboard?projeto=<id>
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(searchString).get("projeto")?.trim() || "";
+    if (fromUrl && fromUrl !== filtroProjetoId) {
+      setFiltroProjetoId(fromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- aplica só quando a query muda
+  }, [searchString]);
+
+  useEffect(() => {
+    if (!user) {
+      setProjetos([]);
+      return;
+    }
+    const empresaScope = isConsultor ? activeEmpresaId || undefined : undefined;
+    void fetchProjetos(empresaScope)
+      .then(setProjetos)
+      .catch(() => setProjetos([]));
+  }, [user, isConsultor, activeEmpresaId]);
+
+  useEffect(() => {
+    if (!filtroProjetoId) {
+      setProjetoMatches([]);
+      setProjetoMatchError("");
+      setProjetoMatchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setProjetoMatchLoading(true);
+    setProjetoMatchError("");
+    void matchEditaisForProjeto(filtroProjetoId, 40)
+      .then((rows) => {
+        if (!cancelled) setProjetoMatches(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setProjetoMatches([]);
+          setProjetoMatchError(e instanceof Error ? e.message : "Erro ao filtrar por projeto");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setProjetoMatchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filtroProjetoId]);
+
+  const projetoSelecionado = useMemo(
+    () => projetos.find((p) => p.id === filtroProjetoId) || null,
+    [projetos, filtroProjetoId],
+  );
+
+  const projetoMatchesMap = useMemo(() => {
+    const m = new Map<string, { score: number; motivos: string[] }>();
+    for (const item of projetoMatches) {
+      if (item?.edital?.id) {
+        m.set(item.edital.id, {
+          score: Number(item.score) || 0,
+          motivos: Array.isArray(item.motivos) ? item.motivos.filter(Boolean).map(String) : [],
+        });
+      }
+    }
+    return m;
+  }, [projetoMatches]);
+
+  const editaisProjetoRaw = useMemo(
+    () => projetoMatches.map((m) => m.edital).filter(Boolean),
+    [projetoMatches],
+  );
   const indicacoesQuery = useEditaisIndicacoes(user?.id, {
     limit: 12,
     autoRefresh: proFeaturesFromProfile,
-    enabled: proFeaturesFromProfile,
+    enabled: proFeaturesFromProfile && (!isConsultor || !!activeEmpresaId),
+    empresaId: isConsultor ? activeEmpresaId : null,
   });
   const indicacoesMap = (() => {
     const m = new Map<string, { score: number; motivos: string[] }>();
@@ -162,7 +249,11 @@ export default function Dashboard() {
     return out;
   })();
 
-  const editaisRawForList = apenasIndicacoes ? editaisIndicadosRaw : editaisRawMerged;
+  const editaisRawForList = filtroProjetoId
+    ? editaisProjetoRaw
+    : apenasIndicacoes
+      ? editaisIndicadosRaw
+      : editaisRawMerged;
 
   // Redirecionar para login se não estiver logado
   useEffect(() => {
@@ -201,7 +292,9 @@ export default function Dashboard() {
       setGerandoProposta(editalId);
       toast.loading("Criando proposta...", { id: `gerar-proposta-${editalId}` });
 
-      const proposta = await gerarPropostaComIA(editalId, user.id, user, profile);
+      const proposta = await gerarPropostaComIA(editalId, user.id, user, profile, {
+        empresaId: isConsultor ? activeEmpresaId : null,
+      });
 
       toast.success("Proposta criada com sucesso!", { id: `gerar-proposta-${editalId}` });
       setLocation(`/propostas/${proposta.id}`);
@@ -233,8 +326,8 @@ export default function Dashboard() {
   const editaisComPais = editaisRawForList.map((e) => ({ ...e, ...getPaisFromEdital(e) }));
 
   const passesCatalogoBaseFilters = (edital: (typeof editaisComPais)[number]) => {
-    // Quando "Apenas indicações" estiver ligado, NÃO aplicar filtros "fortes".
-    if (!apenasIndicacoes) {
+    // Filtro por projeto ou "Apenas indicações": não aplicar filtros "fortes" de catálogo.
+    if (!filtroProjetoId && !apenasIndicacoes) {
       if (!mostrarInativos && !isEditalAtivo(edital)) {
         return false;
       }
@@ -246,17 +339,8 @@ export default function Dashboard() {
           return false;
         }
 
-        if (userType === "pessoa-empresa" && edital.is_company === false) {
+        if (userType === "consultor" && edital.is_company === false) {
           return false;
-        }
-
-        if (userType === "ambos") {
-          if (filtroTipoEdital === "pesquisadores" && edital.is_researcher === false) {
-            return false;
-          }
-          if (filtroTipoEdital === "empresas" && edital.is_company === false) {
-            return false;
-          }
         }
       }
     }
@@ -284,6 +368,17 @@ export default function Dashboard() {
 
   const editaisFiltradosOrdenados = (() => {
     const list = [...editaisFiltrados];
+
+    if (filtroProjetoId) {
+      return list.sort((a, b) => {
+        const sa = projetoMatchesMap.get(a.id)?.score ?? 0;
+        const sb = projetoMatchesMap.get(b.id)?.score ?? 0;
+        if (sb !== sa) return sb - sa;
+        const da = a.data_encerramento ? new Date(a.data_encerramento).getTime() : Number.POSITIVE_INFINITY;
+        const db = b.data_encerramento ? new Date(b.data_encerramento).getTime() : Number.POSITIVE_INFINITY;
+        return da - db;
+      });
+    }
 
     // Quando estiver filtrando apenas indicações, a ordem sempre prioriza score.
     if (apenasIndicacoes) {
@@ -367,9 +462,11 @@ export default function Dashboard() {
   });
 
   // Mostrar loading só na primeira carga; se der erro, não travar em loading e mostrar retry
-  const listLoading = apenasIndicacoes
-    ? indicacoesQuery.isLoading && editaisIndicadosRaw.length === 0
-    : editaisListQuery.isLoading && editaisRaw.length === 0;
+  const listLoading = filtroProjetoId
+    ? projetoMatchLoading && editaisProjetoRaw.length === 0
+    : apenasIndicacoes
+      ? indicacoesQuery.isLoading && editaisIndicadosRaw.length === 0
+      : editaisListQuery.isLoading && editaisRaw.length === 0;
   const listError = editaisListQuery.isError;
   const indicacoesErrorMessage =
     indicacoesQuery.error instanceof Error ? indicacoesQuery.error.message : indicacoesQuery.isError ? "Erro ao carregar indicações." : "";
@@ -405,17 +502,17 @@ export default function Dashboard() {
   const areaSelecionada =
     AREA_FILTER_OPTIONS.find((opt) => opt.value === filtroArea)?.label ?? "Todas as áreas";
   const tipoSelecionado =
-    filtroTipoEdital === "pesquisadores"
+    profile?.userType === "pesquisador"
       ? "Pesquisadores"
-      : filtroTipoEdital === "empresas"
-      ? "Empresas"
-      : "Todos os tipos";
+      : profile?.userType === "consultor"
+        ? "Empresas"
+        : "Todos os tipos";
   const filtrosAtivos = [
     busca.trim() ? "Busca" : null,
     filtroArea !== "todos" ? "Área" : null,
-    filtroTipoEdital !== "todos" ? "Tipo" : null,
     mostrarInativos ? "Inativos" : null,
     apenasIndicacoes ? "Indicações" : null,
+    filtroProjetoId ? "Projeto" : null,
     ignorarFiltroPerfil ? "Fora do perfil" : null,
   ].filter(Boolean).length;
 
@@ -433,9 +530,23 @@ export default function Dashboard() {
           <div>
             <p className="institutional-kicker mb-2">Portal de instrumentos</p>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Painel de Fomento</h1>
-            <p className="text-sm md:text-base text-gray-700">Consulta estruturada de editais, prazos, requisitos e indicações para apoio à decisão.</p>
+            <p className="text-sm md:text-base text-gray-700">
+              {isConsultor && activeEmpresa
+                ? `Editais e indicações para ${activeEmpresa.nome_fantasia || activeEmpresa.razao_social}.`
+                : "Consulta estruturada de editais, prazos, requisitos e indicações para apoio à decisão."}
+            </p>
           </div>
         </div>
+
+        {isConsultor && !activeEmpresaId ? (
+          <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            Selecione uma empresa no topo da página (ou em{" "}
+            <Link href="/minhas-empresas" className="font-medium underline">
+              Minhas empresas
+            </Link>
+            ) para filtrar indicações, projetos e propostas neste workspace.
+          </div>
+        ) : null}
 
         {/* Referral Banner */}
         <Link href="/referencia" className="block mb-6">
@@ -595,6 +706,45 @@ export default function Dashboard() {
                 </div>
 
                 <div>
+                  <Label className="mb-2 block text-sm font-semibold text-gray-800">Projeto</Label>
+                  <select
+                    className="w-full rounded-sm border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={filtroProjetoId}
+                    onChange={(e) => setFiltroProjetoId(e.target.value)}
+                  >
+                    <option value="">Todos os editais</option>
+                    {projetos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.titulo}
+                      </option>
+                    ))}
+                  </select>
+                  {filtroProjetoId ? (
+                    <p className="mt-2 text-xs text-gray-600">
+                      {projetoMatchLoading
+                        ? "Calculando compatibilidade…"
+                        : `${editaisProjetoRaw.length} edital(is) compatível(is).`}{" "}
+                      <Link
+                        href={`/projetos/${filtroProjetoId}/editais`}
+                        className="font-medium text-primary underline underline-offset-2"
+                      >
+                        Abrir tela do projeto
+                      </Link>
+                    </p>
+                  ) : projetos.length === 0 ? (
+                    <p className="mt-2 text-xs text-gray-600">
+                      Sem projetos ainda.{" "}
+                      <Link href="/meus-projetos" className="font-medium text-primary underline underline-offset-2">
+                        Criar projeto
+                      </Link>
+                    </p>
+                  ) : null}
+                  {projetoMatchError ? (
+                    <p className="mt-2 text-xs text-amber-700">{projetoMatchError}</p>
+                  ) : null}
+                </div>
+
+                <div>
                   <Label className="mb-2 block text-sm font-semibold text-gray-800">Ordenação</Label>
                   <select
                     className="w-full rounded-sm border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -605,32 +755,6 @@ export default function Dashboard() {
                     <option value="recentes">Mais recentes primeiro</option>
                   </select>
                 </div>
-
-                {profile && !profileLoading && profile.userType === "ambos" && (
-                  <div>
-                  <Label className="mb-2 block text-sm font-semibold text-gray-800">Público atendido</Label>
-                    <div className="space-y-2">
-                      {[
-                        { value: "todos" as const, label: "Todos os tipos" },
-                        { value: "pesquisadores" as const, label: "Pesquisadores" },
-                        { value: "empresas" as const, label: "Empresas" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setFiltroTipoEdital(opt.value)}
-                          className={`w-full rounded-sm border px-3 py-2 text-left text-sm transition-colors ${
-                            filtroTipoEdital === opt.value
-                              ? "border-primary bg-secondary text-primary"
-                              : "border-border bg-white text-gray-700 hover:border-primary"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <Label className="mb-2 block text-sm font-semibold text-gray-800">Área temática</Label>
@@ -716,6 +840,21 @@ export default function Dashboard() {
                   </SheetHeader>
                   <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-5">
                     <div>
+                      <Label className="mb-2 block text-sm font-medium text-gray-700">Projeto</Label>
+                      <select
+                        className="w-full rounded-sm border border-border bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        value={filtroProjetoId}
+                        onChange={(e) => setFiltroProjetoId(e.target.value)}
+                      >
+                        <option value="">Todos os editais</option>
+                        {projetos.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.titulo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
                       <Label className="mb-2 block text-sm font-medium text-gray-700">Ordenação</Label>
                       <select
                         className="w-full rounded-sm border border-border bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -743,27 +882,13 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
-                    {profile && !profileLoading && profile.userType === "ambos" && (
-                      <div>
-                        <Label className="mb-2 block text-sm font-medium text-gray-700">Público atendido</Label>
-                        <div className="flex flex-col gap-1">
-                          {[
-                            { value: "todos" as const, label: "Todos os tipos" },
-                            { value: "pesquisadores" as const, label: "Pesquisadores" },
-                            { value: "empresas" as const, label: "Empresas" },
-                          ].map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setFiltroTipoEdital(opt.value)}
-                              className={`flex items-center gap-3 rounded-sm px-4 py-3 text-left transition-colors ${
-                                filtroTipoEdital === opt.value ? "border border-border bg-secondary text-primary" : "border border-transparent bg-white text-gray-700 hover:bg-secondary"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
+                    {profile && !profileLoading && profile.userType === "consultor" && (
+                      <div className="rounded-sm border border-border bg-secondary/40 px-4 py-3 text-sm text-gray-700">
+                        Catálogo filtrado para empresas. Gerencie em{" "}
+                        <a href="/minhas-empresas" className="font-medium text-primary underline">
+                          Minhas empresas
+                        </a>
+                        .
                       </div>
                     )}
                     <div className="flex items-center gap-2">
@@ -806,7 +931,10 @@ export default function Dashboard() {
                     : `${stats.editaisAtivos} instrumentos no catálogo`}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Área: {areaSelecionada} · Público: {tipoSelecionado}
+                  {projetoSelecionado
+                    ? `Projeto: ${projetoSelecionado.titulo}`
+                    : `Área: ${areaSelecionada}`}{" "}
+                  · Público: {tipoSelecionado}
                   {editaisFiltradosOrdenados.length > 0 && (
                     <>
                       {" "}
@@ -828,16 +956,27 @@ export default function Dashboard() {
 
             <div id="dashboard-editais-grid" className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {editais.map((edital) => {
-                const indicacao = indicacoesMap.get(edital.id);
+                const matchProjeto = projetoMatchesMap.get(edital.id);
+                const indicacao = matchProjeto ?? indicacoesMap.get(edital.id);
                 const isIndicado = indicacao != null;
                 const isResearcher = edital.is_researcher === true;
                 const isCompany = edital.is_company === true;
                 const valorFormatado = formatValorProjeto(edital.valor_projeto || edital.valor);
-                const prazoLabel = getPrazoInscricaoDisplayPreferindoTimeline(
+                const prazoDisplay = getPrazoInscricaoDisplayPreferindoTimeline(
                   edital.prazo_inscricao,
                   edital.timeline_estimada,
                   { data_encerramento: edital.data_encerramento, criado_em: edital.criado_em },
-                ).display;
+                );
+                const prazoLabel = prazoDisplay.display;
+                const prazoConhecido =
+                  !!prazoLabel &&
+                  prazoLabel !== "Não informado" &&
+                  (/^Encerrado\b/i.test(prazoLabel) || /^Até\b/i.test(prazoLabel));
+                const motivosVisiveis = (indicacao?.motivos ?? []).filter((m) => {
+                  // Evita badge contraditório: "não identificado" + "Prazo: Encerrado/Até …"
+                  if (prazoConhecido && /prazo n[aã]o identificado/i.test(m)) return false;
+                  return true;
+                });
                 const typeLabel = isResearcher && isCompany
                   ? "Pesquisadores e empresas"
                   : isResearcher
@@ -886,9 +1025,9 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {isIndicado && (indicacao?.motivos?.length ?? 0) > 0 && (
+                    {isIndicado && motivosVisiveis.length > 0 && (
                       <div className="mt-3 flex shrink-0 flex-wrap gap-2">
-                        {indicacao!.motivos.slice(0, 2).map((m, idx) => (
+                        {motivosVisiveis.slice(0, 2).map((m, idx) => (
                           <Badge key={idx} variant="outline" className="bg-white text-xs text-primary">
                             {m}
                           </Badge>
@@ -1016,6 +1155,27 @@ export default function Dashboard() {
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 {editaisRawForList.length === 0 ? (
                   <>
+                    {filtroProjetoId ? (
+                      <>
+                        <p className="text-gray-800 font-medium mb-2">
+                          Nenhum edital compatível com este projeto.
+                        </p>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Enriqueça o texto do projeto ou escolha outro filtro.
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <Link href={`/projetos/${filtroProjetoId}`}>
+                            <Button type="button" variant="outline">
+                              Editar texto do projeto
+                            </Button>
+                          </Link>
+                          <Button type="button" variant="outline" onClick={() => setFiltroProjetoId("")}>
+                            Limpar filtro de projeto
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
                     <p className="text-gray-800 font-medium mb-2">Nada para exibir na lista (fonte vazia).</p>
                     <p className="text-sm text-gray-600 mb-3">
                       O feed lê <code className="text-xs bg-gray-100 px-1 rounded">editais_corretos</code> (até 250
@@ -1035,6 +1195,8 @@ export default function Dashboard() {
                     <Button type="button" variant="outline" onClick={() => void editaisListQuery.refetch()}>
                       Recarregar lista
                     </Button>
+                      </>
+                    )}
                   </>
                 ) : editaisFiltrados.length === 0 && editaisRawForList.length > 0 ? (
                   <div className="text-left text-sm text-gray-600 space-y-2">

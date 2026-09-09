@@ -4,11 +4,20 @@ import { type EntitlementsPayload, resolveEntitlementsFromProfile } from "./subs
 import type { User } from "@supabase/supabase-js";
 type SessionUser = { id: string; user_metadata?: any } ;
 
+/** Tipos de perfil do produto (legado pessoa-empresa/ambos → consultor). */
+export type UserType = "pesquisador" | "consultor";
+
+export function normalizeUserType(raw: unknown): UserType {
+  const t = String(raw || "pesquisador");
+  if (t === "consultor" || t === "pessoa-empresa" || t === "ambos") return "consultor";
+  return "pesquisador";
+}
+
 function mapProfileRow(
   profile: Record<string, any>,
   entitlements?: EntitlementsPayload,
 ): UserProfile {
-  const resolvedUserType = (profile.user_type || "pesquisador") as "pesquisador" | "pessoa-empresa" | "ambos";
+  const resolvedUserType = normalizeUserType(profile.user_type || "pesquisador");
   return {
     cpf: profile.cpf || undefined,
     cnpj: profile.cnpj || undefined,
@@ -22,6 +31,11 @@ function mapProfileRow(
     onboardingCompleted: profile.onboarding_completed ?? undefined,
     phone: profile.phone ?? undefined,
     area: profile.area ?? undefined,
+    dataCollectionConsent:
+      typeof profile.data_collection_consent === "boolean"
+        ? profile.data_collection_consent
+        : undefined,
+    consentVersion: profile.consent_version ?? undefined,
     stripeCustomerId: profile.stripe_customer_id ?? undefined,
     stripeSubscriptionId: profile.stripe_subscription_id ?? undefined,
     subscriptionStatus: profile.subscription_status ?? undefined,
@@ -105,7 +119,7 @@ export interface UserProfile {
   cpf?: string;
   cnpj?: string;
   lattesId?: string;
-  userType: "pesquisador" | "pessoa-empresa" | "ambos";
+  userType: UserType;
   hasCnpj?: boolean;
   /** Sexo/gênero (opcional) para melhorar heurísticas de indicação. */
   sexo?: "masculino" | "feminino" | "outro" | "nao_informar";
@@ -143,21 +157,29 @@ export async function saveUserProfile(
   profile: UserProfile
 ): Promise<void> {
   // Backend owns persistence now (cookie session). Ignore userId from client.
+  const body: Record<string, unknown> = {
+    cpf: profile.cpf ? profile.cpf.replace(/\D/g, "") : null,
+    cnpj: profile.cnpj ? profile.cnpj.replace(/\D/g, "") : null,
+    lattes_id: profile.lattesId ? profile.lattesId.replace(/\D/g, "") : null,
+    user_type: profile.userType,
+    has_cnpj: profile.hasCnpj || false,
+    phone: profile.phone ? profile.phone.replace(/\D/g, "").slice(0, 20) : null,
+    area: profile.area ?? null,
+    sexo: profile.sexo ?? null,
+  };
+
+  // Coluna NOT NULL: nunca enviar null (apaga o valor no upsert).
+  if (typeof profile.dataCollectionConsent === "boolean") {
+    body.data_collection_consent = profile.dataCollectionConsent;
+    body.consent_version = profile.consentVersion ?? "1.0";
+  }
+  if (typeof profile.onboardingCompleted === "boolean") {
+    body.onboarding_completed = profile.onboardingCompleted;
+  }
+
   await apiFetch("/api/profile", {
     method: "PATCH",
-    body: JSON.stringify({
-      cpf: profile.cpf ? profile.cpf.replace(/\D/g, "") : null,
-      cnpj: profile.cnpj ? profile.cnpj.replace(/\D/g, "") : null,
-      lattes_id: profile.lattesId ? profile.lattesId.replace(/\D/g, "") : null,
-      user_type: profile.userType,
-      has_cnpj: profile.hasCnpj || false,
-      data_collection_consent: profile.dataCollectionConsent ?? null,
-      consent_version: profile.consentVersion ?? null,
-      phone: profile.phone ? profile.phone.replace(/\D/g, "").slice(0, 20) : null,
-      area: profile.area ?? null,
-      sexo: profile.sexo ?? null,
-      onboarding_completed: profile.onboardingCompleted ?? null,
-    }),
+    body: JSON.stringify(body),
   });
 }
 /**
@@ -262,7 +284,7 @@ export async function setOnboardingCompleted(userId: string): Promise<void> {
 export interface OnboardingProfileUpdate {
   phone?: string;
   area?: string;
-  userType?: "pesquisador" | "pessoa-empresa" | "ambos";
+  userType?: UserType;
   cnpj?: string;
   hasCnpj?: boolean;
   sexo?: "masculino" | "feminino" | "outro" | "nao_informar";
@@ -466,35 +488,36 @@ export async function hasCNPJAsync(user: User | null): Promise<boolean> {
 }
 
 /**
- * Retorna o tipo de usuário (pesquisador, pessoa-empresa ou ambos) - versão síncrona
+ * Retorna o tipo de usuário (pesquisador ou consultor) - versão síncrona
  * Busca do user_metadata (fallback rápido)
  */
-export function getUserType(user: User | null): "pesquisador" | "pessoa-empresa" | "ambos" | null {
+export function getUserType(user: User | null): UserType | null {
   if (!user) return null;
-  return user.user_metadata?.profile?.userType || null;
+  const raw = user.user_metadata?.profile?.userType;
+  return raw ? normalizeUserType(raw) : null;
 }
 
 /**
- * Retorna o tipo de usuário (pesquisador, pessoa-empresa ou ambos) - versão assíncrona
+ * Retorna o tipo de usuário (pesquisador ou consultor) - versão assíncrona
  * Busca primeiro na tabela profiles, depois no user_metadata como fallback
  */
-export async function getUserTypeAsync(user: User | null): Promise<"pesquisador" | "pessoa-empresa" | "ambos" | null> {
+export async function getUserTypeAsync(user: User | null): Promise<UserType | null> {
   if (!user) return null;
-  
+
   try {
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('user_type')
-      .eq('user_id', user.id)
+      .from("profiles")
+      .select("user_type")
+      .eq("user_id", user.id)
       .single();
-    
+
     if (profile?.user_type) {
-      return profile.user_type as "pesquisador" | "pessoa-empresa" | "ambos";
+      return normalizeUserType(profile.user_type);
     }
-  } catch (error) {
+  } catch {
     // Fallback para user_metadata
   }
-  
+
   return getUserType(user);
 }
 

@@ -19,6 +19,8 @@ export default defineConfig({
   },
   envDir: path.resolve(rootDir),
   root: path.resolve(rootDir, "client"),
+  // Keep SPA _redirects / static files at package public/ (not client/public)
+  publicDir: path.resolve(rootDir, "public"),
   build: {
     outDir: path.resolve(rootDir, "dist"),
     emptyOutDir: true,
@@ -31,8 +33,8 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:8081",
         changeOrigin: true,
-        timeout: 360_000,
-        proxyTimeout: 360_000,
+        timeout: 600_000,
+        proxyTimeout: 600_000,
       },
     },
     allowedHosts: [

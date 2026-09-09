@@ -11,7 +11,9 @@ import {
 import { supabase } from "@/lib/supabase";
 import { AuthContext, type AuthContextType, type AuthUser } from "./auth-context";
 import { getEmailConfirmRedirectUrl } from "@/lib/authEmailConfirmation";
+import { markPendingAuthFlow } from "@/lib/authCallbackUrl";
 import { flushPendingSignupProfile } from "@/lib/pendingSignupProfile";
+import { translateSupabaseAuthError } from "@/lib/authErrorTranslations";
 
 type SignInResponse = {
   ok?: boolean;
@@ -34,7 +36,12 @@ async function resolveSessionUser(): Promise<AuthUser | null> {
   }
 
   const me = await fetchBackendMe();
-  if (me?.user?.id) return me.user;
+  if (me?.user?.id) {
+    return {
+      id: me.user.id,
+      email: me.user.email ?? supabaseSession?.user?.email ?? null,
+    };
+  }
 
   if (supabaseSession?.user?.id) {
     return { id: supabaseSession.user.id, email: supabaseSession.user.email ?? null };
@@ -153,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success("Login realizado com sucesso!");
       return resolvedUser;
     } catch (error) {
-      toast.error((error as Error)?.message || "Erro ao fazer login");
+      toast.error(translateSupabaseAuthError(error, "Erro ao fazer login"));
       throw error;
     }
   };
@@ -161,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp: AuthContextType["signUp"] = async (email, password) => {
     try {
       setStoredAccessToken(null);
+      markPendingAuthFlow("signup");
       const emailRedirectTo =
         typeof window !== "undefined" ? getEmailConfirmRedirectUrl() : undefined;
       const signUpBody = await authPublicFetch<

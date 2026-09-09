@@ -491,24 +491,65 @@ export function collectEditalDeadlineDates(input: EditalDeadlineFields): Date[] 
   return dates;
 }
 
-/** Prazo efetivo para exibição: prioriza deadlines futuros entre timeline, prazo e encerramento. */
-export function getEditalDisplayDeadline(input: EditalDeadlineFields): Date | null {
-  const hoje = startOfDay(new Date());
-  const dates = collectEditalDeadlineDates(input);
-  if (dates.length === 0) return null;
+/**
+ * Prazo de inscrição/submissão (fonte de verdade para Encerrado vs aberto).
+ * Prioridade: timeline de submissão/inscrição → prazo_inscricao → data_encerramento.
+ * Não “reabre” edital misturando fase futura (homologação) com inscrição já fechada.
+ */
+export function getEditalInscricaoDeadline(input: EditalDeadlineFields): Date | null {
+  const timeline =
+    extrairDeadlineSubmissao(input.timeline_estimada) ??
+    extrairDeadlineTimelineAmplo(input.timeline_estimada);
+  if (timeline && isPlausibleCatalogDeadline(timeline, input.criado_em)) return timeline;
 
-  const future = dates.filter((d) => startOfDay(d).getTime() >= hoje.getTime());
-  const pool = future.length > 0 ? future : dates;
-  return new Date(Math.max(...pool.map((d) => d.getTime())));
+  const prazoRaw =
+    typeof input.prazo_inscricao === "string"
+      ? input.prazo_inscricao
+      : input.prazo_inscricao != null
+        ? JSON.stringify(input.prazo_inscricao)
+        : null;
+  if (prazoRaw && prazoRaw !== "Não informado") {
+    const prazo =
+      extrairDataMaisRecentePrazo(prazoRaw) ||
+      extractDeadlineDateFromPrazoText(prazoRaw) ||
+      (() => {
+        const all = extractAllPrazoDatesFromText(prazoRaw);
+        return all.length ? new Date(Math.max(...all.map((d) => d.getTime()))) : null;
+      })();
+    if (prazo && isPlausibleCatalogDeadline(prazo, input.criado_em)) return prazo;
+  }
+
+  const enc = parseEncerramentoDate(input.data_encerramento);
+  if (enc && isPlausibleCatalogDeadline(enc, input.criado_em)) return enc;
+
+  return null;
 }
 
-/** Edital ativo: janela MM/AAAA (mês atual → dez) + anos +1…+4 (mesma lógica da busca manual). */
+/** Prazo efetivo para exibição — mesma regra do filtro “prazo encerrado”. */
+export function getEditalDisplayDeadline(input: EditalDeadlineFields): Date | null {
+  return getEditalInscricaoDeadline(input);
+}
+
+/**
+ * Edital ativo = prazo de inscrição ainda aberto.
+ * Só cai na heurística de texto (MM/AAAA) quando não há data parseável.
+ */
 export function isEditalAtivoByDeadlines(input: EditalDeadlineFields & {
   titulo?: string | null;
   descricao?: string | null;
   sobre_programa?: string | null;
   numero?: string | null;
 }): boolean {
+  const status = String(input.status || "")
+    .toLowerCase()
+    .trim();
+  if (status === "encerrado" || status === "finalizado") return false;
+
+  const deadline = getEditalInscricaoDeadline(input);
+  if (deadline) {
+    return startOfDay(deadline).getTime() >= startOfDay(new Date()).getTime();
+  }
+
   return isEditalAtivoByDatePatterns(input);
 }
 

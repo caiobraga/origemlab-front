@@ -1,18 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   ArrowLeft, FileText, Clock, CheckCircle2, Send, AlertCircle,
   Edit3, Trash2, Download, Eye, Sparkles, Calendar, DollarSign,
-  TrendingUp, MessageSquare, Users, Loader2
+  TrendingUp, MessageSquare, Users, Loader2, FolderKanban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useActiveEmpresa } from "@/contexts/ActiveEmpresaProvider";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import { fetchPropostas, deleteProposta, type Proposta, type StatusProposta } from "@/lib/propostasApi";
+import { createProjetoFromProposta } from "@/lib/projetosApi";
 import { formatValorProjeto } from "@/lib/editalFormatters";
 import Header from "@/components/Header";
 
@@ -24,11 +27,26 @@ interface PropostaDisplay extends Proposta {
 
 export default function MinhasPropostas() {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
+  const { activeEmpresaId, isConsultor, setActiveEmpresa } = useActiveEmpresa();
   const { canUsePropostas } = useSubscriptionEntitlements();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [filtroStatus, setFiltroStatus] = useState<StatusProposta | "todos">("todos");
   const [propostas, setPropostas] = useState<PropostaDisplay[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingProjetoId, setSavingProjetoId] = useState<string | null>(null);
+
+  const empresaFilter = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const fromUrl = new URLSearchParams(window.location.search).get("empresa_id");
+    if (fromUrl) return fromUrl;
+    if (isConsultor) return activeEmpresaId;
+    return null;
+  }, [location, isConsultor, activeEmpresaId]);
+
+  useEffect(() => {
+    if (empresaFilter) setActiveEmpresa(empresaFilter);
+  }, [empresaFilter, setActiveEmpresa]);
 
   const getStatusBadge = (status: StatusProposta) => {
     switch (status) {
@@ -73,10 +91,15 @@ export default function MinhasPropostas() {
         setLoading(false);
         return;
       }
+      if (isConsultor && !empresaFilter) {
+        setPropostas([]);
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
-        const data = await fetchPropostas(user.id);
+        const data = await fetchPropostas(user.id, empresaFilter);
         
         // Converter para formato de exibição
         const propostasDisplay: PropostaDisplay[] = data.map((p) => ({
@@ -95,8 +118,8 @@ export default function MinhasPropostas() {
       }
     }
 
-    loadPropostas();
-  }, [user]);
+    void loadPropostas();
+  }, [user, empresaFilter, isConsultor]);
 
   const propostasFiltradas = propostas.filter(p => 
     filtroStatus === "todos" || p.status === filtroStatus
@@ -125,6 +148,25 @@ export default function MinhasPropostas() {
     } catch (error) {
       console.error("Erro ao excluir proposta:", error);
       toast.error("Erro ao excluir proposta");
+    }
+  };
+
+  const handleSalvarComoProjeto = async (proposta: PropostaDisplay) => {
+    if (!user) return;
+    setSavingProjetoId(proposta.id);
+    try {
+      const row = await createProjetoFromProposta(proposta, {
+        area: profile?.area || null,
+        publico_alvo: profile?.userType === "consultor" ? "empresa" : "pesquisador",
+        empresa_id: proposta.empresa_id || empresaFilter || activeEmpresaId || null,
+      });
+      toast.success("Projeto criado a partir desta proposta");
+      setLocation(`/projetos/${row.id}`);
+    } catch (error) {
+      console.error("Erro ao salvar como projeto:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao criar projeto");
+    } finally {
+      setSavingProjetoId(null);
     }
   };
 
@@ -168,6 +210,15 @@ export default function MinhasPropostas() {
             </Button>
           </Link>
         </div>
+        {isConsultor && !empresaFilter ? (
+          <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            Selecione uma empresa no topo ou em{" "}
+            <Link href="/minhas-empresas" className="font-medium underline">
+              Minhas empresas
+            </Link>{" "}
+            para ver as propostas deste workspace.
+          </div>
+        ) : null}
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -376,6 +427,20 @@ export default function MinhasPropostas() {
                       Ver Edital
                     </Button>
                   </Link>
+
+                  <Button
+                    variant="outline"
+                    disabled={savingProjetoId === proposta.id}
+                    onClick={() => void handleSalvarComoProjeto(proposta)}
+                    title="Copia o texto desta proposta para um Projeto reutilizável (busca de outros editais)"
+                  >
+                    {savingProjetoId === proposta.id ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <FolderKanban className="w-4 h-4 mr-2" />
+                    )}
+                    Salvar como projeto
+                  </Button>
                   
                   {proposta.status === "submetida" || proposta.status === "aprovada" ? (
                     <Button variant="outline">

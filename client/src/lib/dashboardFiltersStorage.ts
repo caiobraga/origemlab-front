@@ -5,6 +5,8 @@ export type DashboardFiltersState = {
   ignorarFiltroPerfil: boolean;
   filtroTipoEdital: "pesquisadores" | "empresas" | "todos";
   apenasIndicacoes: boolean;
+  /** Filtra o catálogo pelos editais compatíveis com um projeto do usuário */
+  filtroProjetoId: string;
   ordenacao: "recentes" | "indicacoes";
   currentPage: number;
 };
@@ -18,6 +20,7 @@ export const DEFAULT_DASHBOARD_FILTERS: DashboardFiltersState = {
   ignorarFiltroPerfil: false,
   filtroTipoEdital: "todos",
   apenasIndicacoes: false,
+  filtroProjetoId: "",
   ordenacao: "indicacoes",
   currentPage: 1,
 };
@@ -36,6 +39,8 @@ export function loadDashboardFilters(): DashboardFiltersState {
         parsed.filtroTipoEdital === "todos"
           ? parsed.filtroTipoEdital
           : DEFAULT_DASHBOARD_FILTERS.filtroTipoEdital,
+      filtroProjetoId:
+        typeof parsed.filtroProjetoId === "string" ? parsed.filtroProjetoId : "",
       ordenacao:
         parsed.ordenacao === "recentes" || parsed.ordenacao === "indicacoes"
           ? parsed.ordenacao

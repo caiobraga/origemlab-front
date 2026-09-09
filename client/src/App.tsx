@@ -6,13 +6,21 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthProvider";
+import { ActiveEmpresaProvider } from "./contexts/ActiveEmpresaProvider";
 import Home from "./pages/Home";
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import EditalDetails from "./pages/EditalDetails";
 import MinhasPropostas from "./pages/MinhasPropostas";
+import MinhasEmpresas from "./pages/MinhasEmpresas";
+import EmpresaWorkspace from "./pages/EmpresaWorkspace";
+import MeusProjetos from "./pages/MeusProjetos";
+import ProjetoEditais from "./pages/ProjetoEditais";
+import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import EditorProposta from "./pages/EditorProposta";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
@@ -47,6 +55,8 @@ function Router() {
       <Route path={"/inicio"} component={Inicio} />
       <Route path={"/login"} component={Login} />
       <Route path={"/auth/callback"} component={AuthCallback} />
+      <Route path={"/esqueci-a-senha"} component={ForgotPassword} />
+      <Route path={"/redefinir-senha"} component={ResetPassword} />
       <Route path={"/cadastro"} component={SignUp} />
       <Route path={"/onboarding"} component={Onboarding} />
       <Route path={"/dashboard"} component={Dashboard} />
@@ -57,6 +67,11 @@ function Router() {
       <Route path={"/ref/:code"} component={RefRedirect} />
       <Route path={"/edital/:id"} component={EditalDetails} />
       <Route path={"/minhas-propostas"} component={MinhasPropostas} />
+      <Route path={"/minhas-empresas"} component={MinhasEmpresas} />
+      <Route path={"/empresas/:id"} component={EmpresaWorkspace} />
+      <Route path={"/meus-projetos"} component={MeusProjetos} />
+      <Route path={"/projetos/:id/editais"} component={ProjetoEditais} />
+      <Route path={"/projetos/:id"} component={ProjetoDetalhe} />
       <Route path={"/propostas/:id"} component={EditorProposta} />
       <Route path={"/sobre"} component={Sobre} />
       <Route path={"/contato"} component={Contato} />
@@ -91,6 +106,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <ActiveEmpresaProvider>
         <ThemeProvider
           defaultTheme="light"
           // switchable
@@ -103,6 +119,7 @@ function App() {
             <CookieBanner />
           </TooltipProvider>
         </ThemeProvider>
+        </ActiveEmpresaProvider>
       </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

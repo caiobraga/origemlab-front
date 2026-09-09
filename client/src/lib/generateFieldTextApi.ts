@@ -3,6 +3,7 @@ import { apiFetch } from "./backendApi";
 export interface GenerateFieldTextParams {
   edital_id?: string;
   proposta_id?: string;
+  projeto_id?: string;
   field_id?: string;
   field_name: string;
   field_description: string;
@@ -30,8 +31,9 @@ export async function generateFieldText(
   };
   if (params.edital_id) body.edital_id = params.edital_id;
   if (params.proposta_id) body.proposta_id = params.proposta_id;
-  if (!body.edital_id && !body.proposta_id) {
-    throw new Error("É necessário edital_id ou proposta_id para gerar o texto.");
+  if (params.projeto_id) body.projeto_id = params.projeto_id;
+  if (!body.edital_id && !body.proposta_id && !body.projeto_id) {
+    throw new Error("É necessário edital_id, proposta_id ou projeto_id para gerar o texto.");
   }
 
   const data = await apiFetch<GenerateFieldTextResponse>("/api/generate-field-text", {

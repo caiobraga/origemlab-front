@@ -6,11 +6,15 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { createCheckoutSession } from "@/lib/stripeBilling";
+import { isOpenAccessMode } from "@/lib/subscriptionEntitlements";
 
 type PlanAction =
   | { kind: "signup" }
   | { kind: "checkout"; planKey: "pro" | "empresas" }
-  | { kind: "contact"; href: string };
+  | { kind: "contact"; href: string }
+  | { kind: "dashboard" };
+
+const openAccess = isOpenAccessMode();
 
 const plans: Array<{
   name: string;
@@ -23,24 +27,33 @@ const plans: Array<{
   action: PlanAction;
 }> = [
   {
-    name: "Free",
+    name: openAccess ? "Acesso aberto" : "Free",
     price: "R$ 0",
     period: "/mês",
-    description: "Para iniciantes explorarem o ecossistema",
-    features: [
-      "3 editais por mês",
-      "Alertas básicos",
-      "Painel simplificado",
-      "Suporte por email",
-    ],
-    cta: "Começar Grátis",
-    popular: false,
+    description: openAccess
+      ? "Período de testes — todos os recursos liberados"
+      : "Para iniciantes explorarem o ecossistema",
+    features: openAccess
+      ? [
+          "Editais ilimitados",
+          "IA redatora de propostas",
+          "Chat e indicações",
+          "Painel completo",
+        ]
+      : [
+          "3 editais por mês",
+          "Alertas básicos",
+          "Painel simplificado",
+          "Suporte por email",
+        ],
+    cta: openAccess ? "Começar agora" : "Começar Grátis",
+    popular: openAccess,
     action: { kind: "signup" },
   },
   {
     name: "Pro",
-    price: "R$ 1,99",
-    period: "/mês",
+    price: openAccess ? "Em breve" : "R$ 1,99",
+    period: openAccess ? "" : "/mês",
     description: "Ideal para pesquisadores e startups",
     features: [
       "Editais ilimitados",
@@ -50,14 +63,14 @@ const plans: Array<{
       "Suporte prioritário",
       "Histórico de submissões",
     ],
-    cta: "Assinar Pro",
-    popular: true,
-    action: { kind: "checkout", planKey: "pro" },
+    cta: openAccess ? "Incluído nos testes" : "Assinar Pro",
+    popular: !openAccess,
+    action: openAccess ? { kind: "dashboard" } : { kind: "checkout", planKey: "pro" },
   },
   {
     name: "Empresas",
-    price: "R$ 199",
-    period: "/mês",
+    price: openAccess ? "Em breve" : "R$ 199",
+    period: openAccess ? "" : "/mês",
     description: "Para startups e corporações inovadoras",
     features: [
       "Inclui todos os recursos",
@@ -67,9 +80,9 @@ const plans: Array<{
       "API de integração",
       "Consultoria estratégica",
     ],
-    cta: "Assinar Empresas",
+    cta: openAccess ? "Em breve" : "Assinar Empresas",
     popular: false,
-    action: { kind: "checkout", planKey: "empresas" },
+    action: openAccess ? { kind: "dashboard" } : { kind: "checkout", planKey: "empresas" },
   },
   {
     name: "Institucional",
@@ -97,11 +110,20 @@ export default function Pricing() {
 
   const handlePlanClick = async (action: PlanAction) => {
     if (action.kind === "signup") {
-      setLocation("/cadastro");
+      setLocation(user ? "/dashboard" : "/cadastro");
+      return;
+    }
+    if (action.kind === "dashboard") {
+      setLocation(user ? "/dashboard" : "/cadastro");
       return;
     }
     if (action.kind === "contact") {
       setLocation(action.href);
+      return;
+    }
+    if (openAccess) {
+      toast.info("Cobrança pausada — acesso liberado para testes.");
+      setLocation(user ? "/dashboard" : "/cadastro");
       return;
     }
     if (!user) {
@@ -127,11 +149,18 @@ export default function Pricing() {
         <div className="text-center mb-16">
           <p className="institutional-kicker mb-3">Planos de acesso</p>
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
-            Planos para cada etapa
+            {openAccess ? "Teste gratuito liberado" : "Planos para cada etapa"}
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Escolha o plano ideal para transformar suas ideias em projetos financiados
+            {openAccess
+              ? "Crie sua conta e use o sistema completo sem cobrança enquanto coletamos feedback."
+              : "Escolha o plano ideal para transformar suas ideias em projetos financiados"}
           </p>
+          {openAccess ? (
+            <p className="mt-4 inline-block rounded-sm border border-primary/30 bg-secondary px-4 py-2 text-sm font-medium text-primary">
+              Período de testes — Pro, propostas com IA e catálogo ilimitado sem assinatura
+            </p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
@@ -144,7 +173,7 @@ export default function Pricing() {
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                   <div className="flex items-center gap-1 px-4 py-1 rounded-sm bg-primary text-white text-sm font-medium shadow-sm">
                     <Sparkles className="w-4 h-4" />
-                    Mais Popular
+                    {openAccess ? "Liberado agora" : "Mais Popular"}
                   </div>
                 </div>
               )}
@@ -200,14 +229,17 @@ export default function Pricing() {
           ))}
         </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-gray-600">
-            <span className="font-semibold text-gray-900">Success Fee:</span> 3% sobre projetos aprovados em todos os planos
-          </p>
-        </div>
+        {!openAccess ? (
+          <div className="mt-12 text-center">
+            <p className="text-gray-600">
+              <span className="font-semibold text-gray-900">Success Fee:</span> 3% sobre projetos aprovados
+              em todos os planos
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-6 text-center">
-            <Link
+          <Link
             href="/referencia"
             className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
           >

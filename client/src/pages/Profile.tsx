@@ -216,7 +216,7 @@ export default function Profile() {
                 <label className="text-sm font-medium text-gray-500">Email</label>
                 <p className="text-gray-900 flex items-center gap-2">
                   <Mail className="w-4 h-4" />
-                  {user.email}
+                  {user.email || <span className="text-gray-500 italic">Não disponível</span>}
                 </p>
               </div>
               
@@ -224,7 +224,7 @@ export default function Profile() {
                 <label className="text-sm font-medium text-gray-500">Tipo de Usuário</label>
                 <p className="text-gray-900">
                   <Badge variant={profile?.userType === "pesquisador" ? "default" : "secondary"}>
-                    {profile?.userType === "pesquisador" ? "Pesquisador" : profile?.userType === "pessoa-empresa" ? "Pessoa Física/Empresa" : "Não definido"}
+                    {profile?.userType === "pesquisador" ? "Pesquisador" : profile?.userType === "consultor" ? "Consultor" : "Não definido"}
                   </Badge>
                 </p>
               </div>
@@ -263,7 +263,7 @@ export default function Profile() {
                   <label className="text-sm font-medium text-gray-500">CNPJ</label>
                   <p className="text-gray-900">{formatCNPJ(profile.cnpj)}</p>
                 </div>
-              ) : profile?.userType === "pessoa-empresa" ? (
+              ) : profile?.userType === "consultor" ? (
                 <div>
                   <label className="text-sm font-medium text-gray-500">CNPJ</label>
                   <p className="text-gray-500 text-sm italic">Não cadastrado</p>
@@ -571,7 +571,7 @@ export default function Profile() {
         </Card>
 
         {/* Currículo (opcional – apenas PDF) */}
-        {profile && (profile.userType === "pesquisador" || profile.userType === "ambos") && (
+        {profile && profile.userType === "pesquisador" && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -968,7 +968,7 @@ export default function Profile() {
               )}
             </CardContent>
           </Card>
-        ) : profile && profile.userType === "pessoa-empresa" ? (
+        ) : profile && profile.userType === "consultor" ? (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

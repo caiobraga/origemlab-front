@@ -12,6 +12,7 @@ export interface Proposta {
   id: string;
   edital_id: string;
   user_id: string;
+  empresa_id?: string | null;
   status: StatusProposta;
   progresso: number;
   campos_formulario: Record<string, any>;
@@ -19,6 +20,7 @@ export interface Proposta {
   proxima_etapa?: string | null;
   gerado_com_ia: boolean;
   ultima_versao_ia?: string | null;
+  projeto_id?: string | null;
   criado_em: string;
   atualizado_em: string;
   
@@ -32,8 +34,9 @@ export interface Proposta {
 /**
  * Busca todas as propostas do usuário logado
  */
-export async function fetchPropostas(userId: string): Promise<Proposta[]> {
-  const out = await apiFetch<{ rows: Proposta[] }>("/api/propostas", { method: "GET" });
+export async function fetchPropostas(userId: string, empresaId?: string | null): Promise<Proposta[]> {
+  const qs = empresaId ? `?empresa_id=${encodeURIComponent(empresaId)}` : "";
+  const out = await apiFetch<{ rows: Proposta[] }>(`/api/propostas${qs}`, { method: "GET" });
   return out.rows || [];
 }
 
@@ -86,11 +89,18 @@ export async function fetchPropostaByEdital(userId: string, editalId: string): P
 export async function createProposta(
   editalId: string,
   userId: string,
-  camposIniciais?: Record<string, any>
+  camposIniciais?: Record<string, any>,
+  opts?: { projetoId?: string | null; empresaId?: string | null; geradoComIa?: boolean },
 ): Promise<Proposta> {
   const out = await apiFetch<{ row: Proposta }>("/api/propostas", {
     method: "POST",
-    body: JSON.stringify({ edital_id: editalId, campos_formulario: camposIniciais || {}, gerado_com_ia: !!camposIniciais }),
+    body: JSON.stringify({
+      edital_id: editalId,
+      campos_formulario: camposIniciais || {},
+      gerado_com_ia: opts?.geradoComIa ?? false,
+      ...(opts?.projetoId ? { projeto_id: opts.projetoId } : {}),
+      ...(opts?.empresaId ? { empresa_id: opts.empresaId } : {}),
+    }),
   });
   return out.row;
 }
@@ -107,6 +117,7 @@ export async function updateProposta(
     progresso?: number;
     observacoes?: string;
     proxima_etapa?: string;
+    projeto_id?: string | null;
   }
 ): Promise<Proposta> {
   // Validar e normalizar progresso se fornecido
@@ -144,7 +155,8 @@ export async function gerarPropostaComIA(
   editalId: string,
   userId: string,
   user: any,
-  profile: any
+  profile: any,
+  opts?: { empresaId?: string | null },
 ): Promise<Proposta> {
   const entitlements = profile?.entitlements ?? resolveEntitlementsFromProfile(profile);
   if (!canUsePropostas(entitlements)) {
@@ -158,7 +170,10 @@ export async function gerarPropostaComIA(
 
     // Criar proposta vazia no banco com estrutura completa do formulário
     const camposFormulario = createEmptyPropostaForm();
-    const proposta = await createProposta(editalId, userId, camposFormulario as any);
+    const proposta = await createProposta(editalId, userId, camposFormulario as any, {
+      geradoComIa: false,
+      empresaId: opts?.empresaId ?? null,
+    });
 
     // Atualizar progresso inicial (já validado dentro de updateProposta)
     await updateProposta(proposta.id, userId, {

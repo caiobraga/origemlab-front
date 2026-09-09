@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import {
   ArrowLeft,
   Save,
@@ -10,6 +10,7 @@ import {
   List,
   ChevronLeft,
   ChevronRight,
+  FolderKanban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,9 @@ import {
   type Proposta,
   type StatusProposta,
 } from "@/lib/propostasApi";
+import { createProjetoFromProposta } from "@/lib/projetosApi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import UpgradePlanBanner from "@/components/UpgradePlanBanner";
 import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
@@ -37,12 +40,15 @@ export default function EditorProposta() {
   const params = useParams();
   const propostaId = params.id || "";
   const { user } = useAuth();
+  const { profile } = useUserProfile();
+  const [, setLocation] = useLocation();
   const { canUsePropostas, loading: entitlementsLoading } = useSubscriptionEntitlements();
 
   const [proposta, setProposta] = useState<Proposta | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingAsProjeto, setSavingAsProjeto] = useState(false);
   const [refazendoResumo, setRefazendoResumo] = useState(false);
   const [campos, setCampos] = useState<PropostaFormData | CNPqFormData>(createEmptyPropostaForm());
   const [isCNPq, setIsCNPq] = useState(false);
@@ -415,6 +421,30 @@ export default function EditorProposta() {
     }
   }, [proposta, user, persistScroll, isCNPq]);
 
+  const handleSalvarComoProjeto = useCallback(async () => {
+    if (!proposta || !user) return;
+    setSavingAsProjeto(true);
+    try {
+      // Persiste o texto atual antes de copiar para o projeto
+      await handleSave();
+      const snapshot: Proposta = {
+        ...proposta,
+        campos_formulario: camposRef.current as Record<string, any>,
+      };
+      const row = await createProjetoFromProposta(snapshot, {
+        area: profile?.area || null,
+        publico_alvo: profile?.userType === "consultor" ? "empresa" : "pesquisador",
+      });
+      toast.success("Projeto criado a partir desta proposta");
+      setLocation(`/projetos/${row.id}`);
+    } catch (error: any) {
+      console.error("Erro ao salvar como projeto:", error);
+      toast.error(error?.message || "Erro ao criar projeto a partir da proposta");
+    } finally {
+      setSavingAsProjeto(false);
+    }
+  }, [proposta, user, handleSave, profile?.area, profile?.userType, setLocation]);
+
   const handleStatusChange = async (newStatus: StatusProposta) => {
     if (!proposta || !user) return;
 
@@ -684,8 +714,28 @@ export default function EditorProposta() {
                 )}
               </Button>
               <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleSalvarComoProjeto()}
+                disabled={saving || savingAsProjeto || refazendoResumo}
+                size="sm"
+                title="Copia o texto desta proposta para um Projeto reutilizável"
+              >
+                {savingAsProjeto ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Criando projeto...
+                  </>
+                ) : (
+                  <>
+                    <FolderKanban className="w-4 h-4 mr-2" />
+                    Salvar como projeto
+                  </>
+                )}
+              </Button>
+              <Button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || savingAsProjeto}
                 className="bg-primary hover:bg-primary/90"
                 size="sm"
               >

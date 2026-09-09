@@ -16,16 +16,25 @@ export type EditalIndicacaoItem = {
   edital: DatabaseEdital;
 };
 
-export async function refreshMyIndicacoes(limit = 20): Promise<number> {
+export async function refreshMyIndicacoes(limit = 20, empresaId?: string | null): Promise<number> {
   const out = await apiFetch<{ refreshed: number }>("/api/indicacoes/refresh", {
     method: "POST",
-    body: JSON.stringify({ limit }),
+    body: JSON.stringify({
+      limit,
+      ...(empresaId ? { empresa_id: empresaId } : {}),
+    }),
   });
   return Number(out.refreshed ?? 0);
 }
 
-export async function fetchMyIndicacoes(userId: string, limit = 20): Promise<EditalIndicacaoItem[]> {
-  const out = await apiFetch<{ rows: Array<any> }>(`/api/indicacoes?limit=${encodeURIComponent(String(limit))}`, { method: "GET" });
+export async function fetchMyIndicacoes(
+  userId: string,
+  limit = 20,
+  empresaId?: string | null,
+): Promise<EditalIndicacaoItem[]> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (empresaId) qs.set("empresa_id", empresaId);
+  const out = await apiFetch<{ rows: Array<any> }>(`/api/indicacoes?${qs.toString()}`, { method: "GET" });
   const rows = (out.rows ?? []) as Array<{
     score: number;
     motivos: string[] | null;
