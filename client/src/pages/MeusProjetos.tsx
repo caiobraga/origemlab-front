@@ -53,6 +53,15 @@ const AREA_OPTIONS = [
   { id: "other", label: "Outra" },
 ] as const;
 
+const PROPOSTA_STATUS_LABEL: Record<string, string> = {
+  rascunho: "Rascunho",
+  em_redacao: "Em redação",
+  revisao: "Em revisão",
+  submetida: "Submetida",
+  aprovada: "Aprovada",
+  rejeitada: "Rejeitada",
+};
+
 export default function MeusProjetos() {
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
@@ -351,7 +360,7 @@ export default function MeusProjetos() {
                   {propostas.map((p) => (
                     <option key={p.id} value={p.id}>
                       {(p.campos_formulario as any)?.titulo_projeto || p.edital_titulo || "Sem título"} —{" "}
-                      {p.status}
+                      {PROPOSTA_STATUS_LABEL[p.status as string] ?? p.status}
                     </option>
                   ))}
                 </select>

@@ -63,6 +63,10 @@ export function getApiConnectionHelpMessage(): string {
 }
 
 let syncInflight: Promise<boolean> | null = null;
+/** Último access token aceito por /api/auth/sync-supabase (evita um POST antes de toda chamada). */
+let lastSyncedToken: string | null = null;
+let lastSyncedAtMs = 0;
+const SYNC_REUSE_MS = 10 * 60_000;
 
 async function supabaseAuthHeader(): Promise<Record<string, string>> {
   let { data } = await supabase.auth.getSession();
@@ -110,6 +114,10 @@ export async function syncBackendSessionFromSupabase(): Promise<boolean> {
           expiresAtMs,
         }),
       });
+      if (res.ok) {
+        lastSyncedToken = accessToken;
+        lastSyncedAtMs = Date.now();
+      }
       return res.ok;
     } catch {
       return false;
@@ -174,7 +182,14 @@ export async function apiUploadFile<T>(path: string, file: File, fieldName = "fi
   return json as T;
 }
 
-/** Garante Bearer/cookie antes de chamadas autenticadas. */
+function syncedRecently(token: string): boolean {
+  return token === lastSyncedToken && Date.now() - lastSyncedAtMs < SYNC_REUSE_MS;
+}
+
+/**
+ * Garante Bearer/cookie antes de chamadas autenticadas.
+ * Só sincroniza o cookie quando o token mudou (ou há mais de 10 min); um 401 em apiFetch força nova sync.
+ */
 export async function ensureApiAuth(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
@@ -183,11 +198,11 @@ export async function ensureApiAuth(): Promise<void> {
       session.access_token,
       session.expires_at ? session.expires_at * 1000 : undefined,
     );
-    await syncBackendSessionFromSupabase();
+    if (!syncedRecently(session.access_token)) await syncBackendSessionFromSupabase();
     return;
   }
   const stored = readStoredAccessToken();
-  if (stored) {
+  if (stored && !syncedRecently(stored)) {
     await syncBackendSessionFromSupabase();
   }
 }
@@ -383,6 +398,10 @@ export async function syncBackendSessionFromAccessToken(input: {
         expiresAtMs,
       }),
     });
+    if (res.ok) {
+      lastSyncedToken = accessToken;
+      lastSyncedAtMs = Date.now();
+    }
     return res.ok;
   } catch {
     return false;

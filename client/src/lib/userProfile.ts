@@ -71,6 +71,8 @@ async function patchProfileWithFallback(userId: string, patch: Record<string, un
       { onConflict: "user_id" },
     );
     if (error) throw backendError;
+  } finally {
+    invalidateUserProfileCache();
   }
 }
 
@@ -177,10 +179,14 @@ export async function saveUserProfile(
     body.onboarding_completed = profile.onboardingCompleted;
   }
 
-  await apiFetch("/api/profile", {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
+  try {
+    await apiFetch("/api/profile", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  } finally {
+    invalidateUserProfileCache();
+  }
 }
 /**
  * Salva os dados do currículo (extraídos de PDF) no user_metadata e na tabela profiles.
@@ -212,6 +218,8 @@ export async function saveCurriculumToMetadata(
       { onConflict: "user_id" },
     );
     if (error) throw error;
+  } finally {
+    invalidateUserProfileCache();
   }
 }
 
@@ -250,8 +258,46 @@ function mergeSubscriptionFromAuthMetadata(
   };
 }
 
+/**
+ * Header, páginas, ActiveEmpresaProvider, useSubscriptionEntitlements e AuthProvider chamam getUserProfile
+ * ao mesmo tempo no carregamento — eram ~7 GET /api/profile + auth/v1/user por página.
+ * Chamadas simultâneas compartilham a mesma requisição e o resultado vale por 2 s; gravações limpam o cache.
+ */
+const PROFILE_REUSE_MS = 2_000;
+let profileCache: {
+  userId: string;
+  promise: Promise<UserProfile | null>;
+  settledAtMs: number | null;
+} | null = null;
+
+export function invalidateUserProfileCache(): void {
+  profileCache = null;
+}
+
 export async function getUserProfile(user: SessionUser | null): Promise<UserProfile | null> {
   if (!user) return null;
+  const c = profileCache;
+  if (c && c.userId === user.id && (c.settledAtMs === null || Date.now() - c.settledAtMs < PROFILE_REUSE_MS)) {
+    return c.promise;
+  }
+  const entry = {
+    userId: user.id,
+    promise: fetchUserProfileUncached(user),
+    settledAtMs: null as number | null,
+  };
+  profileCache = entry;
+  entry.promise.then(
+    () => {
+      entry.settledAtMs = Date.now();
+    },
+    () => {
+      if (profileCache === entry) profileCache = null;
+    },
+  );
+  return entry.promise;
+}
+
+async function fetchUserProfileUncached(user: SessionUser): Promise<UserProfile | null> {
   try {
     const out = await apiFetch<{ row: any; entitlements?: EntitlementsPayload }>("/api/profile", { method: "GET" });
     const profile = out.row;

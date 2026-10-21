@@ -493,7 +493,7 @@ export default function AdminDashboard() {
                                   </div>
                                 </div>
                                 <div className="mt-2 text-xs text-gray-600 truncate">
-                                  Edital: {p.edital_id}
+                                  Edital: {p.edital_titulo || p.edital_id}
                                 </div>
                                 <div className="mt-1 text-[11px] text-gray-500">
                                   {p.atualizado_em ? `Atualizado: ${new Date(p.atualizado_em).toLocaleString("pt-BR")}` : "—"}

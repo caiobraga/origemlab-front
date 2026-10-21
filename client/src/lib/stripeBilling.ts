@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { invalidateUserProfileCache } from "@/lib/userProfile";
 
 const API_BASE = String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
 function apiUrl(path: string) {
@@ -77,6 +78,8 @@ export async function syncSubscriptionFromStripe(): Promise<{
       Authorization: `Bearer ${session.access_token}`,
     },
   });
+  // O servidor grava a assinatura no profile; o próximo getUserProfile precisa ler de novo.
+  invalidateUserProfileCache();
 
   const data = (await res.json().catch(() => ({}))) as {
     ok?: boolean;

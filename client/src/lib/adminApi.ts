@@ -147,6 +147,7 @@ export type PropostaAdminRow = {
   gerado_com_ia: boolean | null;
   criado_em: string | null;
   atualizado_em: string | null;
+  edital_titulo?: string | null;
 };
 
 export async function adminListPropostas(params?: { limit?: number; offset?: number; status?: string; userId?: string; editalId?: string }) {
