@@ -6,6 +6,7 @@ import {
   establishAuthSessionFromUrl,
   humanizeAuthLinkError,
   isRecoveryAuthUrl,
+  markPendingAuthFlow,
   stripAuthParamsFromPath,
 } from "@/lib/authCallbackUrl";
 
@@ -49,6 +50,9 @@ export default function AuthCallback() {
         stripAuthParamsFromPath("/auth/callback");
 
         if (result.flow === "recovery") {
+          // establishAuthSessionFromUrl consumiu a flag; sem ela /redefinir-senha (já sem token na URL)
+          // trataria a sessão como login comum e mandaria para o dashboard sem pedir a nova senha.
+          markPendingAuthFlow("recovery");
           if (!cancelled) setLocation("/redefinir-senha");
           return;
         }

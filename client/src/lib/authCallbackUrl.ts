@@ -81,16 +81,18 @@ export function hasAuthCallbackInUrl(url: URL = new URL(window.location.href)): 
   return false;
 }
 
-export function isSignupConfirmAuthUrl(url: URL = new URL(window.location.href)): boolean {
+/** `type` explícito do link (query ou hash). Quando existe, vale mais que o fluxo pendente no storage. */
+function explicitLinkType(url: URL): string {
   const type = (url.searchParams.get("type") || "").toLowerCase();
-  if (type === "signup" || type === "email" || type === "invite") return true;
+  if (type) return type;
+  return (hashParams(url.hash).get("type") || "").toLowerCase();
+}
 
-  const hp = hashParams(url.hash);
-  const hashType = (hp.get("type") || "").toLowerCase();
-  if (hashType === "signup" || hashType === "email" || hashType === "invite") return true;
-
-  if (peekPendingAuthFlow() === "signup") return true;
-  return false;
+export function isSignupConfirmAuthUrl(url: URL = new URL(window.location.href)): boolean {
+  const type = explicitLinkType(url);
+  // Flag "signup" antiga no storage não pode transformar um link type=recovery em confirmação.
+  if (type) return type === "signup" || type === "email" || type === "invite";
+  return peekPendingAuthFlow() === "signup";
 }
 
 /**
@@ -99,14 +101,8 @@ export function isSignupConfirmAuthUrl(url: URL = new URL(window.location.href))
  * antiga também caía nessa rota e gerava a mensagem errada de «Esqueci a senha».
  */
 export function isRecoveryAuthUrl(url: URL = new URL(window.location.href)): boolean {
-  if (isSignupConfirmAuthUrl(url)) return false;
-
-  const type = (url.searchParams.get("type") || "").toLowerCase();
-  if (type === "recovery") return true;
-
-  const hp = hashParams(url.hash);
-  if ((hp.get("type") || "").toLowerCase() === "recovery") return true;
-
+  const type = explicitLinkType(url);
+  if (type) return type === "recovery";
   return peekPendingAuthFlow() === "recovery";
 }
 
@@ -270,6 +266,8 @@ export async function establishAuthSessionFromUrl(
 
   if (!hasLinkParams) {
     if (await persistSessionFromClient()) {
+      // /auth/callback já trocou o token e remarcou "recovery" antes de vir para /redefinir-senha.
+      if (recoveryContext) consumePendingAuthFlow();
       return { ok: true, flow: recoveryContext ? "recovery" : "other" };
     }
     return fail("Link inválido ou expirado.");
