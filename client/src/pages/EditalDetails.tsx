@@ -677,6 +677,19 @@ export default function EditalDetails() {
                     })()}
                   </div>
 
+                  {/* Valor por bolsa: só aparece quando a extração encontrou um valor */}
+                  {edital?.valor_bolsa && (
+                    <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
+                      <div className="flex items-center gap-2 mb-2">
+                        <GraduationCap className="w-5 h-5 text-primary" />
+                        <span className="text-sm font-semibold text-gray-700">Valor por bolsa</span>
+                      </div>
+                      <div className="text-lg font-bold text-gray-900 min-w-0 max-w-full break-words">
+                        {edital.valor_bolsa}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tipo de Edital */}
                   <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
                     <div className="flex items-center gap-2 mb-2">

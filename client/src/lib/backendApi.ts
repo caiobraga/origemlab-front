@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { USER_MESSAGES } from "./userMessages";
 
 const ACCESS_TOKEN_KEY = "origemlab_api_access_token";
 const ACCESS_TOKEN_EXP_KEY = "origemlab_api_access_exp";
@@ -51,15 +52,79 @@ export function getApiConnectionHelpMessage(): string {
   if (import.meta.env.DEV && !apiBase) {
     return "Se a sessão expirou, saia e entre de novo. Em desenvolvimento local, confira se o backend está rodando em localhost:8081.";
   }
-  if (apiBase) {
-    const frontOrigin = typeof window !== "undefined" ? window.location.origin : "";
-    const corsHint =
-      frontOrigin && frontOrigin !== apiBase
-        ? ` O domínio do site (${frontOrigin}) precisa estar em CORS_ALLOW_ORIGIN / FRONT_ORIGINS no backend.`
-        : "";
-    return `Se a sessão expirou, saia e entre de novo. Se persistir, verifique se a API está acessível (${apiBase}).${corsHint}`;
+  return "Verifique sua conexão com a internet e tente novamente. Se persistir, saia e entre de novo.";
+}
+
+/** Dica técnica (somente console) para falhas de conexão/CORS com a API. */
+function logApiConnectionDetails(context: string, detail: unknown) {
+  const apiBase = readApiBaseUrl();
+  const frontOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  console.error(
+    `[api] ${context} (API: ${apiBase || "mesma origem"}; origem do site: ${frontOrigin}). ` +
+      "Confira VITE_API_BASE_URL e se o domínio do site está em CORS_ALLOW_ORIGIN / FRONT_ORIGINS no backend.",
+    detail,
+  );
+}
+
+/** Códigos snake_case devolvidos pelo backend → texto para o usuário. */
+const API_ERROR_CODE_MESSAGES: Record<string, string> = {
+  subscription_required: "Este recurso faz parte do plano Pro. Assine para desbloquear.",
+  subscription_limit: "Você atingiu o limite do plano gratuito. Assine o Pro para continuar.",
+  account_blocked: "Sua conta está bloqueada. Entre em contato com o suporte.",
+  unauthenticated: USER_MESSAGES.sessionExpired,
+  invalid_token: USER_MESSAGES.sessionExpired,
+  invalid_login: USER_MESSAGES.invalidLogin,
+  no_bearer: "Faça login para continuar.",
+  no_supabase: USER_MESSAGES.unavailable,
+  supabase_unreachable: USER_MESSAGES.unavailable,
+  ai_timeout: USER_MESSAGES.aiTimeout,
+  internal_error: USER_MESSAGES.generic,
+};
+
+function messageForHttpStatus(status: number, opts?: { publicAuth?: boolean }): string {
+  // Em sign-in/sign-up não há sessão: 401 é credencial inválida, não "sessão expirada".
+  if (status === 401) return opts?.publicAuth ? USER_MESSAGES.invalidLogin : USER_MESSAGES.sessionExpired;
+  if (status === 403) return "Você não tem permissão para realizar esta ação.";
+  if (status === 404) return "O conteúdo solicitado não foi encontrado.";
+  if (status === 413) return "O arquivo enviado é grande demais.";
+  if (status === 429) return "Muitas solicitações em pouco tempo. Aguarde alguns instantes e tente novamente.";
+  if (status === 502 || status === 503 || status === 504) return USER_MESSAGES.unavailable;
+  return USER_MESSAGES.generic;
+}
+
+/**
+ * Extrai uma mensagem amigável (pt-BR) do corpo de erro da API.
+ * Prefere `message`, traduz códigos conhecidos em `error` e nunca mostra "HTTP 500".
+ */
+export function apiErrorMessage(json: unknown, status: number, opts?: { publicAuth?: boolean }): string {
+  const body = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
+  const message = typeof body?.message === "string" ? body.message.trim() : "";
+  if (message) return message;
+  const error = typeof body?.error === "string" ? body.error.trim() : "";
+  if (error) {
+    if (/^[a-z][a-z0-9_]*$/.test(error)) return API_ERROR_CODE_MESSAGES[error] ?? messageForHttpStatus(status, opts);
+    return error;
   }
-  return "Se a sessão expirou, saia e entre de novo. Se persistir, tente novamente em alguns instantes.";
+  return messageForHttpStatus(status, opts);
+}
+
+/** Erro de API com mensagem segura (pt-BR) + status HTTP e código snake_case do backend, se houver. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(json: unknown, status: number, opts?: { publicAuth?: boolean }) {
+    super(apiErrorMessage(json, status, opts));
+    this.name = "ApiError";
+    this.status = status;
+    const error = json && typeof json === "object" ? (json as Record<string, unknown>).error : undefined;
+    if (typeof error === "string" && /^[a-z][a-z0-9_]*$/.test(error)) this.code = error;
+  }
+}
+
+/** A IA estourou o tempo limite no backend (HTTP 504 `{ error: "ai_timeout" }`). */
+export function isAiTimeoutError(err: unknown): boolean {
+  return err instanceof ApiError && err.code === "ai_timeout";
 }
 
 let syncInflight: Promise<boolean> | null = null;
@@ -135,19 +200,18 @@ function parseJsonBody(text: string, status: number): unknown {
     return JSON.parse(text);
   } catch {
     if (text.trimStart().startsWith("<")) {
-      throw new Error(
-        "Resposta inválida da API (HTML/XML). Confira VITE_API_BASE_URL e se o domínio do site está em CORS_ALLOW_ORIGIN no backend.",
-      );
+      logApiConnectionDetails(`Resposta HTML/XML em vez de JSON (HTTP ${status})`, text.slice(0, 300));
+    } else {
+      console.error(`[api] Resposta não-JSON (HTTP ${status}):`, text.slice(0, 300));
     }
-    throw new Error(`Resposta inválida do servidor (HTTP ${status}).`);
+    throw new Error(USER_MESSAGES.badResponse);
   }
 }
 
 function wrapFetchError(err: unknown): Error {
   if (err instanceof Error && /Failed to fetch|NetworkError|Load failed/i.test(err.message)) {
-    return new Error(
-      `Não foi possível conectar à API (${readApiBaseUrl() || "URL não configurada"}). ${getApiConnectionHelpMessage()}`,
-    );
+    logApiConnectionDetails("Falha de rede ao chamar a API", err);
+    return new Error(USER_MESSAGES.offline);
   }
   return err instanceof Error ? err : new Error(String(err));
 }
@@ -173,11 +237,7 @@ export async function apiUploadFile<T>(path: string, file: File, fieldName = "fi
   const json = parseJsonBody(text, res.status);
 
   if (!res.ok) {
-    const msg =
-      (json && typeof (json as any).message === "string" && (json as any).message) ||
-      (json && typeof (json as any).error === "string" && (json as any).error) ||
-      `HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new ApiError(json, res.status);
   }
   return json as T;
 }
@@ -242,15 +302,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit, retryCount =
       return apiFetch<T>(path, init, retryCount + 1);
     }
 
-    const msg =
-      (json && typeof (json as any).message === "string" && (json as any).message) ||
-      (json && typeof (json as any).error === "string" && (json as any).error) ||
-      `HTTP ${res.status}`;
     if (isUnauthenticated) {
       setStoredAccessToken(null);
-      throw new Error("Sessão expirada. Faça login novamente.");
+      throw new Error(USER_MESSAGES.sessionExpired);
     }
-    throw new Error(msg);
+    throw new ApiError(json, res.status);
   }
   return json as T;
 }
@@ -284,18 +340,18 @@ export async function* apiFetchNdjson(
 
   if (!res.ok) {
     const text = await res.text();
-    let msg = `HTTP ${res.status}`;
+    let json: unknown = null;
     try {
-      const json = JSON.parse(text);
-      msg = String(json?.error || json?.message || msg);
+      json = JSON.parse(text);
     } catch {
-      if (text.trim()) msg = text.trim().slice(0, 300);
+      if (text.trim()) console.error(`[api] Resposta não-JSON (HTTP ${res.status}):`, text.trim().slice(0, 300));
     }
-    throw new Error(msg);
+    throw new ApiError(json, res.status);
   }
 
   if (!res.body) {
-    throw new Error("Resposta sem corpo (stream indisponível).");
+    console.error("[api] Resposta NDJSON sem corpo (stream indisponível).");
+    throw new Error(USER_MESSAGES.generic);
   }
 
   const reader = res.body.getReader();
@@ -357,11 +413,7 @@ export async function authPublicFetch<T>(path: string, init?: RequestInit): Prom
   const json = parseJsonBody(text, res.status);
 
   if (!res.ok) {
-    const msg =
-      (json && typeof (json as any).message === "string" && (json as any).message) ||
-      (json && typeof (json as any).error === "string" && (json as any).error) ||
-      `HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new ApiError(json, res.status, { publicAuth: true });
   }
   return json as T;
 }

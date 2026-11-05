@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import SkipLink from "@/components/SkipLink";
+import { useLandingSectionHref } from "@/lib/landingSections";
 
 export default function Header() {
   const { user, signOut, loading } = useAuth();
@@ -19,6 +20,9 @@ export default function Header() {
   const [location, setLocation] = useLocation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
+
+  const showConsultorNav = isConsultor || profile?.userType === "consultor";
+  const sectionHref = useLandingSectionHref();
 
   const handleLogout = async () => {
     await signOut();
@@ -86,18 +90,13 @@ export default function Header() {
           {/* Logo */}
           <Link href="/inicio" aria-label={`${APP_TITLE} - Página inicial`}>
             <div className="flex items-center gap-3 cursor-pointer flex-shrink-0 min-w-0 group">
-              <div 
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-primary/25 bg-white text-primary shadow-[inset_3px_0_0_var(--primary)]"
-                aria-hidden="true"
-              >
-                <span className="text-sm font-bold tracking-tight">OL</span>
-              </div>
+              <img src="/favicon.svg" alt="" className="h-9 w-9 flex-shrink-0" aria-hidden="true" />
               <div className="min-w-0">
                 <span className="block text-base md:text-lg font-semibold text-gray-950 truncate tracking-tight">
                   {APP_TITLE}
                 </span>
-                <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500 sm:block">
-                  Portal de fomento
+                <span className="hidden text-xs text-gray-500 sm:block">
+                  Editais de fomento
                 </span>
               </div>
             </div>
@@ -111,22 +110,22 @@ export default function Header() {
               aria-label="Navegação principal"
             >
               <a 
-                href="#como-funciona" 
+                href={sectionHref("como-funciona")} 
                 className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
                 Como funciona
               </a>
               <a 
-                href="#planos" 
+                href={sectionHref("planos")} 
                 className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
                 Planos
               </a>
               <a 
-                href="#faq" 
+                href={sectionHref("faq")} 
                 className="border-b border-transparent py-5 text-sm font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-sm"
               >
-                FAQ
+                Dúvidas
               </a>
             </nav>
           )}
@@ -162,7 +161,7 @@ export default function Header() {
               >
                 Projetos
               </Link>
-              {isConsultor && (
+              {showConsultorNav && (
                 <Link
                   href="/minhas-empresas"
                   className={cn(
@@ -204,7 +203,7 @@ export default function Header() {
               >
                 Rede de acesso
               </Link>
-              {isConsultor && (
+              {showConsultorNav && (
                 <Link
                   href="/planos"
                   className={cn(
@@ -225,7 +224,7 @@ export default function Header() {
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {user && !loading ? (
               <>
-                {isConsultor && empresas.length > 0 ? (
+                {showConsultorNav && empresas.length > 0 ? (
                   <label className="hidden lg:flex items-center gap-2 text-xs text-gray-600">
                     <span className="whitespace-nowrap font-medium">Empresa</span>
                     <select
@@ -339,7 +338,6 @@ export default function Header() {
                   size="icon" 
                   className="md:hidden"
                   aria-label="Abrir menu de navegação"
-                  aria-expanded="false"
                 >
                   <Menu className="w-5 h-5" aria-hidden="true" />
                 </Button>
@@ -350,22 +348,22 @@ export default function Header() {
                   {!isInDashboardArea && (
                     <nav className="flex flex-col gap-4" role="navigation" aria-label="Navegação mobile">
                       <a 
-                        href="#como-funciona" 
+                        href={sectionHref("como-funciona")} 
                         className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
-                        Como Funciona
+                        Como funciona
                       </a>
                       <a 
-                        href="#planos" 
+                        href={sectionHref("planos")} 
                         className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
                         Planos
                       </a>
                       <a 
-                        href="#faq" 
+                        href={sectionHref("faq")} 
                         className="text-sm font-medium text-gray-700 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                       >
-                        FAQ
+                        Dúvidas
                       </a>
                     </nav>
                   )}
@@ -388,7 +386,7 @@ export default function Header() {
                             className="w-full justify-start"
                           >
                             <LayoutDashboard className="w-4 h-4 mr-2" />
-                            Meu Painel
+                            Painel
                           </Button>
                         </Link>
                         <Link href="/meus-projetos">
@@ -397,10 +395,10 @@ export default function Header() {
                             className="w-full justify-start"
                           >
                             <FileText className="w-4 h-4 mr-2" />
-                            Meus Projetos
+                            Projetos
                           </Button>
                         </Link>
-                        {isConsultor && (
+                        {showConsultorNav && (
                           <Link href="/minhas-empresas">
                             <Button
                               variant={
@@ -411,7 +409,7 @@ export default function Header() {
                               className="w-full justify-start"
                             >
                               <LayoutDashboard className="w-4 h-4 mr-2" />
-                              Minhas Empresas
+                              Empresas
                             </Button>
                           </Link>
                         )}
@@ -421,7 +419,7 @@ export default function Header() {
                             className="w-full justify-start"
                           >
                             <FileText className="w-4 h-4 mr-2" />
-                            Minhas Propostas
+                            Propostas
                           </Button>
                         </Link>
                         <Link href="/perfil">
@@ -430,7 +428,7 @@ export default function Header() {
                             className="w-full justify-start"
                           >
                             <User className="w-4 h-4 mr-2" />
-                            Meu Perfil
+                            Perfil
                           </Button>
                         </Link>
                         <Link href="/referencia">
@@ -439,10 +437,10 @@ export default function Header() {
                             className="w-full justify-start"
                           >
                             <Share2 className="w-4 h-4 mr-2" />
-                            Indique e Ganhe
+                            Rede de acesso
                           </Button>
                         </Link>
-                        {isConsultor && (
+                        {showConsultorNav && (
                           <Link href="/planos">
                             <Button
                               variant={isActive("/planos") ? "secondary" : "ghost"}

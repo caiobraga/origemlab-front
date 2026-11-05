@@ -1,155 +1,53 @@
-import { Brain, Users, CheckCircle2, Sparkles } from "lucide-react";
-import ScrollReveal from "@/components/ScrollReveal";
-import { useQuery } from "@tanstack/react-query";
-import { fetchPublicCatalogStats, formatCountPlus } from "@/lib/catalogStatsApi";
+import { usePublicCatalogStats } from "@/hooks/usePublicCatalogStats";
 
 export default function AIHumanSection() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["public-catalog-stats"],
-    queryFn: fetchPublicCatalogStats,
-    staleTime: 5 * 60_000,
-    retry: 1,
-  });
+  const { data: stats } = usePublicCatalogStats();
 
-  const editaisAnalisados = isLoading
-    ? "…"
-    : stats && stats.editaisAnalisadosCount > 0
-      ? formatCountPlus(stats.editaisAnalisadosCount)
-      : "10.000+";
+  const fontes =
+    stats && stats.fontesCount > 0
+      ? `${stats.fontesCount.toLocaleString("pt-BR")} fontes de fomento`
+      : "agências e fundações de fomento";
+  const analisados =
+    stats && stats.editaisAnalisadosCount > 0
+      ? ` Até hoje, ${stats.editaisAnalisadosCount.toLocaleString("pt-BR")} editais passaram por essa leitura.`
+      : "";
+
+  const principles = [
+    {
+      title: "Vem do documento oficial",
+      text: `Coletamos os editais nos sites de ${fontes} e guardamos o link para o documento publicado. Em caso de dúvida, vale o que está no edital.`,
+    },
+    {
+      title: "É conferido com o próprio documento",
+      text: `Prazo, valor e público-alvo são extraídos automaticamente e conferidos com o texto do edital antes de ele entrar no catálogo.${analisados}`,
+    },
+    {
+      title: "A IA ajuda, você decide",
+      text: "A IA sugere estrutura e texto para a proposta. O que vai para a agência é revisado e enviado por você.",
+    },
+  ];
 
   return (
-    <section className="py-20 text-white bg-primary">
-      <div className="container">
-        <ScrollReveal className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-white/10 text-white px-4 py-2 rounded-sm text-sm font-semibold mb-4 border border-white/15">
-            <Sparkles className="w-4 h-4 text-white" />
-            Nossa Metodologia
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            IA aplicada + curadoria especializada
+    <section className="border-y border-line bg-white py-20 md:py-24">
+      <div className="container grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-20">
+        <div>
+          <h2 className="section-title">
+            De onde vem cada informação
           </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Combinamos tecnologia, leitura documental e experiência em fomento para apoiar decisões com qualidade e rastreabilidade.
+          <p className="mt-4 max-w-md text-lg text-gray-700">
+            Para decidir se vale concorrer, você precisa confiar no que lê. Por isso cada ficha
+            leva ao edital publicado pela agência.
           </p>
-        </ScrollReveal>
-
-        <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          {/* IA Avançada */}
-          <ScrollReveal>
-            <div className="bg-white/5 rounded-md p-8 shadow-sm border border-white/15">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-sm flex items-center justify-center bg-white/10 border border-white/15">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-white">Inteligência Artificial</h3>
-            </div>
-
-            <p className="text-gray-300 mb-6">
-              Nossa IA proprietária analisa milhares de editais e propostas aprovadas para gerar conteúdo altamente aderente aos critérios de avaliação.
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Análise Semântica</div>
-                  <div className="text-sm text-gray-300">PNL avançado para entender requisitos complexos</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Matching Inteligente</div>
-                  <div className="text-sm text-gray-300">Algoritmo com 50+ variáveis para encontrar editais perfeitos</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Geração de Propostas</div>
-                  <div className="text-sm text-gray-300">IA generativa treinada em propostas aprovadas</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Multilíngue</div>
-                  <div className="text-sm text-gray-300">Português, Espanhol e Inglês para editais internacionais</div>
-                </div>
-              </div>
-            </div>
-            </div>
-          </ScrollReveal>
-
-          {/* Supervisão Humana */}
-          <ScrollReveal delay={0.08}>
-            <div className="bg-white/5 rounded-md p-8 shadow-sm border border-white/15">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-sm flex items-center justify-center bg-white/10 border border-white/15">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-white">Expertise Humana</h3>
-            </div>
-
-            <p className="text-gray-300 mb-6">
-              Especialistas com anos de experiência em captação de recursos revisam e aprimoram cada proposta antes da submissão.
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Revisão Especializada</div>
-                  <div className="text-sm text-gray-300">Consultores com histórico comprovado de aprovações</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Adequação Estratégica</div>
-                  <div className="text-sm text-gray-300">Ajustes finos para maximizar pontuação</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Conformidade</div>
-                  <div className="text-sm text-gray-300">Verificação de requisitos legais e documentais</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-white">Suporte Personalizado</div>
-                  <div className="text-sm text-gray-300">Acompanhamento durante todo o processo</div>
-                </div>
-              </div>
-            </div>
-            </div>
-          </ScrollReveal>
         </div>
 
-        {/* Stats */}
-        <ScrollReveal delay={0.12} className="grid grid-cols-3 gap-6 max-w-4xl mx-auto mt-12">
-          <div className="text-center">
-            <div className="text-4xl font-bold text-white mb-2">95%</div>
-            <div className="text-sm text-gray-300 font-medium">Precisão do matching</div>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-white mb-2">30%</div>
-            <div className="text-sm text-gray-300 font-medium">Taxa de aprovação</div>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-white mb-2">{editaisAnalisados}</div>
-            <div className="text-sm text-gray-300 font-medium">Editais analisados</div>
-          </div>
-        </ScrollReveal>
+        <dl className="divide-y divide-line border-y border-line">
+          {principles.map((item) => (
+            <div key={item.title} className="grid gap-2 py-6 sm:grid-cols-[12rem_1fr] sm:gap-8">
+              <dt className="font-semibold text-ink">{item.title}</dt>
+              <dd className="leading-relaxed text-gray-700">{item.text}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </section>
   );

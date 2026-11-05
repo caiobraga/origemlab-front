@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { improveText, countWords } from "@/lib/improveTextApi";
 import { generateFieldText } from "@/lib/generateFieldTextApi";
+import { isAiTimeoutError } from "@/lib/backendApi";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -190,13 +191,13 @@ export default function TextFieldWithAI({
       console.error("Erro ao gerar texto:", error);
       const raw = error?.message || "Erro ao gerar texto. Tente novamente.";
       const looksLikeProxyTimeout =
-        /Failed to fetch|NetworkError|Load failed|CORS/i.test(raw) &&
+        /Failed to fetch|NetworkError|Load failed|CORS|Sem conexão/i.test(raw) &&
         wordLimit != null &&
         wordLimit >= 600;
-      const msg = /timeout/i.test(raw)
+      const msg = isAiTimeoutError(error)
         ? wordLimit && wordLimit >= 600
           ? "A IA demorou demais para este campo longo. Tente novamente — se persistir, preencha parte do texto manualmente e use «Melhorar com IA»."
-          : "A IA demorou demais. Tente novamente em instantes."
+          : raw
         : looksLikeProxyTimeout
           ? "A conexão com a API foi interrompida antes da IA terminar (comum em campos longos). Tente novamente em instantes."
           : raw;

@@ -36,18 +36,19 @@ export function ActiveEmpresaProvider({ children }: { children: ReactNode }) {
   empresasRef.current = empresas;
 
   useEffect(() => {
-    if (profile?.userType === "consultor") setKnownConsultor(true);
-    else if (profile && profile.userType !== "consultor") setKnownConsultor(false);
+    if (!profile) return;
+    setKnownConsultor(profile.userType === "consultor");
   }, [profile]);
 
-  // Mantém true entre navigations mesmo se o Header remonta com profile local ainda null.
+  // Preferir userType atual; knownConsultor só evita flicker enquanto o perfil ainda carrega.
   const isConsultor =
-    profile?.userType === "consultor" || (knownConsultor && (profileLoading || !profile));
+    profile?.userType === "consultor" ||
+    (profile == null && knownConsultor && profileLoading);
 
   const refreshEmpresas = useCallback(async () => {
-    const consultor = profile?.userType === "consultor" || knownConsultor;
+    const consultor = profile?.userType === "consultor" || (profile == null && knownConsultor);
     if (!user || !consultor) {
-      if (!user || (profile && profile.userType !== "consultor")) {
+      if (!user || (profile && profile.userType === "pesquisador")) {
         setEmpresas([]);
         return [];
       }
@@ -58,6 +59,11 @@ export function ActiveEmpresaProvider({ children }: { children: ReactNode }) {
       const rows = await fetchEmpresas();
       setEmpresas(rows);
       const current = getActiveEmpresaId();
+      if (rows.length === 0) {
+        setActiveEmpresaId(null);
+        setActiveId(null);
+        return rows;
+      }
       if (current && rows.some((e) => e.id === current)) {
         setActiveId(current);
       } else if (rows.length === 1) {

@@ -5,18 +5,17 @@ import { Button } from "@/components/ui/button";
 import {
   Calendar, DollarSign, Target,
   GraduationCap, Building2, Users, Eye, Loader2,
-  TrendingUp, Clock, Sparkles, ArrowRight, Lock
+  TrendingUp, Clock, Lock
 } from "lucide-react";
 import { fetchEditaisFromSupabase } from "@/lib/editaisApi";
-import { fetchPublicCatalogStats, formatCountPlus } from "@/lib/catalogStatsApi";
-import { formatValorProjeto, formatPrazoInscricao } from "@/lib/editalFormatters";
+import { usePublicCatalogStats } from "@/hooks/usePublicCatalogStats";
+import { formatValorProjeto, formatPrazoInscricao, parseDateLocal } from "@/lib/editalFormatters";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import { canAccessEditalCatalog, subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import { buildLockedPreviewEditais, CatalogLockedEditalCard } from "@/components/CatalogLockedBlurSection";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
 
 /** Quantos editais reais exibir na home — amostra para despertar interesse, não o catálogo inteiro. */
 const HOME_EDITAIS_PREVIEW = 3;
@@ -47,11 +46,7 @@ export default function IntelligentPanel() {
   const { user } = useAuth();
   const { entitlements, proFeatures } = useSubscriptionEntitlements();
   const [, setLocation] = useLocation();
-  const { data: publicStats } = useQuery({
-    queryKey: ["public-catalog-stats"],
-    queryFn: fetchPublicCatalogStats,
-    staleTime: 5 * 60_000,
-  });
+  const { data: publicStats } = usePublicCatalogStats();
 
   const anonymousPreview = buildLockedPreviewEditais(HOME_EDITAIS_PREVIEW);
   const lockedTeaserCards = buildLockedPreviewEditais(HOME_LOCKED_TEASER_COUNT);
@@ -102,7 +97,7 @@ export default function IntelligentPanel() {
         const extrairDataFim = (edital: EditalDisplay): Date | null => {
           try {
             if (edital.data_encerramento) {
-              const dataEncerramento = new Date(edital.data_encerramento);
+              const dataEncerramento = parseDateLocal(edital.data_encerramento);
               if (!isNaN(dataEncerramento.getTime())) {
                 return dataEncerramento;
               }
@@ -113,7 +108,8 @@ export default function IntelligentPanel() {
 
               if (prazoFormatado.details && prazoFormatado.details.length > 0) {
                 for (const detail of prazoFormatado.details) {
-                  const match = detail.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                  const text = typeof detail === "string" ? detail : detail.fim ?? detail.prazo ?? "";
+                  const match = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
                   if (match) {
                     const [, dia, mes, ano] = match;
                     const data = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
@@ -179,17 +175,13 @@ export default function IntelligentPanel() {
   };
 
   return (
-    <section className="py-24 bg-[color:var(--background)]">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <span className="institutional-kicker">Painel institucional</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Editais apresentados com critérios claros de relevância
+    <section className="bg-paper py-20 md:py-24">
+      <div className="container">
+        <div className="mb-12 max-w-2xl">
+          <h2 className="section-title">
+            Uma amostra do catálogo
           </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="mt-4 text-lg text-gray-700">
             {!user
               ? "Uma amostra das oportunidades monitoradas pela OrigemLab. Crie sua conta gratuita para ver editais compatíveis com o seu perfil e receber indicações personalizadas."
               : user && !proFeatures
@@ -200,7 +192,7 @@ export default function IntelligentPanel() {
 
         {!user ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {anonymousPreview.map((edital) => (
                 <Link
                   key={edital.id}
@@ -229,23 +221,22 @@ export default function IntelligentPanel() {
                       <Lock className="h-4 w-4 text-primary" aria-hidden="true" />
                     </span>
                     <span className="text-sm font-semibold text-gray-900">Cadastre-se para ver detalhes</span>
-                    <span className="text-xs text-gray-600">Conta gratuita · editais filtrados ao seu perfil</span>
+                    <span className="text-xs text-gray-600">Conta gratuita, editais filtrados para o seu perfil</span>
                   </div>
                 </Link>
               ))}
             </div>
 
-            <div className="mt-10 max-w-2xl mx-auto text-center space-y-4">
+            <div className="mt-10 max-w-2xl space-y-4">
               <p className="text-sm text-gray-600">
                 {publicStats && publicStats.editaisCorretosCount > 0
-                  ? `${formatCountPlus(publicStats.editaisCorretosCount)} editais de fomento monitorados continuamente — pesquisadores, empresas e instituições.`
-                  : "+ centenas de editais de fomento monitorados continuamente — pesquisadores, empresas e instituições."}
+                  ? `${publicStats.editaisCorretosCount.toLocaleString("pt-BR")} editais acompanhados para pesquisadores, empresas e instituições.`
+                  : "Editais acompanhados para pesquisadores, empresas e instituições."}
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <Button asChild size="lg">
                   <Link href="/cadastro">
                     Criar conta gratuita
-                    <ArrowRight className="w-4 h-4 ml-2" />
                   </Link>
                 </Button>
                 <Button asChild variant="outline" size="lg">
@@ -256,10 +247,10 @@ export default function IntelligentPanel() {
           </>
         ) : (
           <>
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
+            <div className="flex flex-wrap gap-3 mb-8">
               {(
                 [
-                  { key: "destaques" as const, label: "Em destaque", icon: Sparkles },
+                  { key: "destaques" as const, label: "Em destaque", icon: null },
                   { key: "alta-aderencia" as const, label: "Alta aderência", icon: TrendingUp },
                   { key: "prazo-proximo" as const, label: "Prazo próximo", icon: Clock },
                   { key: "alto-valor" as const, label: "Alto valor", icon: DollarSign },
@@ -290,7 +281,7 @@ export default function IntelligentPanel() {
                 <p className="text-gray-600">Nenhum edital encontrado com este filtro.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredEditais.map((edital) => {
                   const locked = !canAccessEditalCatalog(entitlements, edital.id);
                   return (
@@ -383,8 +374,8 @@ export default function IntelligentPanel() {
             )}
 
             {filteredEditais.length > 0 && hiddenCatalogCount > 0 && (
-              <div className="mt-8 max-w-7xl mx-auto">
-                <p className="text-center text-sm font-medium text-gray-700 mb-4">
+              <div className="mt-8">
+                <p className="text-sm font-medium text-gray-700 mb-4">
                   +{hiddenCatalogCount} edital{hiddenCatalogCount === 1 ? "" : "is"} no catálogo completo
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -395,11 +386,10 @@ export default function IntelligentPanel() {
               </div>
             )}
 
-            <div className="text-center mt-10 space-y-3">
+            <div className="mt-10 space-y-3">
               <Button asChild size="lg">
                 <Link href="/dashboard">
                   Ir ao painel
-                  <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
               </Button>
               {!proFeatures && (

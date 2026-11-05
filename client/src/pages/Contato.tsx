@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail } from "lucide-react";
 
-const CONTATO_EMAIL = "contato@origemlab.ai";
+const CONTATO_EMAIL = "contato@origemlabsolutions.com";
 
 export default function Contato() {
   const [nome, setNome] = useState("");

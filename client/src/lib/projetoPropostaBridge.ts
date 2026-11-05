@@ -9,6 +9,7 @@ import {
   type ProjetoConteudo,
 } from "./projetoFormFields";
 import { createEmptyPropostaForm, type PropostaFormData } from "./propostaFormFields";
+import { createEmptyCNPqForm, type CNPqFormData } from "./cnpqFormFields";
 import type { Projeto } from "./projetosApi";
 import type { Proposta } from "./propostasApi";
 
@@ -119,35 +120,64 @@ export function propostaToProjetoInput(
       ano: String(new Date().getFullYear()),
     };
     (conteudo as any).origem_proposta_id = proposta.id;
+    conteudo.titulo_ingles = String(pp.titulo_projeto_en || "").trim();
     conteudo.palavras_chave = String(pp.palavras_chave_pt || "")
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    conteudo.palavras_chave_ingles = String(pp.palavras_chave_en || "")
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter(Boolean)
       .slice(0, 12);
     conteudo.resumo_executivo = String(resumo.resumo_proposta || "").trim();
     conteudo.objetivo_geral = String(sp.objetivo || "").trim();
-    conteudo.objetivos_especificos = String(sp.metas || "").trim();
+    conteudo.metas = String(sp.metas || "").trim();
     conteudo.metodologia = String(sp.metodologia_gestao_execucao || "").trim();
-    conteudo.resultados_esperados = String(sp.resultados_cientificos_tecnologicos || "").trim();
-    conteudo.impactos = joinLines(
-      sp.potencial_producao_tecnologica_inovacao,
-      sp.potencial_empreendedorismo_inovador,
-      sp.potencial_atendimento_necessidades,
-      sp.relevancia_setor_produtivo,
-    );
-    conteudo.equipe = joinLines(sp.sumula_curricular, sp.sumula_curricular_continuacao);
-    conteudo.instituicoes = joinLines(
-      pp.instituicao_desenvolvimento,
-      sp.instituicoes_colaboradoras_financiadoras,
-    );
+    conteudo.relevancia_setor_produtivo = String(sp.relevancia_setor_produtivo || "").trim();
+    conteudo.instituicoes_colaboradoras = String(sp.instituicoes_colaboradoras_financiadoras || "").trim();
+    conteudo.financiamentos_anteriores = String(sp.instituicoes_colaboradoras_financiadoras || "").trim();
+    conteudo.maturidade_tecnologica = String(sp.nivel_maturidade_tecnologica || "").trim();
+    conteudo.resultados_ja_alcancados = String(sp.resultados_cientificos_tecnologicos || "").trim();
+    conteudo.potencial_producao_tecnologica = String(
+      sp.potencial_producao_tecnologica_inovacao || "",
+    ).trim();
+    conteudo.potencial_empreendedorismo = String(sp.potencial_empreendedorismo_inovador || "").trim();
+    conteudo.atendimento_demandas_produtivas_sociais = String(
+      sp.potencial_atendimento_necessidades || "",
+    ).trim();
+    conteudo.sumula_curricular = String(sp.sumula_curricular || "").trim();
+    conteudo.sumula_curricular_continuacao = String(sp.sumula_curricular_continuacao || "").trim();
+    conteudo.instituicoes = String(pp.instituicao_desenvolvimento || "").trim();
     conteudo.texto_completo = joinLines(
       pp.titulo_projeto_pt ? `Título: ${pp.titulo_projeto_pt}` : "",
+      pp.titulo_projeto_en ? `Título (EN): ${pp.titulo_projeto_en}` : "",
       resumo.resumo_proposta ? `Resumo:\n${resumo.resumo_proposta}` : "",
       sp.objetivo ? `Objetivo:\n${sp.objetivo}` : "",
       sp.metas ? `Metas:\n${sp.metas}` : "",
       sp.metodologia_gestao_execucao ? `Metodologia:\n${sp.metodologia_gestao_execucao}` : "",
+      sp.relevancia_setor_produtivo
+        ? `Relevância setor produtivo:\n${sp.relevancia_setor_produtivo}`
+        : "",
+      sp.nivel_maturidade_tecnologica
+        ? `Maturidade tecnológica:\n${sp.nivel_maturidade_tecnologica}`
+        : "",
       sp.resultados_cientificos_tecnologicos
-        ? `Resultados:\n${sp.resultados_cientificos_tecnologicos}`
+        ? `Resultados já alcançados:\n${sp.resultados_cientificos_tecnologicos}`
+        : "",
+      sp.potencial_producao_tecnologica_inovacao
+        ? `Potencial tecnológico:\n${sp.potencial_producao_tecnologica_inovacao}`
+        : "",
+      sp.potencial_empreendedorismo_inovador
+        ? `Empreendedorismo:\n${sp.potencial_empreendedorismo_inovador}`
+        : "",
+      sp.potencial_atendimento_necessidades
+        ? `Atendimento a demandas:\n${sp.potencial_atendimento_necessidades}`
+        : "",
+      sp.sumula_curricular ? `Súmula:\n${sp.sumula_curricular}` : "",
+      sp.sumula_curricular_continuacao
+        ? `Súmula (cont.):\n${sp.sumula_curricular_continuacao}`
         : "",
     );
     return {
@@ -188,11 +218,22 @@ export function propostaToProjetoInput(
     d.descricao_avancao_cti,
     d.caracterizacao_interdisciplinaridade,
   );
+  conteudo.gestao_execucao = String(d.qualificacao_equipe || "").trim()
+    ? `Qualificação da equipe:\n${d.qualificacao_equipe}`
+    : "";
   conteudo.resultados_esperados = String(d.beneficios_resultados_esperados || "").trim();
   conteudo.impactos = impactosToText(d.impactos_esperados);
+  conteudo.relevancia_setor_produtivo = String(d.potencial_fortalecimento_linha_pesquisa || "").trim();
+  conteudo.maturidade_tecnologica = String(d.caracterizacao_contribuicao_inovacao || "").trim();
   conteudo.equipe = joinLines(d.qualificacao_equipe, equipeToText(campos.equipe_projeto));
   conteudo.instituicoes = [inst.nome, inst.sigla, inst.municipio].filter(Boolean).join(" — ");
+  conteudo.financiamentos_anteriores = d.possui_outras_fontes_fomento
+    ? String(d.outras_fontes_fomento || "").trim()
+    : "";
   conteudo.orcamento_estimado = String(d.valor_projeto || "").trim();
+  if (d.duracao_meses != null && d.duracao_meses !== "") {
+    conteudo.duracao_meses = String(d.duracao_meses);
+  }
   conteudo.referencias = String(d.referencias || "").trim();
   conteudo.texto_completo = flattenPropostaForTextoCompleto(campos);
 
@@ -220,6 +261,50 @@ function textToObjetivosEspecificos(text: string): PropostaFormData["detalhament
   }));
 }
 
+/** Prefill do formulário CNPq DT a partir de um Projeto (campos 1:1 quando existem). */
+export function projetoToCNPqCampos(projeto: Projeto): CNPqFormData {
+  const c = normalizeProjetoConteudo(projeto.conteudo);
+  const form = createEmptyCNPqForm();
+  form.projeto_pesquisa.titulo_projeto_pt = projeto.titulo || "";
+  form.projeto_pesquisa.titulo_projeto_en = c.titulo_ingles || "";
+  form.projeto_pesquisa.area = String(projeto.area || "").trim();
+  form.projeto_pesquisa.instituicao_desenvolvimento = c.instituicoes || "";
+  form.projeto_pesquisa.palavras_chave_pt = (c.palavras_chave || []).join("; ");
+  form.projeto_pesquisa.palavras_chave_en = (c.palavras_chave_ingles || []).join("; ");
+  form.resumo.resumo_proposta = (c.resumo_executivo || String(projeto.resumo || "")).slice(0, 2000);
+  form.sobre_projeto.objetivo = joinLines(c.objetivo_geral, c.objetivos_especificos).slice(0, 4000);
+  form.sobre_projeto.metas = (c.metas || "").slice(0, 4000);
+  form.sobre_projeto.metodologia_gestao_execucao = joinLines(
+    c.metodologia,
+    c.gestao_execucao,
+  ).slice(0, 4000);
+  form.sobre_projeto.relevancia_setor_produtivo = (c.relevancia_setor_produtivo || "").slice(0, 4000);
+  form.sobre_projeto.instituicoes_colaboradoras_financiadoras = joinLines(
+    c.instituicoes_colaboradoras,
+    c.financiamentos_anteriores,
+  ).slice(0, 4000);
+  form.sobre_projeto.nivel_maturidade_tecnologica = (c.maturidade_tecnologica || "").slice(0, 4000);
+  form.sobre_projeto.resultados_cientificos_tecnologicos = (
+    c.resultados_ja_alcancados ||
+    c.resultados_esperados ||
+    ""
+  ).slice(0, 4000);
+  form.sobre_projeto.potencial_producao_tecnologica_inovacao = (
+    c.potencial_producao_tecnologica || ""
+  ).slice(0, 4000);
+  form.sobre_projeto.potencial_empreendedorismo_inovador = (
+    c.potencial_empreendedorismo || ""
+  ).slice(0, 4000);
+  form.sobre_projeto.potencial_atendimento_necessidades = (
+    c.atendimento_demandas_produtivas_sociais || ""
+  ).slice(0, 4000);
+  form.sobre_projeto.sumula_curricular = (c.sumula_curricular || "").slice(0, 4000);
+  form.sobre_projeto.sumula_curricular_continuacao = (
+    c.sumula_curricular_continuacao || ""
+  ).slice(0, 4000);
+  return form;
+}
+
 /** Prefill do formulário de proposta a partir de um Projeto salvo. */
 export function projetoToPropostaCampos(projeto: Projeto): PropostaFormData {
   const c = normalizeProjetoConteudo(projeto.conteudo);
@@ -236,17 +321,39 @@ export function projetoToPropostaCampos(projeto: Projeto): PropostaFormData {
   form.detalhamento_projeto.objetivos_especificos = textToObjetivosEspecificos(
     c.objetivos_especificos || "",
   );
-  form.detalhamento_projeto.detalhamento_projeto = joinLines(c.metodologia, c.texto_completo);
-  form.detalhamento_projeto.beneficios_resultados_esperados = c.resultados_esperados || "";
+  form.detalhamento_projeto.detalhamento_projeto = joinLines(
+    c.metodologia,
+    c.gestao_execucao,
+    c.metas ? `Metas:\n${c.metas}` : "",
+    c.texto_completo,
+  );
+  form.detalhamento_projeto.beneficios_resultados_esperados = joinLines(
+    c.resultados_esperados,
+    c.resultados_ja_alcancados ? `Já alcançados:\n${c.resultados_ja_alcancados}` : "",
+  );
   form.detalhamento_projeto.impactos_esperados = {
     impacto_cientifico: c.impactos || "",
-    impacto_tecnologico: "",
-    impacto_economico: "",
-    impacto_social_ambiental: "",
+    impacto_tecnologico: c.potencial_producao_tecnologica || "",
+    impacto_economico: c.relevancia_setor_produtivo || "",
+    impacto_social_ambiental: c.atendimento_demandas_produtivas_sociais || "",
   };
   form.detalhamento_projeto.qualificacao_equipe = c.equipe || "";
+  form.detalhamento_projeto.caracterizacao_contribuicao_inovacao = joinLines(
+    c.maturidade_tecnologica,
+    c.potencial_empreendedorismo,
+  );
+  form.detalhamento_projeto.potencial_fortalecimento_linha_pesquisa =
+    c.relevancia_setor_produtivo || "";
   form.detalhamento_projeto.referencias = c.referencias || "";
   form.detalhamento_projeto.valor_projeto = c.orcamento_estimado || "";
+  const duracao = parseInt(String(c.duracao_meses || "").replace(/\D/g, ""), 10);
+  if (Number.isFinite(duracao) && duracao > 0) {
+    form.detalhamento_projeto.duracao_meses = duracao;
+  }
+  if (c.financiamentos_anteriores) {
+    form.detalhamento_projeto.possui_outras_fontes_fomento = true;
+    form.detalhamento_projeto.outras_fontes_fomento = c.financiamentos_anteriores;
+  }
   if (c.instituicoes) {
     form.instituicao_executora.nome = c.instituicoes.split("—")[0]?.trim() || c.instituicoes;
   }

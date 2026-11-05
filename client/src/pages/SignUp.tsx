@@ -372,7 +372,7 @@ export default function SignUp() {
                 {/* Aba Pesquisador */}
                 <TabsContent value="pesquisador" className="space-y-6">
                   <p className="text-sm text-gray-600">
-                    Conta individual gratuita. Cadastre projetos e encontre editais compatíveis. Você pode enviar o currículo (Lattes/PDF) depois no perfil.
+                    Conta individual gratuita. Cadastre projetos e encontre editais compatíveis. Você informa a formação acadêmica no onboarding ou no perfil.
                   </p>
                 </TabsContent>
 
@@ -488,7 +488,7 @@ export default function SignUp() {
                       Criando conta...
                     </>
                   ) : (
-                    "Criar Conta"
+                    "Criar conta"
                   )}
                 </Button>
               </form>

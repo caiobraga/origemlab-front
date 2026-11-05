@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { markPendingAuthFlow } from "@/lib/authCallbackUrl";
+import { translateSupabaseAuthError } from "@/lib/authErrorTranslations";
 
 /**
  * Base URL do front para links de confirmação.
@@ -34,15 +35,10 @@ export function getPasswordResetRedirectUrl(): string {
   return origin ? `${origin}/redefinir-senha` : "/redefinir-senha";
 }
 
+/** Erro de envio de e-mail do Supabase → mensagem pt-BR (falhas de SMTP/535 incluídas na tradução). */
 function smtpAwareError(error: { message?: string } | null): Error | null {
   if (!error) return null;
-  const msg = error.message || "Falha ao enviar email";
-  if (/smtp|mail|535|auth/i.test(msg)) {
-    return new Error(
-      `Falha no envio (SMTP): ${msg}. Verifique Authentication → SMTP no Supabase (Gmail costuma falhar; use Resend).`,
-    );
-  }
-  return new Error(msg);
+  return new Error(translateSupabaseAuthError(error, "Não foi possível enviar o e-mail. Tente novamente."));
 }
 
 export async function resendSignupConfirmationEmail(

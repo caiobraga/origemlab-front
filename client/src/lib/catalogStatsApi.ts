@@ -26,7 +26,8 @@ export async function fetchPublicCatalogStats(): Promise<PublicCatalogStats> {
     headers: { Accept: "application/json" },
   });
   if (!res.ok) {
-    throw new Error(`catalog-stats HTTP ${res.status}`);
+    console.error(`[catalog-stats] HTTP ${res.status}`);
+    throw new Error("Não foi possível carregar as estatísticas do catálogo.");
   }
   const json = (await res.json()) as Partial<PublicCatalogStats> & { error?: string };
   if (json.error) {
@@ -39,11 +40,6 @@ export async function fetchPublicCatalogStats(): Promise<PublicCatalogStats> {
     potencialBRL: Number(json.potencialBRL) || 0,
     editaisComValor: Number(json.editaisComValor) || 0,
   };
-}
-
-export function formatCountPlus(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return "—";
-  return `+${Math.round(n).toLocaleString("pt-BR")}`;
 }
 
 export function formatPotencialLanding(totalBRL: number): string {

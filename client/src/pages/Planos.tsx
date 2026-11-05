@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import Header from "@/components/Header";
+import { useScrollToHashOnLoad } from "@/lib/landingSections";
 import Hero from "@/components/Hero";
 import HowItWorks from "@/components/HowItWorks";
 import Pricing from "@/components/Pricing";
 import FaqSection from "@/components/FaqSection";
 import Footer from "@/components/Footer";
 import AIHumanSection from "@/components/AIHumanSection";
-import IntelligentPanel from "@/components/IntelligentPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -283,13 +283,7 @@ function LoggedInPlans() {
 export default function Planos() {
   const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (user || loading) return;
-    const id = window.location.hash.replace(/^#/, "") || "planos";
-    requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [loading, user]);
+  useScrollToHashOnLoad(!user && !loading, "planos");
 
   if (loading) {
     return (
@@ -311,7 +305,6 @@ export default function Planos() {
         <Hero />
         <HowItWorks />
         <AIHumanSection />
-        <IntelligentPanel />
         <Pricing />
         <FaqSection />
       </main>

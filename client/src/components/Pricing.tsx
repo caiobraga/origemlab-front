@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check, Sparkles, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -27,11 +27,11 @@ const plans: Array<{
   action: PlanAction;
 }> = [
   {
-    name: openAccess ? "Acesso aberto" : "Free",
+    name: openAccess ? "Acesso aberto" : "Gratuito",
     price: "R$ 0",
     period: "/mês",
     description: openAccess
-      ? "Período de testes — todos os recursos liberados"
+      ? "Período de testes, com todos os recursos liberados"
       : "Para iniciantes explorarem o ecossistema",
     features: openAccess
       ? [
@@ -44,9 +44,9 @@ const plans: Array<{
           "3 editais por mês",
           "Alertas básicos",
           "Painel simplificado",
-          "Suporte por email",
+          "Suporte por e-mail",
         ],
-    cta: openAccess ? "Começar agora" : "Começar Grátis",
+    cta: openAccess ? "Começar agora" : "Começar grátis",
     popular: openAccess,
     action: { kind: "signup" },
   },
@@ -97,7 +97,7 @@ const plans: Array<{
       "SLA garantido",
       "Treinamento in-company",
     ],
-    cta: "Solicitar Proposta",
+    cta: "Solicitar proposta",
     popular: false,
     action: { kind: "contact", href: "/contato" },
   },
@@ -144,45 +144,72 @@ export default function Pricing() {
   };
 
   return (
-    <section id="planos" className="py-24 bg-[color:var(--background)]">
+    <section id="planos" className="scroll-mt-20 border-t border-line bg-white py-20 md:py-24">
       <div className="container">
-        <div className="text-center mb-16">
-          <p className="institutional-kicker mb-3">Planos de acesso</p>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
-            {openAccess ? "Teste gratuito liberado" : "Planos para cada etapa"}
+        <div className="mb-14 max-w-2xl">
+          <h2 className="section-title">
+            {openAccess ? "Uso gratuito durante os testes" : "Planos"}
           </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="mt-4 text-lg text-gray-700">
             {openAccess
-              ? "Crie sua conta e use o sistema completo sem cobrança enquanto coletamos feedback."
-              : "Escolha o plano ideal para transformar suas ideias em projetos financiados"}
+              ? "Durante o período de testes, todas as funções estão liberadas e sem cobrança."
+              : "Comece pelo plano gratuito e mude quando precisar de mais editais, alertas ou usuários."}
           </p>
-          {openAccess ? (
-            <p className="mt-4 inline-block rounded-sm border border-primary/30 bg-secondary px-4 py-2 text-sm font-medium text-primary">
-              Período de testes — Pro, propostas com IA e catálogo ilimitado sem assinatura
-            </p>
-          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+        {openAccess ? (
+          <>
+            <div className="grid gap-10 border-y border-line py-10 lg:grid-cols-2">
+              <div>
+                <p className="font-display text-4xl font-semibold text-ink">R$ 0</p>
+                <p className="mt-2 text-gray-700">durante o período de testes</p>
+                <Button asChild variant="attention" size="lg" className="mt-6 h-12 px-7 text-base">
+                  <Link href={user ? "/dashboard" : "/cadastro"}>
+                    {user ? "Abrir meu painel" : "Criar conta gratuita"}
+                  </Link>
+                </Button>
+              </div>
+              <ul className="space-y-3 text-gray-700">
+                {[
+                  "Catálogo completo de editais",
+                  "Indicações para o seu perfil, com os motivos",
+                  "Editor de propostas com sugestões de IA",
+                  "Projetos organizados por edital",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3">
+                    <Check className="mt-1 h-4 w-4 flex-shrink-0 text-verified" aria-hidden="true" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className="mt-6 text-gray-600">
+              Planos para equipes e instituições ainda estão em definição.{" "}
+              <Link href="/contato" className="font-medium text-primary underline-offset-4 hover:underline">
+                Fale com a gente
+              </Link>
+              .
+            </p>
+          </>
+        ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan, index) => (
             <Card
               key={index}
-              className={`relative p-8 institutional-surface ${plan.popular ? "border-primary" : ""}`}
+              className={`relative gap-0 rounded-md border bg-white p-7 shadow-none ${plan.popular ? "border-t-4 border-primary" : "border-line"}`}
             >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <div className="flex items-center gap-1 px-4 py-1 rounded-sm bg-primary text-white text-sm font-medium shadow-sm">
-                    <Sparkles className="w-4 h-4" />
-                    {openAccess ? "Liberado agora" : "Mais Popular"}
-                  </div>
-                </div>
-              )}
-
               <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <h3 className="text-xl font-semibold text-ink">{plan.name}</h3>
+                  {plan.popular ? (
+                    <span className="text-sm font-medium text-primary">
+                      {openAccess ? "Liberado agora" : "Mais escolhido"}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
+                  <span className="font-display text-3xl font-semibold text-ink">{plan.price}</span>
                   <span className="text-gray-600">{plan.period}</span>
                 </div>
               </div>
@@ -190,20 +217,19 @@ export default function Pricing() {
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature, featureIndex) => (
                   <li key={featureIndex} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                    <Check className="w-4 h-4 text-verified flex-shrink-0 mt-1" aria-hidden="true" />
                     <span className="text-sm text-gray-700">{feature}</span>
                   </li>
                 ))}
               </ul>
 
               {plan.action.kind === "contact" ? (
-                <Link href={plan.action.href}>
-                  <Button
-                    className={`w-full ${plan.popular ? "bg-primary hover:bg-primary/90 text-white" : "bg-white border border-border text-gray-900 hover:border-primary hover:bg-secondary"}`}
-                  >
-                    {plan.cta}
-                  </Button>
-                </Link>
+                <Button
+                  asChild
+                  className={`w-full ${plan.popular ? "bg-primary hover:bg-primary/90 text-white" : "bg-white border border-border text-gray-900 hover:border-primary hover:bg-secondary"}`}
+                >
+                  <Link href={plan.action.href}>{plan.cta}</Link>
+                </Button>
               ) : (
                 <Button
                   type="button"
@@ -229,22 +255,23 @@ export default function Pricing() {
           ))}
         </div>
 
+        )}
+
         {!openAccess ? (
-          <div className="mt-12 text-center">
+          <div className="mt-10">
             <p className="text-gray-600">
-              <span className="font-semibold text-gray-900">Success Fee:</span> 3% sobre projetos aprovados
+              <span className="font-semibold text-gray-900">Taxa de êxito:</span> 3% sobre projetos aprovados,
               em todos os planos
             </p>
           </div>
         ) : null}
 
-        <div className="mt-6 text-center">
+        <div className="mt-6">
           <Link
             href="/referencia"
-            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
+            className="font-medium text-primary underline-offset-4 hover:underline"
           >
-            <span>Compartilhe a plataforma com sua rede institucional</span>
-            <span>→</span>
+            Indique a plataforma para colegas e para a sua instituição
           </Link>
         </div>
       </div>

@@ -1,146 +1,134 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
-import DemoModal from "@/components/DemoModal";
+import { Check, CircleAlert, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "wouter";
-import ScrollReveal from "@/components/ScrollReveal";
-import { useQuery } from "@tanstack/react-query";
-import {
-  fetchPublicCatalogStats,
-  formatCountPlus,
-  formatPotencialLanding,
-} from "@/lib/catalogStatsApi";
+import { usePublicCatalogStats } from "@/hooks/usePublicCatalogStats";
 
-export default function Hero() {
-  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
-  const { user, loading } = useAuth();
-  const { data: stats, isLoading, isError } = useQuery({
-    queryKey: ["public-catalog-stats"],
-    queryFn: fetchPublicCatalogStats,
-    staleTime: 5 * 60_000,
-    retry: 1,
-  });
-
-  const instrumentos = isLoading
-    ? "…"
-    : stats && stats.editaisCorretosCount > 0
-      ? formatCountPlus(stats.editaisCorretosCount)
-      : isError
-        ? "—"
-        : "+2.000";
-  const potencial = isLoading
-    ? "…"
-    : stats && stats.potencialBRL > 0
-      ? formatPotencialLanding(stats.potencialBRL)
-      : isError
-        ? "—"
-        : "R$ 20bi";
-  const fontes = isLoading
-    ? "…"
-    : stats && stats.fontesCount > 0
-      ? formatCountPlus(stats.fontesCount)
-      : isError
-        ? "—"
-        : "20+";
-
+/** Illustrative record shown beside the headline: how an edital is summarised inside the product. */
+function EditalSpecimen() {
   return (
-    <section className="relative overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,color-mix(in_oklab,var(--institutional-paper)_78%,white)_100%)] pt-24 pb-20">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute left-0 top-0 h-full w-1 bg-primary" />
-        <div className="absolute inset-x-0 top-0 h-px bg-[color:var(--institutional-line)]" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-[color:var(--institutional-line)]" />
-      </div>
+    <figure className="mx-auto w-full max-w-md lg:mx-0 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <figcaption className="mb-4 text-sm text-gray-600">
+        Exemplo de ficha. Os dados são ilustrativos.
+      </figcaption>
+      <div className="relative">
+        {/* Second sheet behind the record, like a document on a pile */}
+        <div
+          className="absolute inset-0 translate-x-3 translate-y-3 rounded-md border border-line bg-paper"
+          aria-hidden="true"
+        />
+        <div className="relative rounded-md border border-line bg-white shadow-[0_1px_0_var(--color-line)]">
+          <div className="flex items-center justify-between border-b border-line px-5 py-3 text-sm">
+            <span className="font-semibold text-ink">Agência de fomento</span>
+            <span className="text-gray-600">Chamada pública</span>
+          </div>
 
-      <div className="container relative z-10">
-        <div className="max-w-5xl mx-auto">
-          <ScrollReveal className="mb-8">
-            <div className="inline-flex items-center gap-2 px-3.5 md:px-4 py-2 rounded-[2px] bg-white border border-[color:var(--institutional-line)] shadow-sm">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="institutional-kicker">
-                Serviço digital para inteligência em fomento
-              </span>
-            </div>
-          </ScrollReveal>
-
-          {/* Main heading */}
-          <ScrollReveal delay={0.05} className="max-w-4xl">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 text-gray-950 leading-[1.05] tracking-tight">
-              Informações de fomento organizadas para decisão pública e institucional.
-            </h1>
-          </ScrollReveal>
-
-          {/* Subheading */}
-          <ScrollReveal delay={0.1} className="max-w-3xl">
-            <p className="text-lg md:text-xl text-gray-700 mb-10 leading-relaxed">
-              Monitore editais, consulte requisitos e apoie a elaboração de propostas com dados estruturados, rastreabilidade e governança.
+          <div className="px-5 pt-5 pb-4">
+            <p className="font-display text-xl font-semibold leading-snug text-ink">
+              Apoio a projetos de pesquisa em ciência, tecnologia e inovação
             </p>
-          </ScrollReveal>
 
-          {/* CTA Buttons */}
-          <ScrollReveal delay={0.15}>
-            <div className="flex flex-col sm:flex-row gap-4 items-start">
-              {!loading && user ? (
-                <Link href="/dashboard">
-                  <Button size="lg" variant="attention" className="px-8 py-6 text-lg rounded-[2px]">
-                    Acessar Meu Painel
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Button>
-                </Link>
-              ) : (
-                <>
-                  <Link href="/cadastro">
-                    <Button size="lg" variant="attention" className="px-8 py-6 text-lg rounded-[2px]">
-                      Consultar oportunidades
-                      <ArrowRight className="ml-2 w-5 h-5" />
-                    </Button>
-                  </Link>
-                  <Link href="/onboarding">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="px-8 py-6 text-lg border border-[color:var(--institutional-line)] hover:border-primary hover:bg-white rounded-[2px]"
-                    >
-                      Criar acesso
-                    </Button>
-                  </Link>
-                  <Button
-                    size="lg"
-                    variant="ghost"
-                    className="px-8 py-6 text-lg text-gray-700 hover:text-gray-950 hover:bg-white rounded-[2px]"
-                    onClick={() => setIsDemoModalOpen(true)}
-                  >
-                    Ver demonstração
-                  </Button>
-                </>
-              )}
-            </div>
-          </ScrollReveal>
+            <dl className="mt-5 grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2.5 text-sm">
+              <dt className="text-gray-600">Prazo</dt>
+              <dd className="font-semibold text-deadline">faltam 18 dias</dd>
+              <dt className="text-gray-600">Valor</dt>
+              <dd className="text-ink">até R$ 150 mil por projeto</dd>
+              <dt className="text-gray-600">Quem pode</dt>
+              <dd className="text-ink">Doutores com vínculo em instituição brasileira</dd>
+              <dt className="text-gray-600">Área</dt>
+              <dd className="text-ink">Todas as áreas do conhecimento</dd>
+            </dl>
+          </div>
 
-          {/* Stats */}
-          <ScrollReveal delay={0.2} className="mt-14">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">{instrumentos}</div>
-                <div className="text-sm text-gray-600">Instrumentos monitorados</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">{potencial}</div>
-                <div className="text-sm text-gray-600">Potencial em projetos de inovação</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-950 mb-2">{fontes}</div>
-                <div className="text-sm text-gray-600">Fontes de fomento monitoradas</div>
-              </div>
-            </div>
-          </ScrollReveal>
+          <div className="border-t border-line bg-paper/60 px-5 py-4">
+            <p className="text-sm font-semibold text-ink">Por que foi indicado para você</p>
+            <ul className="mt-2.5 space-y-2 text-sm">
+              <li className="flex gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-verified" aria-hidden="true" />
+                <span className="text-gray-700">Sua área de pesquisa é aceita no edital</span>
+              </li>
+              <li className="flex gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-verified" aria-hidden="true" />
+                <span className="text-gray-700">Você tem a titulação exigida</span>
+              </li>
+              <li className="flex gap-2.5">
+                <CircleAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-deadline" aria-hidden="true" />
+                <span className="text-gray-700">
+                  <span className="sr-only">Atenção: </span>
+                  Este edital pede currículo em PDF. Envie o seu no perfil.
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-line px-5 py-3 text-sm text-gray-600">
+            <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
+            Link para o edital oficial
+          </div>
         </div>
       </div>
+    </figure>
+  );
+}
 
-      <DemoModal
-        isOpen={isDemoModalOpen}
-        onClose={() => setIsDemoModalOpen(false)}
-      />
+export default function Hero() {
+  const { user, loading } = useAuth();
+  const { data: stats, isLoading } = usePublicCatalogStats();
+
+  const catalogSummary =
+    stats && stats.editaisCorretosCount > 0
+      ? stats.fontesCount > 0
+        ? `${stats.editaisCorretosCount.toLocaleString("pt-BR")} editais acompanhados em ${stats.fontesCount.toLocaleString("pt-BR")} fontes.`
+        : `${stats.editaisCorretosCount.toLocaleString("pt-BR")} editais acompanhados.`
+      : null;
+
+  return (
+    <section className="border-b border-line bg-white">
+      <div className="container grid items-center gap-14 py-16 md:py-24 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] lg:gap-16">
+        <div>
+          <h1 className="font-display text-[2.125rem] font-semibold leading-[1.08] tracking-[-0.015em] text-ink sm:text-5xl lg:text-[3.4rem]">
+            Encontre os editais certos para sua pesquisa antes do prazo.
+          </h1>
+
+          <p className="mt-6 max-w-[36rem] text-lg leading-relaxed text-gray-700">
+            Editais do CNPq, da FINEP, do BNDES e das fundações estaduais de amparo à pesquisa
+            reunidos em um só lugar. Você recebe indicações para o seu perfil, acompanha os prazos e
+            escreve a proposta com apoio de IA.
+          </p>
+
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!loading && user ? (
+              <Button asChild size="lg" variant="attention" className="h-12 px-7 text-base">
+                <Link href="/dashboard">Abrir meu painel</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild size="lg" variant="attention" className="h-12 px-7 text-base">
+                  <Link href="/cadastro">Criar conta gratuita</Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="ghost"
+                  className="h-12 px-5 text-base text-primary hover:bg-secondary hover:text-primary"
+                >
+                  <a href="#como-funciona">Ver como funciona</a>
+                </Button>
+              </>
+            )}
+          </div>
+
+          <p className="mt-10 min-h-[1.5rem] text-sm text-gray-600">
+            {isLoading ? (
+              <span className="inline-block h-4 w-64 max-w-full animate-pulse rounded-sm bg-muted align-middle" />
+            ) : (
+              catalogSummary
+            )}
+          </p>
+        </div>
+
+        <EditalSpecimen />
+      </div>
     </section>
   );
 }

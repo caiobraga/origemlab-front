@@ -24,13 +24,11 @@ export default function NotFound() {
           <h1 className="text-4xl font-bold text-slate-900 mb-2">404</h1>
 
           <h2 className="text-xl font-semibold text-slate-700 mb-4">
-            Page Not Found
+            Página não encontrada
           </h2>
 
           <p className="text-slate-600 mb-8 leading-relaxed">
-            Sorry, the page you are looking for doesn't exist.
-            <br />
-            It may have been moved or deleted.
+            A página que você procura não existe ou foi movida.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -39,7 +37,7 @@ export default function NotFound() {
               className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-sm transition-colors shadow-sm"
             >
               <Home className="w-4 h-4 mr-2" />
-              Go Home
+              Voltar ao início
             </Button>
           </div>
         </CardContent>

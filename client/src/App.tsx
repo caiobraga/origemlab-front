@@ -6,6 +6,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthProvider";
+import { UserProfileProvider } from "@/hooks/useUserProfile";
 import { ActiveEmpresaProvider } from "./contexts/ActiveEmpresaProvider";
 import Home from "./pages/Home";
 import Inicio from "./pages/Inicio";
@@ -21,6 +22,7 @@ import EmpresaWorkspace from "./pages/EmpresaWorkspace";
 import MeusProjetos from "./pages/MeusProjetos";
 import ProjetoEditais from "./pages/ProjetoEditais";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
+import NovoProjeto from "./pages/NovoProjeto";
 import EditorProposta from "./pages/EditorProposta";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
@@ -70,6 +72,7 @@ function Router() {
       <Route path={"/minhas-empresas"} component={MinhasEmpresas} />
       <Route path={"/empresas/:id"} component={EmpresaWorkspace} />
       <Route path={"/meus-projetos"} component={MeusProjetos} />
+      <Route path={"/projetos/novo"} component={NovoProjeto} />
       <Route path={"/projetos/:id/editais"} component={ProjetoEditais} />
       <Route path={"/projetos/:id"} component={ProjetoDetalhe} />
       <Route path={"/propostas/:id"} component={EditorProposta} />
@@ -106,7 +109,8 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ActiveEmpresaProvider>
+        <UserProfileProvider>
+          <ActiveEmpresaProvider>
         <ThemeProvider
           defaultTheme="light"
           // switchable
@@ -119,7 +123,8 @@ function App() {
             <CookieBanner />
           </TooltipProvider>
         </ThemeProvider>
-        </ActiveEmpresaProvider>
+          </ActiveEmpresaProvider>
+        </UserProfileProvider>
       </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

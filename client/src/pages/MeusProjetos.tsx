@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,7 +29,6 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useActiveEmpresa } from "@/contexts/ActiveEmpresaProvider";
 import { fetchEmpresas, type Empresa } from "@/lib/empresasApi";
 import {
-  createProjeto,
   createProjetoFromProposta,
   deleteProjeto,
   fetchProjetos,
@@ -38,20 +36,19 @@ import {
   type ProjetoPublicoAlvo,
 } from "@/lib/projetosApi";
 import { fetchPropostas, type Proposta } from "@/lib/propostasApi";
-import {
-  createEmptyProjetoConteudo,
-  PROJETO_ORIGEM_LABELS,
-  type ProjetoOrigemTipo,
-} from "@/lib/projetoFormFields";
+import { PROJETO_ORIGEM_LABELS, type ProjetoOrigemTipo } from "@/lib/projetoFormFields";
 
-const AREA_OPTIONS = [
-  { id: "tech", label: "Tecnologia" },
-  { id: "health", label: "Saúde" },
-  { id: "agro", label: "Agronegócio" },
-  { id: "energy", label: "Energia" },
-  { id: "bio", label: "Biotecnologia" },
-  { id: "other", label: "Outra" },
-] as const;
+const PROJETO_STATUS_LABEL: Record<string, string> = {
+  rascunho: "Rascunho",
+  ativo: "Ativo",
+  arquivado: "Arquivado",
+};
+
+function projetoStatusLabel(status: string | null | undefined): string {
+  const raw = String(status || "").trim();
+  if (!raw) return "";
+  return PROJETO_STATUS_LABEL[raw] ?? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, " ");
+}
 
 const PROPOSTA_STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -78,13 +75,7 @@ export default function MeusProjetos() {
   const [rows, setRows] = useState<Projeto[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [titulo, setTitulo] = useState("");
-  const [area, setArea] = useState("");
-  const [empresaId, setEmpresaId] = useState<string>("");
   const [publico, setPublico] = useState<ProjetoPublicoAlvo>("ambos");
-  const [origemTipo, setOrigemTipo] = useState<ProjetoOrigemTipo>("projeto_pesquisa");
-  const [origemDesc, setOrigemDesc] = useState("");
   const [propostas, setPropostas] = useState<Proposta[]>([]);
   const [fromPropostaId, setFromPropostaId] = useState("");
   const [importing, setImporting] = useState(false);
@@ -102,10 +93,7 @@ export default function MeusProjetos() {
   }, [profile?.userType]);
 
   useEffect(() => {
-    if (empresaFilter) {
-      setEmpresaId(empresaFilter);
-      setActiveEmpresa(empresaFilter);
-    }
+    if (empresaFilter) setActiveEmpresa(empresaFilter);
   }, [empresaFilter, setActiveEmpresa]);
 
   const load = async () => {
@@ -131,46 +119,6 @@ export default function MeusProjetos() {
   useEffect(() => {
     if (user && profile) void load();
   }, [user, profile?.userType, empresaFilter]);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!titulo.trim()) {
-      toast.error("Título obrigatório");
-      return;
-    }
-    if (profile?.userType === "consultor" && !empresaId) {
-      toast.error("Selecione a empresa do projeto");
-      return;
-    }
-    setSaving(true);
-    try {
-      const conteudo = createEmptyProjetoConteudo();
-      conteudo.origem = {
-        tipo: origemTipo,
-        descricao: origemDesc.trim(),
-        ano: "",
-      };
-      const row = await createProjeto({
-        titulo: titulo.trim(),
-        resumo: null,
-        objetivos: null,
-        area: area || profile?.area || null,
-        publico_alvo: publico,
-        status: "rascunho",
-        empresa_id: profile?.userType === "consultor" ? empresaId || null : null,
-        conteudo,
-      });
-      if (profile?.userType === "consultor" && empresaId) setActiveEmpresa(empresaId);
-      toast.success("Projeto criado — complete o texto escrito");
-      setTitulo("");
-      setOrigemDesc("");
-      setLocation(`/projetos/${row.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao criar projeto");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -200,9 +148,9 @@ export default function MeusProjetos() {
     setImporting(true);
     try {
       const row = await createProjetoFromProposta(proposta, {
-        area: area || profile?.area || null,
+        area: profile?.area || null,
         publico_alvo: publico,
-        empresa_id: profile?.userType === "consultor" ? empresaId || null : null,
+        empresa_id: profile?.userType === "consultor" ? empresaFilter || null : null,
       });
       toast.success("Projeto criado a partir da proposta");
       setFromPropostaId("");
@@ -246,96 +194,12 @@ export default function MeusProjetos() {
           </p>
         </div>
 
-        <form onSubmit={handleCreate} className="mb-8 space-y-4 rounded-md border border-border bg-white p-5">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Plus className="h-5 w-5" />
+        <Link href={`/projetos/novo${empresaFilter ? `?empresa_id=${encodeURIComponent(empresaFilter)}` : ""}`}>
+          <Button className="mb-8">
+            <Plus className="h-4 w-4" />
             Novo projeto
-          </h2>
-          <div className="space-y-2">
-            <Label htmlFor="titulo">Título</Label>
-            <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} required disabled={saving} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Origem do material</Label>
-              <select
-                className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                value={origemTipo}
-                onChange={(e) => setOrigemTipo(e.target.value as ProjetoOrigemTipo)}
-                disabled={saving}
-              >
-                {(Object.keys(PROJETO_ORIGEM_LABELS) as ProjetoOrigemTipo[]).map((k) => (
-                  <option key={k} value={k}>
-                    {PROJETO_ORIGEM_LABELS[k]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="origem-desc">Detalhe da origem (opcional)</Label>
-              <Input
-                id="origem-desc"
-                placeholder="Ex.: Edital FAPESP 12/2024"
-                value={origemDesc}
-                onChange={(e) => setOrigemDesc(e.target.value)}
-                disabled={saving}
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Área</Label>
-              <select
-                className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                value={area}
-                onChange={(e) => setArea(e.target.value)}
-                disabled={saving}
-              >
-                <option value="">Usar área do perfil</option>
-                {AREA_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Público-alvo</Label>
-              <select
-                className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                value={publico}
-                onChange={(e) => setPublico(e.target.value as ProjetoPublicoAlvo)}
-                disabled={saving}
-              >
-                <option value="pesquisador">Pesquisador</option>
-                <option value="empresa">Empresa</option>
-                <option value="ambos">Ambos</option>
-              </select>
-            </div>
-          </div>
-          {profile?.userType === "consultor" && (
-            <div className="space-y-2">
-              <Label>Empresa (opcional)</Label>
-              <select
-                className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                value={empresaId}
-                onChange={(e) => setEmpresaId(e.target.value)}
-                disabled={saving}
-              >
-                <option value="">Sem empresa</option>
-                {empresas.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.razao_social}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <Button type="submit" disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Criar e escrever o projeto
           </Button>
-        </form>
+        </Link>
 
         {propostas.length > 0 && (
           <div className="mb-8 space-y-3 rounded-md border border-dashed border-border bg-white p-5">
@@ -392,7 +256,7 @@ export default function MeusProjetos() {
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <FolderKanban className="h-4 w-4 text-primary" />
                     <h3 className="font-semibold text-gray-900">{p.titulo}</h3>
-                    <Badge variant="outline">{p.status}</Badge>
+                    <Badge variant="outline">{projetoStatusLabel(p.status)}</Badge>
                     {origemLabel(p) && <Badge variant="secondary">{origemLabel(p)}</Badge>}
                   </div>
                   {(p.resumo || (p.conteudo as any)?.resumo_executivo) && (

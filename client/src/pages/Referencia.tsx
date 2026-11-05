@@ -82,7 +82,7 @@ export default function Referencia() {
           {/* Header */}
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Rede de Acesso
+              Rede de acesso
             </h1>
             <p className="text-xl text-gray-600">
               Compartilhe a plataforma com organizações e equipes parceiras

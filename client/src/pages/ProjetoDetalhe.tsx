@@ -48,6 +48,9 @@ export default function ProjetoDetalhe() {
     field: string;
   } | null>(null);
   const autoCandidatarDone = useRef(false);
+  /** Evita refetch ao trocar de aba do browser (auth refresh cria novo objeto `user`). */
+  const loadedIdRef = useRef<string | null>(null);
+  const dirtyRef = useRef(false);
 
   const formContext = useMemo(
     () => ({
@@ -60,12 +63,24 @@ export default function ProjetoDetalhe() {
     [titulo, status, publico, keywords, conteudo],
   );
 
+  const markDirty = () => {
+    dirtyRef.current = true;
+  };
+
   useEffect(() => {
-    if (authLoading || !user || !id) return;
+    if (authLoading || !user?.id || !id) return;
+
+    const isFirstLoadForId = loadedIdRef.current !== id;
+    // Já carregou este projeto: não remonta o form nem sobrescreve colagens em andamento
+    // quando o Supabase renova o token ao voltar de outra aba.
+    if (!isFirstLoadForId) return;
+
+    let cancelled = false;
     void (async () => {
       setLoading(true);
       try {
         const row = await fetchProjeto(id);
+        if (cancelled) return;
         setProjeto(row);
         setTitulo(row.titulo || "");
         setStatus(row.status || "rascunho");
@@ -73,15 +88,35 @@ export default function ProjetoDetalhe() {
         const c = normalizeProjetoConteudo(row.conteudo);
         setConteudo(c);
         setKeywords((c.palavras_chave || []).join(", "));
+        dirtyRef.current = false;
+        loadedIdRef.current = id;
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Erro ao carregar projeto");
+        if (!cancelled) {
+          toast.error(e instanceof Error ? e.message : "Erro ao carregar projeto");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [user, authLoading, id]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, authLoading, id]);
+
+  // Avisa se sair da página com alterações não salvas
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
 
   const patchConteudo = <K extends keyof ProjetoConteudo>(key: K, value: ProjetoConteudo[K]) => {
+    markDirty();
     setConteudo((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -114,6 +149,7 @@ export default function ProjetoDetalhe() {
       });
       setProjeto(row);
       setConteudo(normalizeProjetoConteudo(row.conteudo));
+      dirtyRef.current = false;
       toast.success("Projeto salvo");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar");
@@ -193,7 +229,7 @@ export default function ProjetoDetalhe() {
   return (
     <div className="min-h-screen flex flex-col bg-[color:var(--background)]">
       <Header />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 pb-28 sm:pb-24">
         <Link href="/meus-projetos">
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -211,22 +247,41 @@ export default function ProjetoDetalhe() {
               <p className="institutional-kicker mb-2">Documento do projeto</p>
               <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Texto completo</h1>
               <p className="mt-2 text-sm text-gray-600">
-                Preencha as seções ou cole a proposta inteira já escrita. Em cada campo você pode
-                melhorar, gerar, analisar ou embasar com IA. Esse conteúdo alimenta a busca reversa
-                de editais e a candidatura pré-preenchida.
+                Campos numerados 1–12 seguem a estrutura da chamada CNPq DT. Cole cada resposta no
+                campo correspondente e use <strong>Salvar texto</strong> antes de sair. O formulário
+                não recarrega mais ao alternar abas do navegador enquanto você copia do PDF.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="titulo">Título</Label>
-                  <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+                  <Label htmlFor="titulo">Título (português)</Label>
+                  <Input
+                    id="titulo"
+                    value={titulo}
+                    onChange={(e) => {
+                      markDirty();
+                      setTitulo(e.target.value);
+                    }}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="titulo-en">Título (inglês)</Label>
+                  <Input
+                    id="titulo-en"
+                    value={conteudo.titulo_ingles || ""}
+                    onChange={(e) => patchConteudo("titulo_ingles", e.target.value)}
+                    placeholder="Project title in English"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <select
                     className="w-full rounded-md border border-border px-3 py-2 text-sm"
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as ProjetoStatus)}
+                    onChange={(e) => {
+                      markDirty();
+                      setStatus(e.target.value as ProjetoStatus);
+                    }}
                   >
                     <option value="rascunho">Rascunho</option>
                     <option value="ativo">Ativo</option>
@@ -238,7 +293,10 @@ export default function ProjetoDetalhe() {
                   <select
                     className="w-full rounded-md border border-border px-3 py-2 text-sm"
                     value={publico}
-                    onChange={(e) => setPublico(e.target.value as ProjetoPublicoAlvo)}
+                    onChange={(e) => {
+                      markDirty();
+                      setPublico(e.target.value as ProjetoPublicoAlvo);
+                    }}
                   >
                     <option value="pesquisador">Pesquisador</option>
                     <option value="empresa">Empresa</option>
@@ -246,19 +304,38 @@ export default function ProjetoDetalhe() {
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="inicio">Início previsto</Label>
+                  <Input
+                    id="inicio"
+                    placeholder="Ex.: 01/08/2026"
+                    value={conteudo.inicio_previsto || ""}
+                    onChange={(e) => patchConteudo("inicio_previsto", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duracao">Duração (meses)</Label>
+                  <Input
+                    id="duracao"
+                    placeholder="Ex.: 36"
+                    value={conteudo.duracao_meses || ""}
+                    onChange={(e) => patchConteudo("duracao_meses", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Origem do material</Label>
                   <select
                     className="w-full rounded-md border border-border px-3 py-2 text-sm"
                     value={conteudo.origem?.tipo || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      markDirty();
                       setConteudo((prev) => ({
                         ...prev,
                         origem: {
                           ...(prev.origem || {}),
                           tipo: (e.target.value || null) as ProjetoOrigemTipo | null,
                         },
-                      }))
-                    }
+                      }));
+                    }}
                   >
                     <option value="">Não informado</option>
                     {(Object.keys(PROJETO_ORIGEM_LABELS) as ProjetoOrigemTipo[]).map((k) => (
@@ -274,62 +351,108 @@ export default function ProjetoDetalhe() {
                     id="origem-desc"
                     placeholder="Ex.: submetido ao edital CNPq 2025"
                     value={conteudo.origem?.descricao || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      markDirty();
                       setConteudo((prev) => ({
                         ...prev,
                         origem: { ...(prev.origem || {}), descricao: e.target.value },
-                      }))
-                    }
+                      }));
+                    }}
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="keywords">Palavras-chave (separadas por vírgula)</Label>
+                  <Label htmlFor="keywords">Palavras-chave em português (vírgula)</Label>
                   <Input
                     id="keywords"
                     value={keywords}
-                    onChange={(e) => setKeywords(e.target.value)}
-                    placeholder="biotecnologia, agricultura familiar, IoT"
+                    onChange={(e) => {
+                      markDirty();
+                      setKeywords(e.target.value);
+                    }}
+                    placeholder="Recursos Hídricos; Sistema de Informações Hidrológico"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="keywords-en">Palavras-chave em inglês (vírgula)</Label>
+                  <Input
+                    id="keywords-en"
+                    value={(conteudo.palavras_chave_ingles || []).join(", ")}
+                    onChange={(e) =>
+                      patchConteudo(
+                        "palavras_chave_ingles",
+                        e.target.value
+                          .split(/[,;]/)
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                    placeholder="Water Resources; Climate Change Impacts"
                   />
                 </div>
               </div>
 
-              <div className="mt-8 space-y-8">
-                {PROJETO_SECTIONS.map((section) => (
-                  <TextFieldWithAI
-                    key={section.key}
-                    id={`projeto-${section.key}`}
-                    label={section.label}
-                    value={String(conteudo[section.key] ?? "")}
-                    onChange={(value) => patchConteudo(section.key, value as never)}
-                    rows={section.rows || 5}
-                    showDescription
-                    fieldDescription={section.hint}
-                    projetoId={id}
-                    allFormData={formContext}
-                    placeholder={section.hint}
-                  />
-                ))}
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button type="button" onClick={() => void handleSave()} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Salvar texto
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => void runMatch()} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  Buscar editais compatíveis
-                </Button>
-                <Link href={`/dashboard?projeto=${encodeURIComponent(id)}`}>
-                  <Button type="button" variant="outline" disabled={saving}>
-                    Filtrar no painel
-                  </Button>
-                </Link>
+              <div className="mt-8 space-y-10">
+                {(() => {
+                  const groups: Array<{ name: string; sections: typeof PROJETO_SECTIONS }> = [];
+                  for (const section of PROJETO_SECTIONS) {
+                    const name = section.group || "Conteúdo";
+                    const last = groups[groups.length - 1];
+                    if (last && last.name === name) last.sections.push(section);
+                    else groups.push({ name, sections: [section] });
+                  }
+                  return groups.map((g) => (
+                    <div key={g.name} className="space-y-6">
+                      <p className="institutional-kicker border-b border-border pb-2">{g.name}</p>
+                      {g.sections.map((section) => (
+                        <TextFieldWithAI
+                          key={section.key}
+                          id={`projeto-${section.key}`}
+                          label={section.label}
+                          value={String(conteudo[section.key] ?? "")}
+                          onChange={(value) => patchConteudo(section.key, value as never)}
+                          rows={section.rows || 5}
+                          charLimit={section.charLimit}
+                          showDescription
+                          fieldDescription={section.hint}
+                          projetoId={id}
+                          allFormData={formContext}
+                          placeholder={section.hint}
+                        />
+                      ))}
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </>
         )}
       </main>
+
+      {!loading && projeto ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 p-3 sm:p-4">
+          <div className="pointer-events-auto mx-auto flex w-full max-w-5xl flex-wrap items-center gap-2 rounded-lg border border-border bg-white/95 px-3 py-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:gap-3 sm:px-4">
+            <Button type="button" onClick={() => void handleSave()} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar texto
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void runMatch()}
+              disabled={saving}
+              className="gap-2"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar editais compatíveis
+            </Button>
+            <Link href={`/dashboard?projeto=${encodeURIComponent(id)}`}>
+              <Button type="button" variant="outline" disabled={saving}>
+                Filtrar no painel
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {candidatandoEditalId ? (
         <div

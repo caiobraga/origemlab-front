@@ -381,12 +381,35 @@ export function formatCurrency(value: string | number): string {
 }
 
 /**
+ * Converte uma string de data em Date. Datas sem horário ("YYYY-MM-DD") são lidas no fuso local:
+ * `new Date("YYYY-MM-DD")` interpreta como UTC e, no Brasil, mostra o dia anterior.
+ * Valores com horário (ISO completo, ex.: "2026-10-22T18:00:00Z") seguem `new Date(value)` sem ajuste.
+ */
+export function parseDateLocal(value: string): Date {
+  const m = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(value);
+}
+
+/**
+ * Dias de calendário (fuso local) de hoje até a data: 0 = hoje, 1 = amanhã, negativo = já passou; NaN se inválida.
+ * Prazos valem até o fim do dia (mesma regra do backend: `data_encerramento::date >= current_date`).
+ */
+export function calendarDaysUntil(value: string, now: Date = new Date()): number {
+  const d = parseDateLocal(value);
+  if (isNaN(d.getTime())) return NaN;
+  const target = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - today) / 86_400_000);
+}
+
+/**
  * Formata uma data para exibição
  */
 export function formatDate(dateStr: string): string {
   try {
     // Tentar parsear diferentes formatos de data
-    const date = new Date(dateStr);
+    const date = parseDateLocal(dateStr);
     if (isNaN(date.getTime())) {
       // Se não conseguir parsear, retornar como está
       return dateStr;

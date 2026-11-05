@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { invalidateUserProfileCache } from "@/lib/userProfile";
+import { apiErrorMessage } from "@/lib/backendApi";
+import { USER_MESSAGES } from "@/lib/userMessages";
 
 const API_BASE = String((import.meta as any).env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
 function apiUrl(path: string) {
@@ -28,10 +30,10 @@ export async function createCheckoutSession(
 
   const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
   if (!res.ok) {
-    throw new Error(data.error || "Não foi possível iniciar o checkout.");
+    throw new Error(apiErrorMessage(data, res.status));
   }
   if (!data.url) {
-    throw new Error("Resposta inválida do servidor.");
+    throw new Error(USER_MESSAGES.badResponse);
   }
   return data.url;
 }
@@ -53,10 +55,10 @@ export async function createBillingPortalSession(): Promise<string> {
 
   const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
   if (!res.ok) {
-    throw new Error(data.error || "Não foi possível abrir o portal de cobrança.");
+    throw new Error(apiErrorMessage(data, res.status));
   }
   if (!data.url) {
-    throw new Error("Resposta inválida do servidor.");
+    throw new Error(USER_MESSAGES.badResponse);
   }
   return data.url;
 }
@@ -87,7 +89,7 @@ export async function syncSubscriptionFromStripe(): Promise<{
     error?: string;
   };
   if (!res.ok) {
-    throw new Error(data.error || "Não foi possível sincronizar a assinatura.");
+    throw new Error(apiErrorMessage(data, res.status));
   }
   return { ok: Boolean(data.ok), plan_key: data.plan_key };
 }

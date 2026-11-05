@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { 
-  Search, Filter, Calendar, DollarSign, Target, AlertCircle,
+  Search, Filter, Calendar, DollarSign, GraduationCap, Target, AlertCircle,
   Sparkles, Loader2, Share2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -114,12 +114,15 @@ export default function Dashboard() {
   const searchString = useSearch();
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
-  const { activeEmpresaId, activeEmpresa, isConsultor } = useActiveEmpresa();
+  const { activeEmpresaId, activeEmpresa, isConsultor, empresas } = useActiveEmpresa();
   const { proFeatures: proFeaturesFromProfile, entitlements: profileEntitlements } = useSubscriptionEntitlements();
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [projetoMatches, setProjetoMatches] = useState<ProjetoEditalMatch[]>([]);
   const [projetoMatchLoading, setProjetoMatchLoading] = useState(false);
   const [projetoMatchError, setProjetoMatchError] = useState("");
+
+  const profileReady = !profileLoading && !!profile;
+  const consultorSemEmpresa = profileReady && isConsultor && !activeEmpresaId;
 
   // Deep-link: /dashboard?projeto=<id>
   useEffect(() => {
@@ -194,7 +197,11 @@ export default function Dashboard() {
   const indicacoesQuery = useEditaisIndicacoes(user?.id, {
     limit: 12,
     autoRefresh: proFeaturesFromProfile,
-    enabled: proFeaturesFromProfile && (!isConsultor || !!activeEmpresaId),
+    // Esperar perfil carregar; consultor só com empresa ativa (evita "empresa_id obrigatório").
+    enabled:
+      profileReady &&
+      proFeaturesFromProfile &&
+      (!isConsultor || !!activeEmpresaId),
     empresaId: isConsultor ? activeEmpresaId : null,
   });
   const indicacoesMap = (() => {
@@ -540,11 +547,18 @@ export default function Dashboard() {
 
         {isConsultor && !activeEmpresaId ? (
           <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-            Selecione uma empresa no topo da página (ou em{" "}
-            <Link href="/minhas-empresas" className="font-medium underline">
-              Minhas empresas
+            <p className="font-medium">Cadastre ou selecione uma empresa para continuar</p>
+            <p className="mt-1">
+              Como consultor, indicações, projetos e propostas ficam vinculados a uma empresa.
+              {empresas.length === 0
+                ? " Você ainda não tem nenhuma cadastrada."
+                : " Selecione uma no topo da página."}
+            </p>
+            <Link href="/minhas-empresas" className="mt-3 inline-flex">
+              <Button type="button" size="sm" className="mt-3">
+                {empresas.length === 0 ? "Cadastrar primeira empresa" : "Gerenciar empresas"}
+              </Button>
             </Link>
-            ) para filtrar indicações, projetos e propostas neste workspace.
           </div>
         ) : null}
 
@@ -576,7 +590,7 @@ export default function Dashboard() {
         ) : listError && editaisRaw.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 max-w-lg mx-auto">
             <AlertCircle className="w-12 h-12 text-amber-500 mb-4" />
-            <p className="text-gray-700 text-center mb-2">Não foi possível carregar os editais a partir de editais_corretos.</p>
+            <p className="text-gray-700 text-center mb-2">Não foi possível carregar os editais.</p>
             {editaisListQuery.error != null ? (
               <p className="text-xs text-gray-500 break-words w-full text-center mb-4 font-mono">
                 {editaisListQuery.error instanceof Error
@@ -593,7 +607,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {indicacoesErrorMessage && (
+            {indicacoesErrorMessage && !consultorSemEmpresa && (
               <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <div className="font-medium">Indicações indisponíveis no momento.</div>
                 <div className="mt-1 break-words">{indicacoesErrorMessage}</div>
@@ -1047,6 +1061,14 @@ export default function Dashboard() {
                           </span>
                         </div>
                       )}
+                      {edital.valor_bolsa && (
+                        <div className="flex min-w-0 items-start gap-2">
+                          <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                          <span className="min-w-0 flex-1 break-words line-clamp-2" title={`Bolsa: ${edital.valor_bolsa}`}>
+                            Bolsa: {edital.valor_bolsa}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex min-w-0 items-start gap-2">
                         <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
                         <span className="min-w-0 flex-1 break-words line-clamp-2" title={`Prazo: ${prazoLabel}`}>
@@ -1176,15 +1198,11 @@ export default function Dashboard() {
                       </>
                     ) : (
                       <>
-                    <p className="text-gray-800 font-medium mb-2">Nada para exibir na lista (fonte vazia).</p>
+                    <p className="text-gray-800 font-medium mb-2">Nenhum edital para exibir no momento.</p>
                     <p className="text-sm text-gray-600 mb-3">
-                      O feed lê <code className="text-xs bg-gray-100 px-1 rounded">editais_corretos</code> (até 250
-                      itens) e, se houver, mescla com indicações. A opção &quot;Mostrar inativos&quot; só muda o filtro de
-                      prazo; não cria linhas. Com &quot;Apenas indicações&quot; e sem indicações em{" "}
-                      <code className="text-xs bg-gray-100 px-1">edital_indicacoes</code>, a fonte fica vazia — desative.
-                      Se no SQL do Supabase há linhas e aqui 0, confira o mesmo projeto em <code className="text-xs bg-gray-100 px-1">.env</code> e execute no banco
-                      a migration <code className="text-xs bg-gray-100 px-1">scripts/db/migration-editais-corretos-rls-public-read.sql</code> (policy de
-                      <code>SELECT</code> para <code>anon</code>).
+                      Ainda não há editais disponíveis para você. Se a opção &quot;Apenas indicações&quot; estiver ativa e
+                      você ainda não tiver indicações, desative-a para ver o catálogo completo. Você também pode
+                      recarregar a lista em alguns instantes.
                     </p>
                     {apenasIndicacoes && editaisIndicadosRaw.length === 0 && editaisRaw.length > 0 && (
                       <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3 mb-3 text-left">
@@ -1201,32 +1219,29 @@ export default function Dashboard() {
                 ) : editaisFiltrados.length === 0 && editaisRawForList.length > 0 ? (
                   <div className="text-left text-sm text-gray-600 space-y-2">
                     <p>
+                      Encontramos{" "}
                       <span className="font-medium text-gray-800">
-                        {editaisRawForList.length} edital(is) na lista
-                      </span>{" "}
-                      antes do filtro{indicacoesMap.size > 0 ? ` (inclui itens com indicação no merge)` : ""}, mas{" "}
-                      <span className="font-medium">0</span> após os filtros atuais. &quot;Mostrar inativos&quot; só tira a
-                      regra de prazo; não desliga filtro de perfil nem &quot;Apenas indicações&quot;.
+                        {editaisRawForList.length} edital(is)
+                      </span>
+                      , mas nenhum corresponde aos filtros atuais. Experimente:
                     </p>
-                    <p className="list-disc pl-5 space-y-1">
+                    <ul className="list-disc pl-5 space-y-1">
                       {apenasIndicacoes && (
                         <li>
-                          Desative &quot;Apenas indicações&quot; se quiser o catálogo inteiro, ou clique em &quot;Atualizar
+                          Desativar &quot;Apenas indicações&quot; para ver o catálogo inteiro, ou clicar em &quot;Atualizar
                           indicações&quot;.
                         </li>
                       )}
                       {filtroArea !== "todos" && (
-                        <li>Área: está em &quot;{AREA_FILTER_OPTIONS.find((o) => o.value === filtroArea)?.label}&quot; — use &quot;Todas as áreas&quot;.</li>
+                        <li>Trocar a área &quot;{AREA_FILTER_OPTIONS.find((o) => o.value === filtroArea)?.label}&quot; por &quot;Todas as áreas&quot;.</li>
                       )}
-                      {busca.trim() !== "" && <li>Remova o texto da busca.</li>}
+                      {busca.trim() !== "" && <li>Apagar o texto da busca.</li>}
                       {!apenasIndicacoes && !ignorarFiltroPerfil && profile && (
                         <li>
-                          Perfil ({profile.userType}): editais com <code>is_researcher</code> ou <code>is_company</code>{" "}
-                          <span className="font-medium">false</span> (explícito) somem. Marque &quot;Incluir editais fora do meu
-                          perfil&quot;.
+                          Incluir editais que não são voltados ao seu perfil, clicando em &quot;Incluir fora do perfil&quot;.
                         </li>
                       )}
-                    </p>
+                    </ul>
                     <div className="flex flex-wrap gap-2 justify-center pt-2">
                       <Button type="button" variant="outline" size="sm" onClick={() => setFiltroArea("todos")}>
                         Área: todas

@@ -106,20 +106,44 @@ async function callUpsertRpcWithRetry(rpcParams: UpsertRpcParams): Promise<{ dat
   return { data, error };
 }
 
-/** Dados extraídos do currículo (PDF ou Lattes), usado para exibição e elegibilidade. */
+/** Formação acadêmica informada no onboarding/perfil (ou legado de PDF Lattes). */
 export type CurriculumData = {
   id?: string;
   nome?: string;
   resumo?: string;
+  /** Rótulos planos das áreas (exibição / match legado). */
   areasAtuacao?: string[];
-  formacao?: Array<{ nivel: string; curso: string; instituicao: string; anoConclusao?: string }>;
-  elegibilidade?: { possuiDoutorado?: boolean; possuiMestrado?: boolean; possuiGraduacao?: boolean; podeParticiparEditais?: boolean; observacoes?: string[] };
+  /** Áreas CNPq estruturadas (grande área → área → subárea → especialidade) ou custom. */
+  areasAtuacaoCnpq?: Array<{
+    grandeArea: { codigo: string; nome: string };
+    area: { codigo: string; nome: string };
+    subarea?: { codigo: string; nome: string };
+    especialidade?: { codigo: string; nome: string };
+    custom?: boolean;
+    customLabel?: string;
+  }>;
+  formacao?: Array<{
+    nivel: string;
+    curso: string;
+    instituicao: string;
+    anoConclusao?: string;
+    emAndamento?: boolean;
+  }>;
+  elegibilidade?: {
+    possuiDoutorado?: boolean;
+    possuiMestrado?: boolean;
+    possuiGraduacao?: boolean;
+    podeParticiparEditais?: boolean;
+    observacoes?: string[];
+    anosExperiencia?: number;
+  };
   [key: string]: unknown;
 };
 
 export interface UserProfile {
   cpf?: string;
-  cnpj?: string;
+  /** null limpa o CNPJ no banco (ex.: troca consultor → pesquisador). */
+  cnpj?: string | null;
   lattesId?: string;
   userType: UserType;
   hasCnpj?: boolean;

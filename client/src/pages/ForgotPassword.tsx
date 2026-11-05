@@ -22,7 +22,7 @@ export default function ForgotPassword() {
       markPendingAuthFlow("recovery");
       const { error } = await requestPasswordResetEmail(email);
       if (error) {
-        toast.error(translateSupabaseAuthError(error, error.message));
+        toast.error(translateSupabaseAuthError(error, "Não foi possível enviar o e-mail de recuperação. Tente novamente."));
         return;
       }
       // Mesma mensagem se o email existir ou não (anti-enumeração).

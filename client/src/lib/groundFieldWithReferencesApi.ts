@@ -1,3 +1,4 @@
+import { ApiError } from "./backendApi";
 import type { AnalyzeFieldParams } from "./analyzeFieldApi";
 
 export type WebReference = {
@@ -62,8 +63,8 @@ export async function groundFieldWithReferences(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error((error as any).error || "Erro ao embasar com referências");
+    const error = await response.json().catch(() => null);
+    throw new ApiError(error, response.status);
   }
 
   return (await response.json()) as GroundFieldResponse;

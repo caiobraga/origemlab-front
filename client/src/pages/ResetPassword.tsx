@@ -37,8 +37,9 @@ export default function ResetPassword() {
           return;
         }
         // Confirmação de email (e links ambíguos) às vezes caem nesta rota.
+        // Só afirmamos "e-mail confirmado" quando o link é de cadastro; fluxo desconhecido vai ao login sem aviso.
         if (result.flow !== "recovery") {
-          setLocation("/login?emailConfirmado=1");
+          setLocation(result.flow === "signup" ? "/login?emailConfirmado=1" : "/login");
           return;
         }
         stripAuthParamsFromPath("/redefinir-senha");
@@ -78,8 +79,8 @@ export default function ResetPassword() {
         );
         return;
       }
-      toast.success("Senha atualizada! Você já pode usar a nova senha.");
-      setLocation("/login");
+      // O Login mostra o aviso "Senha redefinida!" (?aviso=senha_redefinida).
+      setLocation("/login?aviso=senha_redefinida");
     } catch (err) {
       toast.error(translateSupabaseAuthError(err, "Não foi possível atualizar a senha."));
     } finally {

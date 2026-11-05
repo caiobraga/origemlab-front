@@ -61,7 +61,7 @@ export default function Cookies() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-3">6. Contato</h2>
           <p className="text-gray-600 leading-relaxed">
-            Dúvidas: <a href="mailto:contato@origemlab.ai" className="text-primary hover:underline">contato@origemlab.ai</a>. 
+            Dúvidas: <a href="mailto:contato@origemlabsolutions.com" className="text-primary hover:underline">contato@origemlabsolutions.com</a>. 
             Consulte nossa{" "}
             <Link href="/politica-privacidade" className="text-primary hover:underline">
               Política de Privacidade
