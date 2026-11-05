@@ -661,7 +661,11 @@ export default function EditalDetails() {
                   <div className="bg-white rounded-sm p-4 border-l-4 border-primary">
                     <div className="flex items-center gap-2 mb-2">
                       <DollarSign className="w-5 h-5 text-primary" />
-                      <span className="text-sm font-semibold text-gray-700">Valor do Projeto</span>
+                      <span className="text-sm font-semibold text-gray-700">
+                        {formatValorProjeto(edital?.valor_projeto).escopo === 'total_chamada'
+                          ? 'Orçamento total da chamada'
+                          : 'Valor do Projeto'}
+                      </span>
                     </div>
                     {(() => {
                       const valorFormatado = formatValorProjeto(edital?.valor_projeto);
@@ -751,7 +755,11 @@ export default function EditalDetails() {
                       <div className="flex items-start gap-3">
                         <DollarSign className="w-5 h-5 text-primary mt-1" />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-gray-600">Valor por Projeto</div>
+                          <div className="text-sm text-gray-600">
+                            {formatValorProjeto(edital?.valor_projeto).escopo === 'total_chamada'
+                              ? 'Orçamento total da chamada'
+                              : 'Valor por Projeto'}
+                          </div>
                           {(() => {
                             const valorFormatado = formatValorProjeto(edital?.valor_projeto);
                             if (valorFormatado.display === 'Não informado') {
@@ -760,11 +768,14 @@ export default function EditalDetails() {
                             return (
                               <>
                                 <div className="font-bold text-lg break-words max-w-full">{valorFormatado.display}</div>
-                                {valorFormatado.details && valorFormatado.details.length > 1 && (
+                                {valorFormatado.details &&
+                                  (valorFormatado.details.length > 1 || valorFormatado.escopo === 'total_chamada') && (
                                   <div className="space-y-1 mt-2 min-w-0">
-                                    <div className="text-xs text-gray-500 font-medium">
-                                      {valorFormatado.details.length} valores disponíveis:
-                                    </div>
+                                    {valorFormatado.escopo !== 'total_chamada' && (
+                                      <div className="text-xs text-gray-500 font-medium">
+                                        {valorFormatado.details.length} valores disponíveis:
+                                      </div>
+                                    )}
                                     {valorFormatado.details.map((valor, idx) => (
                                       <div key={idx} className="text-sm text-gray-600 border-l-2 border-primary pl-2 break-words">
                                         {valor}

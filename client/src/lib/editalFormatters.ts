@@ -6,6 +6,8 @@ import {
   extractBRLAmountsFromText,
   formatValorPlainTextForDisplay,
   parseBrazilianMoneyToken,
+  parseValorProjetoEstruturado,
+  type ValorProjetoEstruturado,
 } from "./editalValorExtract";
 import { normalizePrazoInscricaoPlainText } from "./editalPrazoNormalize";
 
@@ -15,6 +17,8 @@ export interface FormattedValor {
   raw?: any;
   /** true quando o texto foi cortado para caber na UI */
   truncated?: boolean;
+  /** A que se refere `display` (só no formato estruturado; ausente em valores antigos). */
+  escopo?: 'por_projeto' | 'por_bolsa' | 'total_chamada';
 }
 
 const VALOR_DISPLAY_MAX_CHARS = 160;
@@ -41,6 +45,62 @@ export interface FormattedPrazo {
   raw?: any;
 }
 
+const formatBRL = (n: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(n);
+
+/** Valor por projeto em destaque; o total da chamada só aparece rotulado como tal. */
+function formatValorProjetoEstruturado(e: ValorProjetoEstruturado): FormattedValor {
+  const qtd = e.qtd_projetos;
+  const total = e.total_programa_texto
+    ? `Total da chamada: ${e.total_programa != null ? formatBRL(e.total_programa) : e.total_programa_texto}${
+        qtd ? ` (${qtd} ${qtd === 1 ? 'projeto previsto' : 'projetos previstos'})` : ''
+      }`
+    : null;
+  const lines = (xs: Array<string | null>) =>
+    xs.filter((x): x is string => !!x).map((x) => truncateValorLine(x).text);
+
+  if (e.valor.length > 0) {
+    let display: string;
+    if (e.por_projeto_min != null && e.por_projeto_max != null) {
+      display = `De ${formatBRL(e.por_projeto_min)} a ${formatBRL(e.por_projeto_max)} por projeto`;
+    } else if (e.valor.length === 1 || e.por_projeto_max == null) {
+      display = e.valor[0];
+    } else {
+      display = `Até ${formatBRL(e.por_projeto_max)} por projeto`;
+    }
+    const main = truncateValorLine(display);
+    return {
+      display: main.text,
+      truncated: main.truncated,
+      details: lines([...e.valor, ...e.bolsas, total]),
+      raw: e,
+      escopo: 'por_projeto',
+    };
+  }
+
+  if (e.bolsas.length > 0) {
+    const main = truncateValorLine(e.bolsas[0]);
+    return { display: main.text, truncated: main.truncated, details: lines([...e.bolsas, total]), raw: e, escopo: 'por_bolsa' };
+  }
+
+  if (total) {
+    const media =
+      e.total_programa != null && qtd && qtd > 1
+        ? `Média estimada: ~${formatBRL(e.total_programa / qtd)} por projeto (total ÷ ${qtd})`
+        : null;
+    const main = truncateValorLine(total);
+    return {
+      display: main.text,
+      truncated: main.truncated,
+      details: lines(['Valor por projeto não informado no edital', media]),
+      raw: e,
+      escopo: 'total_chamada',
+    };
+  }
+
+  return { display: 'Não informado' };
+}
+
 /**
  * Normaliza e formata o valor do projeto
  * Aceita JSON string, objeto ou string simples
@@ -51,6 +111,9 @@ export function formatValorProjeto(
   if (!valor_projeto || valor_projeto === 'Não informado') {
     return { display: 'Não informado' };
   }
+
+  const estruturado = parseValorProjetoEstruturado(valor_projeto);
+  if (estruturado) return formatValorProjetoEstruturado(estruturado);
 
   try {
     // Tentar parsear como JSON
