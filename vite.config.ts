@@ -2,12 +2,11 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
-import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 const rootDir = import.meta.dirname;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), vitePluginManusRuntime()],
+  plugins: [react(), tailwindcss()],
   optimizeDeps: {
     exclude: ["pdf-parse", "pdfjs-dist"],
   },

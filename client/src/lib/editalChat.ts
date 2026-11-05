@@ -1,5 +1,6 @@
 import { apiFetch } from "./backendApi";
 import { supabase } from "./supabase";
+import { USER_MESSAGES } from "./userMessages";
 
 export interface ChatMessage {
   id: string;
@@ -93,7 +94,7 @@ async function sendViaBackend(
   } catch (e) {
     const name = e instanceof Error ? e.name : "";
     if (name === "AbortError") {
-      throw new Error("A resposta demorou demais. Tente uma pergunta mais curta.");
+      throw new Error(USER_MESSAGES.slowResponse);
     }
     throw e;
   } finally {
@@ -203,13 +204,17 @@ async function sendViaWebhook(
   };
 
   const endpoint = String(CHAT_ENDPOINT || "").trim();
-  if (!endpoint) throw new Error("Chat endpoint não configurado.");
+  if (!endpoint) {
+    console.error("[editalChat] Endpoint do chat não configurado (VITE_API_BASE_URL / webhook).");
+    throw new Error(USER_MESSAGES.chatUnavailable);
+  }
 
   const useOllama = isProbablyOllamaEndpoint(endpoint);
   if (useOllama && import.meta.env.PROD) {
-    throw new Error(
-      "Chat direto no Ollama (:11434) não é suportado em produção. Defina VITE_API_BASE_URL para usar /api/edital-chat.",
+    console.error(
+      "[editalChat] Chat direto no Ollama (:11434) não é suportado em produção. Defina VITE_API_BASE_URL para usar /api/edital-chat.",
     );
+    throw new Error(USER_MESSAGES.chatUnavailable);
   }
   const url = useOllama ? normalizeOllamaChatUrl(endpoint) : endpoint;
 
@@ -233,7 +238,8 @@ async function sendViaWebhook(
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      throw new Error(`HTTP error! status: ${response.status}${errorText ? ` - ${errorText}` : ""}`);
+      console.error(`[editalChat] Webhook respondeu HTTP ${response.status}:`, errorText.slice(0, 500));
+      throw new Error("Não foi possível obter a resposta do assistente. Tente novamente.");
     }
 
     const responseText = await response.text();
@@ -241,7 +247,7 @@ async function sendViaWebhook(
   } catch (e) {
     const name = e instanceof Error ? e.name : "";
     if (name === "AbortError") {
-      throw new Error("A resposta demorou demais. Tente uma pergunta mais curta.");
+      throw new Error(USER_MESSAGES.slowResponse);
     }
     throw e;
   } finally {
@@ -264,12 +270,11 @@ export async function sendChatMessage(
   } catch (error: any) {
     const errorMsg = error?.message || String(error);
     if (errorMsg.includes("CORS") || errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-      throw new Error(
-        "Erro de conexão: verifique se o backend está acessível e se VITE_API_BASE_URL está correto.",
-      );
+      console.error("[editalChat] Falha de conexão (verifique backend/VITE_API_BASE_URL/CORS):", error);
+      throw new Error(USER_MESSAGES.offline);
     }
     if (error instanceof Error) throw error;
-    throw new Error(errorMsg || "Erro desconhecido ao enviar mensagem");
+    throw new Error(errorMsg || "Não foi possível enviar sua mensagem. Tente novamente.");
   }
 }
 

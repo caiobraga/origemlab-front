@@ -7,7 +7,6 @@ import Pricing from "@/components/Pricing";
 import FaqSection from "@/components/FaqSection";
 import Footer from "@/components/Footer";
 import AIHumanSection from "@/components/AIHumanSection";
-import IntelligentPanel from "@/components/IntelligentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { hasAuthCallbackInUrl } from "@/lib/authCallbackUrl";
@@ -39,7 +38,6 @@ export default function Home() {
         <Hero />
         <HowItWorks />
         <AIHumanSection />
-        <IntelligentPanel />
         <Pricing />
         <FaqSection />
       </main>

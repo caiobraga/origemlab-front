@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#1e4fa0"/>
+  <rect x="10" y="12" width="5" height="40" fill="#ffffff" opacity="0.55"/>
+  <text x="37" y="43" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="700" fill="#ffffff">OL</text>
+</svg>

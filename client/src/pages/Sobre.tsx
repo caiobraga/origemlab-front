@@ -35,7 +35,7 @@ export default function Sobre() {
             como funciona
           </Link>{" "}
           ou entre em{" "}
-          <a href="mailto:contato@origemlab.ai" className="text-primary hover:text-primary/80 font-medium underline underline-offset-2">
+          <a href="mailto:contato@origemlabsolutions.com" className="text-primary hover:text-primary/80 font-medium underline underline-offset-2">
             contato
           </a>
           .

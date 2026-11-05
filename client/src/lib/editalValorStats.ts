@@ -36,6 +36,16 @@ export function computeArrecadacaoCatalogo(
   };
 }
 
+/** Valor em BRL no formato compacto pt-BR (ex.: "R$ 12,5 mi", "R$ 850 mil"). */
+export function formatBRLCompact(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(valor);
+}
+
 export function formatArrecadacaoResumo(totalBRL: number): { main: string; detail?: string } {
   if (!Number.isFinite(totalBRL) || totalBRL <= 0) {
     return { main: "—" };
@@ -48,13 +58,7 @@ export function formatArrecadacaoResumo(totalBRL: number): { main: string; detai
   }).format(totalBRL);
 
   if (totalBRL >= 10_000_000) {
-    const compact = new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(totalBRL);
-    return { main: compact, detail: full };
+    return { main: formatBRLCompact(totalBRL), detail: full };
   }
 
   return { main: full };

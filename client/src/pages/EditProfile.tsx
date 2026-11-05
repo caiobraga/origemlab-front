@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Spinner } from "@/components/ui/spinner";
 import Header from "@/components/Header";
 import { saveUserProfile, getUserProfile, type UserType } from "@/lib/userProfile";
+import { notifyProfileUpdated, useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -32,6 +33,7 @@ function formatTelefoneDisplay(v: string): string {
 export default function EditProfile() {
   const [, setLocation] = useLocation();
   const { user, loading: authLoading } = useAuth();
+  const { refetch: refetchProfile } = useUserProfile();
   const [userType, setUserType] = useState<UserType>("pesquisador");
   
   const [cpf, setCpf] = useState("");
@@ -105,7 +107,7 @@ export default function EditProfile() {
 
       await saveUserProfile(user.id, {
         cpf: cpf,
-        cnpj: userType === "consultor" && hasCnpj === "sim" ? cnpj : undefined,
+        cnpj: userType === "consultor" && hasCnpj === "sim" ? cnpj : null,
         userType,
         hasCnpj: userType === "consultor" && hasCnpj === "sim",
         phone: telefone.replace(/\D/g, "") || undefined,
@@ -115,12 +117,12 @@ export default function EditProfile() {
         consentVersion,
       });
 
+      notifyProfileUpdated();
+      await refetchProfile();
       toast.success("Perfil atualizado com sucesso!");
-      
-      // Redirecionar para o perfil após salvar
-      setTimeout(() => {
-        setLocation("/perfil");
-      }, 1000);
+
+      // Consultor precisa de empresa; pesquisador volta ao perfil.
+      setLocation(userType === "consultor" ? "/minhas-empresas" : "/perfil");
     } catch (error: any) {
       console.error("Erro ao atualizar perfil:", error);
       toast.error(error.message || "Erro ao atualizar perfil");
@@ -182,7 +184,18 @@ export default function EditProfile() {
               </p>
             </div>
 
-            <Tabs value={userType} onValueChange={(value) => setUserType(value as UserType)} className="w-full">
+            <Tabs
+              value={userType}
+              onValueChange={(value) => {
+                const next = value as UserType;
+                setUserType(next);
+                if (next === "pesquisador") {
+                  setHasCnpj("nao");
+                  setCnpj("");
+                }
+              }}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="pesquisador">Pesquisador</TabsTrigger>
                 <TabsTrigger value="consultor">Consultor</TabsTrigger>
@@ -257,7 +270,7 @@ export default function EditProfile() {
 
                 {/* Aba Pesquisador */}
                 <TabsContent value="pesquisador" className="space-y-6">
-                  <p className="text-sm text-gray-600">Você pode enviar um PDF do currículo baixado pelo Lattes (opcional) na sua página de perfil.</p>
+                  <p className="text-sm text-gray-600">Você pode informar sua formação acadêmica (nível, área, universidade e ano) na sua página de perfil.</p>
                 </TabsContent>
 
                 {/* Aba Consultor */}
@@ -312,7 +325,7 @@ export default function EditProfile() {
                       Salvando...
                     </>
                   ) : (
-                    "Salvar Alterações"
+                    "Salvar alterações"
                   )}
                 </Button>
               </form>

@@ -3,8 +3,10 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { saveCurriculumToMetadata, type CurriculumData } from "@/lib/userProfile";
-import { fetchCNPJData, fetchCPFData, parseCurriculumFromPdf, LattesData, CNPJData, CPFData, formatCPF, formatCNPJ, formatCEP } from "@/lib/externalAPIs";
+import { fetchCNPJData, fetchCPFData, LattesData, CNPJData, CPFData, formatCPF, formatCNPJ, formatCEP } from "@/lib/externalAPIs";
 import Header from "@/components/Header";
+import AcademicFormationForm from "@/components/AcademicFormationForm";
+import CnpqAreasAtuacaoForm from "@/components/CnpqAreasAtuacaoForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createBillingPortalSession, createCheckoutSession, syncSubscriptionFromStripe } from "@/lib/stripeBilling";
+import { cnpqAreasToLabels, formatCnpqAreaAtuacao, type CnpqAreaAtuacao } from "@/lib/cnpqAreasConhecimento";
 
 const AREA_LABELS: Record<string, string> = {
   tech: "Tecnologia",
@@ -59,7 +62,12 @@ export default function Profile() {
   const [cpfData, setCpfData] = useState<CPFData | null>(null);
   const [loadingCNPJ, setLoadingCNPJ] = useState(false);
   const [loadingCPF, setLoadingCPF] = useState(false);
-  const [importingPdf, setImportingPdf] = useState(false);
+  const [savingFormacao, setSavingFormacao] = useState(false);
+  const [editingFormacao, setEditingFormacao] = useState(false);
+  const [formacaoFormKey, setFormacaoFormKey] = useState(0);
+  const [savingAreasCnpq, setSavingAreasCnpq] = useState(false);
+  const [editingAreasCnpq, setEditingAreasCnpq] = useState(false);
+  const [areasCnpqFormKey, setAreasCnpqFormKey] = useState(0);
   const [portalLoading, setPortalLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState<"pro" | "empresas" | null>(null);
@@ -67,31 +75,45 @@ export default function Profile() {
 
   const loading = authLoading || profileLoading;
 
-  const importLattesFromPdf = async (file: File) => {
-    if (!file || !file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Selecione um arquivo PDF do currículo.");
-      return;
-    }
-    setImportingPdf(true);
+  const handleSaveFormacao = async (data: CurriculumData) => {
+    setSavingFormacao(true);
     try {
-      const data = await parseCurriculumFromPdf(file);
-      if (data) {
-        setLattesData(data);
-        try {
-          await saveCurriculumToMetadata(data as CurriculumData, user?.id);
-          refetch();
-        } catch {
-          // não bloquear; dados já estão na tela
-        }
-        toast.success("Dados extraídos do PDF do currículo.");
-      } else {
-        toast.error("Não foi possível extrair dados do PDF. Tente outro arquivo.");
-      }
+      await saveCurriculumToMetadata(data, user?.id);
+      setLattesData(data as LattesData);
+      setEditingFormacao(false);
+      await refetch();
+      toast.success("Formação acadêmica salva.");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao processar o PDF. Tente novamente.";
+      const msg = err instanceof Error ? err.message : "Erro ao salvar formação. Tente novamente.";
       toast.error(msg);
+      throw err;
     } finally {
-      setImportingPdf(false);
+      setSavingFormacao(false);
+    }
+  };
+
+  const handleSaveAreasCnpq = async (areas: CnpqAreaAtuacao[]) => {
+    setSavingAreasCnpq(true);
+    try {
+      const prev = (profile?.curriculumData && typeof profile.curriculumData === "object"
+        ? profile.curriculumData
+        : lattesData || {}) as CurriculumData;
+      const next: CurriculumData = {
+        ...prev,
+        areasAtuacaoCnpq: areas,
+        areasAtuacao: cnpqAreasToLabels(areas),
+      };
+      await saveCurriculumToMetadata(next, user?.id);
+      setLattesData(next as LattesData);
+      setEditingAreasCnpq(false);
+      await refetch();
+      toast.success("Áreas de atuação salvas.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar áreas. Tente novamente.";
+      toast.error(msg);
+      throw err;
+    } finally {
+      setSavingAreasCnpq(false);
     }
   };
 
@@ -137,9 +159,9 @@ export default function Profile() {
     if (profile.curriculumData && typeof profile.curriculumData === "object") {
       setLattesData(profile.curriculumData as LattesData);
     }
-    if (profile.cnpj) loadCNPJData(profile.cnpj);
+    if (profile.userType === "consultor" && profile.cnpj) loadCNPJData(profile.cnpj);
     if (profile.cpf) loadCPFData(profile.cpf);
-  }, [profile?.curriculumData, profile?.cnpj, profile?.cpf]);
+  }, [profile?.curriculumData, profile?.cnpj, profile?.cpf, profile?.userType]);
 
 
   const loadCNPJData = async (cnpj: string) => {
@@ -196,10 +218,22 @@ export default function Profile() {
       <Header />
       
       <div className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-6 border-b border-[color:var(--institutional-line)] pb-6">
-          <p className="institutional-kicker mb-2">Dados institucionais</p>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Meu Perfil</h1>
-          <p className="text-gray-600">Visualize informações de cadastro, currículo e assinatura.</p>
+        <div className="mb-6 flex flex-col gap-4 border-b border-[color:var(--institutional-line)] pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="institutional-kicker mb-2">Dados institucionais</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Meu Perfil</h1>
+            <p className="text-gray-600">Visualize informações de cadastro, currículo e assinatura.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
+            <Link href="/perfil/editar">
+              <Button variant="outline" className="border-primary text-primary hover:bg-secondary">
+                Editar perfil
+              </Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="outline">Voltar ao painel</Button>
+            </Link>
+          </div>
         </div>
 
         {/* Informações Básicas */}
@@ -258,7 +292,7 @@ export default function Profile() {
                 </div>
               )}
 
-              {profile?.cnpj ? (
+              {profile?.userType === "consultor" && profile?.cnpj ? (
                 <div>
                   <label className="text-sm font-medium text-gray-500">CNPJ</label>
                   <p className="text-gray-900">{formatCNPJ(profile.cnpj)}</p>
@@ -282,7 +316,7 @@ export default function Profile() {
                         Perfil incompleto
                       </p>
                       <p className="text-sm text-yellow-700 mb-3">
-                        Complete seu cadastro adicionando CPF, CNPJ ou envie um PDF do currículo na seção Currículo para aproveitar melhor os recursos da plataforma.
+                        Complete seu cadastro adicionando CPF, CNPJ ou sua formação acadêmica na seção Currículo para aproveitar melhor os recursos da plataforma.
                       </p>
                       <Link href="/perfil/editar">
                         <Button variant="outline" size="sm" className="border-yellow-600 text-yellow-700 hover:bg-yellow-100">
@@ -570,95 +604,118 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* Currículo (opcional – apenas PDF) */}
+        {/* Formação acadêmica (pesquisador) */}
         {profile && profile.userType === "pesquisador" && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5" />
-                Currículo (opcional)
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+                <span className="flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5" />
+                  Formação acadêmica
+                </span>
+                {lattesData && !editingFormacao ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingFormacao(true);
+                      setFormacaoFormKey((k) => k + 1);
+                    }}
+                  >
+                    Editar formação
+                  </Button>
+                ) : null}
+                {editingFormacao ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingFormacao(false)}
+                  >
+                    Cancelar
+                  </Button>
+                ) : null}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!lattesData ? (
+              {(!lattesData || editingFormacao) ? (
                 <div className="space-y-4">
-                  <p className="text-gray-700">
-                    Envie um PDF do currículo baixado pelo Lattes para extrairmos nome, formação, áreas de atuação e elegibilidade. Opcional.
-                  </p>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="hidden"
-                    id="curriculum-pdf-upload"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) importLattesFromPdf(f);
-                      e.target.value = "";
-                    }}
+                  {!editingFormacao && (
+                    <p className="text-gray-700">
+                      Informe o maior nível de formação, área, universidade e ano. Se tiver doutorado, pediremos também o mestrado.
+                    </p>
+                  )}
+                  <AcademicFormationForm
+                    key={formacaoFormKey}
+                    existing={lattesData || profile.curriculumData}
+                    saving={savingFormacao}
+                    onComplete={handleSaveFormacao}
                   />
-                  <Button
-                    type="button"
-                    onClick={() => document.getElementById("curriculum-pdf-upload")?.click()}
-                    disabled={importingPdf}
-                  >
-                    {importingPdf ? <Spinner className="w-4 h-4 mr-2" /> : null}
-                    Enviar PDF do currículo
-                  </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Nome</label>
-                    <p className="text-gray-900 font-semibold">{lattesData.nome}</p>
-                  </div>
-
-                  {lattesData.resumo && (
+                  {lattesData.nome ? (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Resumo</label>
-                      <p className="text-gray-700">{lattesData.resumo}</p>
+                      <label className="text-sm font-medium text-gray-500">Nome</label>
+                      <p className="text-gray-900 font-semibold">{lattesData.nome}</p>
                     </div>
-                  )}
+                  ) : null}
 
-                  {lattesData.areasAtuacao && lattesData.areasAtuacao.length > 0 && (
+                  {lattesData.elegibilidade ? (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Áreas de Atuação</label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {lattesData.areasAtuacao.map((area, idx) => (
-                          <Badge key={idx} variant="outline">{area}</Badge>
-                        ))}
+                      <label className="text-sm font-medium text-gray-500 mb-2 block">
+                        Titulação
+                      </label>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2">
+                          {lattesData.elegibilidade.possuiDoutorado ? (
+                            <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-5 h-5 text-gray-400 shrink-0" />
+                          )}
+                          <span className="text-sm font-medium text-gray-800">Doutorado</span>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2">
+                          {lattesData.elegibilidade.possuiMestrado ? (
+                            <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-5 h-5 text-gray-400 shrink-0" />
+                          )}
+                          <span className="text-sm font-medium text-gray-800">Mestrado</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {lattesData.statusAcademico && (
-                    lattesData.statusAcademico.doutorando || 
-                    lattesData.statusAcademico.mestrando || 
-                    lattesData.statusAcademico.graduando || 
-                    lattesData.statusAcademico.posGraduando
-                  ) ? (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Status Acadêmico Atual</label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {lattesData.statusAcademico.doutorando && (
-                          <Badge className="bg-secondary text-primary border-border">
-                            Doutorando
-                          </Badge>
-                        )}
-                        {lattesData.statusAcademico.mestrando && (
-                          <Badge className="bg-secondary text-primary border-border">
-                            Mestrando
-                          </Badge>
-                        )}
-                        {lattesData.statusAcademico.graduando && (
-                          <Badge className="bg-green-100 text-green-700 border-green-300">
-                            Graduando
-                          </Badge>
-                        )}
-                        {lattesData.statusAcademico.posGraduando && (
-                          <Badge className="bg-orange-100 text-orange-700 border-orange-300">
-                            Pós-Graduando
-                          </Badge>
-                        )}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          {lattesData.elegibilidade.podeParticiparEditais ? (
+                            <CheckCircle2 className="w-4 h-4 text-primary" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-red-600" />
+                          )}
+                          <span className="text-sm text-gray-700">
+                            {lattesData.elegibilidade.podeParticiparEditais
+                              ? "Elegível para participar de editais"
+                              : "Não elegível para participar de editais"}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            {lattesData.elegibilidade.possuiGraduacao ? (
+                              <CheckCircle2 className="w-4 h-4 text-primary" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-gray-400" />
+                            )}
+                            <span className="text-xs text-gray-600">Graduação</span>
+                          </div>
+                          {lattesData.elegibilidade.anosExperiencia ? (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-primary" />
+                              <span className="text-xs text-gray-600">
+                                {lattesData.elegibilidade.anosExperiencia} anos de experiência
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -667,7 +724,20 @@ export default function Profile() {
                     <div>
                       <label className="text-sm font-medium text-gray-500">Formação</label>
                       <div className="space-y-2 mt-2">
-                        {lattesData.formacao.map((formacao, idx) => (
+                        {[...lattesData.formacao]
+                          .sort((a, b) => {
+                            const rank = (nivel: string) => {
+                              const n = String(nivel || "").toLowerCase();
+                              if (n.includes("doutor")) return 0;
+                              if (n.includes("mestr")) return 1;
+                              if (n.includes("especial")) return 2;
+                              if (n.includes("gradua") || n.includes("bacharel") || n.includes("licenc"))
+                                return 3;
+                              return 4;
+                            };
+                            return rank(a.nivel) - rank(b.nivel);
+                          })
+                          .map((formacao, idx) => (
                           <div key={idx} className="border-l-2 border-primary pl-4">
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-gray-900">{formacao.nivel}</p>
@@ -685,99 +755,103 @@ export default function Profile() {
                       </div>
                     </div>
                   )}
-
-                  {lattesData.elegibilidade && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <label className="text-sm font-medium text-gray-500 mb-2 block">Elegibilidade para Editais</label>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {lattesData.elegibilidade.podeParticiparEditais ? (
-                            <CheckCircle2 className="w-4 h-4 text-primary" />
-                          ) : (
-                            <AlertCircle className="w-4 h-4 text-red-600" />
-                          )}
-                          <span className="text-sm text-gray-700">
-                            {lattesData.elegibilidade.podeParticiparEditais ? "Elegível para participar de editais" : "Não elegível para participar de editais"}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 mt-3">
-                          <div className="flex items-center gap-2">
-                            {lattesData.elegibilidade.possuiDoutorado ? (
-                              <CheckCircle2 className="w-4 h-4 text-primary" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-gray-400" />
-                            )}
-                            <span className="text-xs text-gray-600">Doutorado</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {lattesData.elegibilidade.possuiMestrado ? (
-                              <CheckCircle2 className="w-4 h-4 text-primary" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-gray-400" />
-                            )}
-                            <span className="text-xs text-gray-600">Mestrado</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {lattesData.elegibilidade.possuiGraduacao ? (
-                              <CheckCircle2 className="w-4 h-4 text-primary" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-gray-400" />
-                            )}
-                            <span className="text-xs text-gray-600">Graduação</span>
-                          </div>
-                          {lattesData.elegibilidade.anosExperiencia && (
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-primary" />
-                              <span className="text-xs text-gray-600">{lattesData.elegibilidade.anosExperiencia} anos de experiência</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {lattesData.elegibilidade.observacoes && lattesData.elegibilidade.observacoes.length > 0 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">
-                            <p className="text-sm font-medium text-yellow-800 mb-1">Observações:</p>
-                            <ul className="text-sm text-yellow-700 list-disc list-inside">
-                              {lattesData.elegibilidade.observacoes.map((obs, idx) => (
-                                <li key={idx}>{obs}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <input
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      className="hidden"
-                      id="curriculum-pdf-replace"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) importLattesFromPdf(f);
-                        e.target.value = "";
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById("curriculum-pdf-replace")?.click()}
-                      disabled={importingPdf}
-                    >
-                      {importingPdf ? <Spinner className="w-4 h-4 mr-2" /> : null}
-                      Enviar outro PDF
-                    </Button>
-                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Dados do CNPJ */}
-        {profile && profile.cnpj ? (
+        {/* Áreas CNPq (pesquisador) */}
+        {profile && profile.userType === "pesquisador" && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+                <span className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Áreas de atuação (CNPq)
+                </span>
+                {(() => {
+                  const areas =
+                    ((profile.curriculumData?.areasAtuacaoCnpq ||
+                      (lattesData as CurriculumData | null)?.areasAtuacaoCnpq ||
+                      []) as CnpqAreaAtuacao[]);
+                  if (editingAreasCnpq && areas.length > 0) {
+                    return (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingAreasCnpq(false)}
+                      >
+                        Cancelar
+                      </Button>
+                    );
+                  }
+                  if (!editingAreasCnpq && areas.length > 0) {
+                    return (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingAreasCnpq(true);
+                          setAreasCnpqFormKey((k) => k + 1);
+                        }}
+                      >
+                        Editar áreas
+                      </Button>
+                    );
+                  }
+                  return null;
+                })()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const areas =
+                  ((profile.curriculumData?.areasAtuacaoCnpq ||
+                    (lattesData as CurriculumData | null)?.areasAtuacaoCnpq ||
+                    []) as CnpqAreaAtuacao[]);
+                if (editingAreasCnpq || areas.length === 0) {
+                  return (
+                    <div className="space-y-4">
+                      {areas.length === 0 && !editingAreasCnpq && (
+                        <p className="text-gray-700">
+                          Informe grande área, área, subárea e especialidade conforme a tabela do CNPq.
+                        </p>
+                      )}
+                      <CnpqAreasAtuacaoForm
+                        key={areasCnpqFormKey}
+                        initial={areas}
+                        saving={savingAreasCnpq}
+                        onComplete={handleSaveAreasCnpq}
+                      />
+                    </div>
+                  );
+                }
+                return (
+                  <ul className="space-y-2">
+                    {areas.map((a, i) => (
+                      <li key={i} className="border-l-2 border-primary pl-4 text-sm text-gray-800">
+                        {a.custom ? (
+                          <>
+                            <span className="text-xs font-medium text-primary mr-1.5">Outra</span>
+                            {formatCnpqAreaAtuacao(a)}
+                          </>
+                        ) : (
+                          formatCnpqAreaAtuacao(a)
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dados do CNPJ — apenas consultor */}
+        {profile && profile.userType === "consultor" && profile.cnpj ? (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1049,16 +1123,6 @@ export default function Profile() {
           </Card>
         )}
 
-        <div className="mt-6 flex justify-between">
-          <Link href="/perfil/editar">
-            <Button variant="outline" className="border-primary text-primary hover:bg-secondary">
-              Editar Perfil
-            </Button>
-          </Link>
-          <Link href="/dashboard">
-            <Button variant="outline">Voltar ao Dashboard</Button>
-          </Link>
-        </div>
       </div>
     </div>
   );

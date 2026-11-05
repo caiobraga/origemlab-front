@@ -456,7 +456,8 @@ export default function EditorProposta() {
       await updateProposta(proposta.id, user.id, { status: newStatus });
       setProposta({ ...proposta, status: newStatus });
       requestAnimationFrame(() => window.scrollTo(0, yBeforeSave));
-      toast.success(`Status alterado para: ${newStatus}`);
+      const statusLabel = (statusConfig[newStatus]?.label ?? newStatus).replace(/^[^\p{L}]+/u, "");
+      toast.success(`Status alterado para: ${statusLabel}`);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
       toast.error("Erro ao atualizar status");

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,9 +16,13 @@ import {
 } from "lucide-react";
 import { improveText, countWords } from "@/lib/improveTextApi";
 import { generateFieldText } from "@/lib/generateFieldTextApi";
+import { isAiTimeoutError } from "@/lib/backendApi";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import MarkdownToolbar from "@/components/MarkdownToolbar";
+import { formatMarkdown, type MarkdownFormat } from "@/lib/markdownFormat";
 import { analyzeField } from "@/lib/analyzeFieldApi";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
 import UpgradePlanBanner from "@/components/UpgradePlanBanner";
@@ -187,13 +191,13 @@ export default function TextFieldWithAI({
       console.error("Erro ao gerar texto:", error);
       const raw = error?.message || "Erro ao gerar texto. Tente novamente.";
       const looksLikeProxyTimeout =
-        /Failed to fetch|NetworkError|Load failed|CORS/i.test(raw) &&
+        /Failed to fetch|NetworkError|Load failed|CORS|Sem conexão/i.test(raw) &&
         wordLimit != null &&
         wordLimit >= 600;
-      const msg = /timeout/i.test(raw)
+      const msg = isAiTimeoutError(error)
         ? wordLimit && wordLimit >= 600
           ? "A IA demorou demais para este campo longo. Tente novamente — se persistir, preencha parte do texto manualmente e use «Melhorar com IA»."
-          : "A IA demorou demais. Tente novamente em instantes."
+          : raw
         : looksLikeProxyTimeout
           ? "A conexão com a API foi interrompida antes da IA terminar (comum em campos longos). Tente novamente em instantes."
           : raw;
@@ -217,6 +221,37 @@ export default function TextFieldWithAI({
     }
 
     await doGenerateFromScratch();
+  };
+
+  const applyFormat = (format: MarkdownFormat) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const result = formatMarkdown(value || "", el.selectionStart, el.selectionEnd, format);
+    onChange(result.text);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(result.start, result.end);
+      updateSelectionFromEl(el);
+    });
+  };
+
+  const runHistoryCommand = (command: "undo" | "redo") => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.focus();
+    document.execCommand(command);
+  };
+
+  const handleEditorKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if (key === "b") {
+      e.preventDefault();
+      applyFormat("bold");
+    } else if (key === "i") {
+      e.preventDefault();
+      applyFormat("italic");
+    }
   };
 
   const handleCopy = async () => {
@@ -560,7 +595,20 @@ export default function TextFieldWithAI({
         >
           {value && value.trim() ? (
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
+                table: ({ node, ...props }) => (
+                  <div className="overflow-x-auto mb-2">
+                    <table className="min-w-full border-collapse text-xs" {...props} />
+                  </div>
+                ),
+                th: ({ node, ...props }) => (
+                  <th className="border border-gray-300 bg-gray-100 px-2 py-1 text-left font-semibold" {...props} />
+                ),
+                td: ({ node, ...props }) => (
+                  <td className="border border-gray-300 px-2 py-1 align-top" {...props} />
+                ),
+                del: ({ node, ...props }) => <del className="line-through" {...props} />,
                 h1: ({ node, ...props }) => (
                   <h1 className="text-base font-bold mb-2 text-gray-900" {...props} />
                 ),
@@ -609,19 +657,27 @@ export default function TextFieldWithAI({
           )}
         </div>
       ) : (
-        <Textarea
-          id={id}
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onSelect={(e) => updateSelectionFromEl(e.currentTarget)}
-          onMouseUp={() => updateSelectionFromEl(textareaRef.current)}
-          onKeyUp={() => updateSelectionFromEl(textareaRef.current)}
-          onFocus={() => updateSelectionFromEl(textareaRef.current)}
-          rows={rows}
-          placeholder={placeholder}
-          className={cn(isOverLimit && "border-red-500 focus-visible:border-red-500")}
-        />
+        <>
+          <MarkdownToolbar
+            onFormat={applyFormat}
+            onUndo={() => runHistoryCommand("undo")}
+            onRedo={() => runHistoryCommand("redo")}
+          />
+          <Textarea
+            id={id}
+            ref={textareaRef}
+            value={value}
+            onKeyDown={handleEditorKeyDown}
+            onChange={(e) => onChange(e.target.value)}
+            onSelect={(e) => updateSelectionFromEl(e.currentTarget)}
+            onMouseUp={() => updateSelectionFromEl(textareaRef.current)}
+            onKeyUp={() => updateSelectionFromEl(textareaRef.current)}
+            onFocus={() => updateSelectionFromEl(textareaRef.current)}
+            rows={rows}
+            placeholder={placeholder}
+            className={cn(isOverLimit && "border-red-500 focus-visible:border-red-500")}
+          />
+        </>
       )}
 
       {!canUseAiProposal && (

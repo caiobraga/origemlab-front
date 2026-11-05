@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchNdjson } from "./backendApi";
+import { apiFetch, apiFetchNdjson, apiUploadFile } from "./backendApi";
 import type { DatabaseEdital } from "./editaisApi";
 import type { ProjetoConteudo } from "./projetoFormFields";
 import { propostaToProjetoInput, projetoToPropostaCampos } from "./projetoPropostaBridge";
@@ -82,6 +82,40 @@ export async function updateProjeto(
   });
   if (!data?.row) throw new Error("Falha ao atualizar projeto");
   return data.row;
+}
+
+export type ProjetoExtraido = {
+  titulo: string;
+  resumo: string;
+  area: string;
+  conteudo: ProjetoConteudo;
+  campos_preenchidos: number;
+};
+
+/** Envia o PDF do projeto e pede à IA para preencher os campos. */
+export async function extrairProjetoDePdf(file: File): Promise<ProjetoExtraido> {
+  const data = await apiUploadFile<ProjetoExtraido>("/api/projetos/extrair-pdf", file, "file");
+  if (!data?.conteudo) throw new Error("Não foi possível extrair os campos do PDF");
+  return data;
+}
+
+export type ProjetoRascunhoInput = {
+  titulo: string;
+  area?: string | null;
+  origem_tipo?: string | null;
+  origem_descricao?: string | null;
+  descricao: string;
+  publico_alvo?: ProjetoPublicoAlvo;
+};
+
+/** Pede à IA um rascunho dos campos do projeto a partir de uma descrição. */
+export async function gerarRascunhoProjeto(input: ProjetoRascunhoInput): Promise<ProjetoConteudo> {
+  const data = await apiFetch<{ conteudo: ProjetoConteudo }>("/api/projetos/rascunho", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  if (!data?.conteudo) throw new Error("Não foi possível gerar o rascunho");
+  return data.conteudo;
 }
 
 export async function deleteProjeto(id: string): Promise<void> {

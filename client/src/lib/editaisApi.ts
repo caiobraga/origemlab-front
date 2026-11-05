@@ -4,6 +4,7 @@ import { LattesData } from "./externalAPIs";
 import { fetchCNPJData, CNPJData } from "./externalAPIs";
 import { fetchCPFData, CPFData } from "./externalAPIs";
 import { apiFetch } from "./backendApi";
+import { calendarDaysUntil } from "./editalFormatters";
 import type { EntitlementsPayload } from "./subscriptionEntitlements";
 
 export interface DatabaseEdital {
@@ -23,6 +24,7 @@ export interface DatabaseEdital {
   criado_em: string;
   atualizado_em: string | null;
   valor_projeto?: string | null;
+  valor_bolsa?: string | null; // Valor mensal por bolsa, ex.: "ATP-B: R$ 560,00/mês"
   prazo_inscricao?: string | null; // Pode ser string ou JSON string com array
   localizacao?: string | null;
   vagas?: string | null;
@@ -162,9 +164,10 @@ export async function fetchEditaisStatsForOnboarding(area?: string): Promise<{
       }
     }
 
+    // Prazos ainda abertos (o último dia conta como aberto: 0 dias restantes).
     const prazos = naArea
-      .map((e) => e.data_encerramento ? Math.ceil((new Date(e.data_encerramento).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) : 0)
-      .filter((d) => d > 0);
+      .map((e) => (e.data_encerramento ? calendarDaysUntil(e.data_encerramento, hoje) : NaN))
+      .filter((d) => d >= 0);
     const prazoMedioDias = prazos.length > 0 ? Math.round(prazos.reduce((a, b) => a + b, 0) / prazos.length) : 30;
 
     return {
@@ -214,11 +217,8 @@ export async function fetchMyIndicacoes(options?: { limit?: number }): Promise<E
 export function formatPrazo(dataEncerramento: string | null): string {
   if (!dataEncerramento) return "Prazo não informado";
 
-  const hoje = new Date();
-  const encerramento = new Date(dataEncerramento);
-  const diasRestantes = Math.ceil(
-    (encerramento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const diasRestantes = calendarDaysUntil(dataEncerramento);
+  if (Number.isNaN(diasRestantes)) return "Prazo não informado";
 
   if (diasRestantes < 0) {
     return "Prazo encerrado";
@@ -281,12 +281,9 @@ export function getStatusFromEdital(
   }
 
   // Verificar por data de encerramento
-  if (edital.data_encerramento) {
-    const hoje = new Date();
-    const encerramento = new Date(edital.data_encerramento);
-    if (encerramento < hoje) {
-      return "submetido";
-    }
+  // Comparação por dia de calendário: o edital segue aberto durante todo o último dia.
+  if (edital.data_encerramento && calendarDaysUntil(edital.data_encerramento) < 0) {
+    return "submetido";
   }
 
   return "novo";

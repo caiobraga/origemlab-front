@@ -1,3 +1,5 @@
+import { ApiError } from "./backendApi";
+
 export interface AnalyzeFieldParams {
   edital_id?: string;
   proposta_id?: string;
@@ -55,8 +57,8 @@ export async function analyzeField(params: AnalyzeFieldParams): Promise<AnalyzeF
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error((error as any).error || "Erro ao analisar campo");
+    const error = await response.json().catch(() => null);
+    throw new ApiError(error, response.status);
   }
 
   const data: AnalyzeFieldResponse = await response.json();

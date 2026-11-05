@@ -12,6 +12,8 @@ import {
   saveChatHistory,
   loadChatHistory,
 } from "@/lib/editalChat";
+import { isAiTimeoutError } from "@/lib/backendApi";
+import { USER_MESSAGES } from "@/lib/userMessages";
 import { toast } from "sonner";
 
 interface EditalChatProps {
@@ -95,28 +97,17 @@ export default function EditalChat({ editalId }: EditalChatProps) {
       console.error("Mensagem do erro:", error?.message);
       console.error("Stack do erro:", error?.stack);
       
-      // Determine error message based on error type
-      let errorMessageText = "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.";
-      let toastMessage = "Erro ao enviar mensagem. Tente novamente.";
-      
-      const errorMsg = error?.message || String(error);
-      
-      if (errorMsg.includes("CORS") || errorMsg.includes("conexão") || errorMsg.includes("Failed to fetch")) {
-        errorMessageText = "Erro de conexão: O servidor não está permitindo requisições. Verifique as configurações de CORS no servidor n8n.";
-        toastMessage = "Erro de CORS: Verifique as configurações do servidor";
-      } else if (errorMsg.includes("HTTP error")) {
-        errorMessageText = `Erro HTTP: ${errorMsg}`;
-        toastMessage = "Erro ao comunicar com o servidor";
-      } else if (errorMsg.includes("JSON") || errorMsg.includes("parse")) {
-        errorMessageText = "Erro ao processar resposta do servidor. A resposta pode estar em formato inválido.";
-        toastMessage = "Erro ao processar resposta";
-      } else if (errorMsg.includes("timeout") || errorMsg.includes("Timeout")) {
-        errorMessageText = "A requisição demorou muito para responder. Por favor, tente novamente.";
-        toastMessage = "Timeout na requisição";
-      } else if (errorMsg) {
-        errorMessageText = `Erro: ${errorMsg}`;
-      }
-      
+      // backendApi/editalChat só lançam mensagens seguras em pt-BR; timeouts têm texto próprio.
+      const errorMsg = typeof error?.message === "string" ? error.message.trim() : "";
+      const timedOut =
+        error?.name === "AbortError" || isAiTimeoutError(error) || errorMsg === USER_MESSAGES.slowResponse;
+      const errorMessageText = timedOut ? USER_MESSAGES.slowResponse : errorMsg || USER_MESSAGES.generic;
+      const toastMessage = timedOut
+        ? "A resposta demorou mais que o esperado."
+        : errorMessageText === USER_MESSAGES.offline
+          ? "Sem conexão com o servidor."
+          : "Erro ao enviar mensagem. Tente novamente.";
+
       toast.error(toastMessage);
 
       // Add error message

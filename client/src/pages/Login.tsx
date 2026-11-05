@@ -11,6 +11,20 @@ import { Eye, EyeOff, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { resendSignupConfirmationEmail } from "@/lib/authEmailConfirmation";
+import { translateSupabaseAuthError } from "@/lib/authErrorTranslations";
+
+/** Avisos aceitos via ?aviso=<código> (nunca exibimos texto livre vindo da URL). */
+const LOGIN_AVISO_MESSAGES: Record<string, string> = {
+  email_confirmado: "E-mail confirmado! Agora faça login com sua senha.",
+  senha_redefinida: "Senha redefinida. Você já pode usar a nova senha.",
+};
+
+/** Erros aceitos via ?erro=<código>. */
+const LOGIN_ERRO_MESSAGES: Record<string, string> = {
+  link_expirado: "O link de confirmação expirou. Peça um novo e-mail abaixo.",
+  link_invalido: "O link de confirmação é inválido. Peça um novo e-mail abaixo.",
+  confirmacao_falhou: "Não foi possível confirmar seu e-mail. Peça um novo link abaixo.",
+};
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -45,13 +59,10 @@ export default function Login() {
       window.history.replaceState({}, "", `${next.pathname}${qs ? `?${qs}` : ""}${next.hash}`);
     };
 
-    if (urlParams.get("emailConfirmado") === "1") {
-      const aviso = urlParams.get("aviso");
-      toast.success(
-        aviso
-          ? decodeURIComponent(aviso)
-          : "Email confirmado! Agora faça login com sua senha.",
-      );
+    const aviso = urlParams.get("aviso");
+    const avisoMessage = aviso ? LOGIN_AVISO_MESSAGES[aviso] : undefined;
+    if (urlParams.get("emailConfirmado") === "1" || avisoMessage) {
+      toast.success(avisoMessage || LOGIN_AVISO_MESSAGES.email_confirmado);
       const t = window.setTimeout(() => stripUiFlagsOnly(), 50);
       return () => window.clearTimeout(t);
     }
@@ -61,7 +72,7 @@ export default function Login() {
       setShowConfirmHelp(true);
       const err = urlParams.get("erro");
       if (err) {
-        toast.error(decodeURIComponent(err));
+        toast.error(LOGIN_ERRO_MESSAGES[err] ?? LOGIN_ERRO_MESSAGES.confirmacao_falhou);
       }
       const t = window.setTimeout(() => stripUiFlagsOnly(), 50);
       return () => window.clearTimeout(t);
@@ -124,7 +135,7 @@ export default function Login() {
     try {
       const { error } = await resendSignupConfirmationEmail(email);
       if (error) {
-        toast.error(error.message);
+        toast.error(translateSupabaseAuthError(error, "Não foi possível reenviar o e-mail. Tente novamente."));
         return;
       }
       toast.success("Enviamos outro email. Confira também o spam.");

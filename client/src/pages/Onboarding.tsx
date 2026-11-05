@@ -2,20 +2,22 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, CheckCircle2, Sparkles, User, FileText, ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Sparkles, User } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { fetchEditaisStatsForOnboarding } from "@/lib/editaisApi";
-import { parseCurriculumFromPdf } from "@/lib/externalAPIs";
+import { formatBRLCompact } from "@/lib/editalValorStats";
 import { saveCurriculumToMetadata, setOnboardingCompleted, updateProfileFromOnboarding, type CurriculumData } from "@/lib/userProfile";
 import { createEmpresa, fetchEmpresas } from "@/lib/empresasApi";
 import Header from "@/components/Header";
 import { Spinner } from "@/components/ui/spinner";
-import { Progress } from "@/components/ui/progress";
+import AcademicFormationForm from "@/components/AcademicFormationForm";
+import CnpqAreasAtuacaoForm from "@/components/CnpqAreasAtuacaoForm";
+import { cnpqAreasToLabels, formatCnpqAreaAtuacao, type CnpqAreaAtuacao } from "@/lib/cnpqAreasConhecimento";
 
-type StepCompletarPerfil = "telefone" | "curriculo" | "area" | "concluido";
+type StepCompletarPerfil = "telefone" | "curriculo" | "areasCnpq" | "area" | "concluido";
 type StepConhecerEditais = "userType" | "area" | "result";
 
 interface OnboardingData {
@@ -23,12 +25,6 @@ interface OnboardingData {
   userType: string;
   area: string;
   cnpj: string;
-}
-
-function formatValorMilhoes(valor: number): string {
-  if (valor >= 1_000_000) return `R$ ${(valor / 1_000_000).toFixed(1)}M`;
-  if (valor >= 1_000) return `R$ ${(valor / 1_000).toFixed(1)}k`;
-  return `R$ ${valor.toLocaleString("pt-BR")}`;
 }
 
 function formatTelefone(v: string): string {
@@ -62,9 +58,10 @@ export default function Onboarding() {
   const [stepConhecer, setStepConhecer] = useState<StepConhecerEditais>("userType");
   const [data, setData] = useState<OnboardingData>({ telefone: "", userType: "", area: "", cnpj: "" });
   const [loading, setLoading] = useState(false);
-  const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [pdfExtractProgress, setPdfExtractProgress] = useState(0);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [savingFormacao, setSavingFormacao] = useState(false);
+  const [savingAreasCnpq, setSavingAreasCnpq] = useState(false);
+  const [formacaoFormKey, setFormacaoFormKey] = useState(0);
+  const [areasCnpqFormKey, setAreasCnpqFormKey] = useState(0);
   const [editaisStats, setEditaisStats] = useState<{
     total: number;
     naArea: number;
@@ -72,6 +69,9 @@ export default function Onboarding() {
     prazoMedioDias: number;
   } | null>(null);
   const [curriculumExtracted, setCurriculumExtracted] = useState(false);
+  const [editingFormacao, setEditingFormacao] = useState(false);
+  const [areasCnpqSaved, setAreasCnpqSaved] = useState(false);
+  const [editingAreasCnpq, setEditingAreasCnpq] = useState(false);
 
   useEffect(() => {
     if (isNewSignup && user) {
@@ -139,36 +139,61 @@ export default function Onboarding() {
     }
   };
 
-  const handleUploadCurriculo = async (file: File) => {
-    if (!file?.name.toLowerCase().endsWith(".pdf") || !user) return;
-    setUploadingPdf(true);
-    setPdfExtractProgress(0);
-    setUploadedFileName(null);
-    const interval = setInterval(() => {
-      setPdfExtractProgress((p) => {
-        if (p >= 90) return p;
-        return p + Math.random() * 8 + 4;
-      });
-    }, 300);
+  const hasCurriculum =
+    !editingFormacao &&
+    (curriculumExtracted ||
+      Boolean(profile?.curriculumData && typeof profile.curriculumData === "object" &&
+        Array.isArray(profile.curriculumData.formacao) &&
+        profile.curriculumData.formacao.length > 0));
+
+  const existingAreasCnpq = (profile?.curriculumData?.areasAtuacaoCnpq || []) as CnpqAreaAtuacao[];
+  const hasAreasCnpq =
+    !editingAreasCnpq &&
+    (areasCnpqSaved || existingAreasCnpq.length > 0);
+
+  const handleSaveFormacao = async (curriculumData: CurriculumData) => {
+    if (!user) return;
+    setSavingFormacao(true);
     try {
-      const curriculumData = await parseCurriculumFromPdf(file);
-      clearInterval(interval);
-      setPdfExtractProgress(100);
-      if (curriculumData) {
-        await saveCurriculumToMetadata(curriculumData as CurriculumData, user.id);
-        setCurriculumExtracted(true);
-        setUploadedFileName(file.name);
-        toast.success("Currículo extraído e salvo. Você pode continuar.");
-      } else {
-        toast.error("Não foi possível extrair dados do PDF. Envie o PDF do currículo baixado pelo Lattes.");
-      }
+      await saveCurriculumToMetadata(curriculumData, user.id);
+      setCurriculumExtracted(true);
+      setEditingFormacao(false);
+      toast.success("Formação acadêmica salva.");
+      await refetchProfile();
+      setStepCompletar("areasCnpq");
     } catch (err) {
-      clearInterval(interval);
-      const msg = err instanceof Error ? err.message : "Erro ao processar o PDF. Tente novamente.";
+      const msg = err instanceof Error ? err.message : "Erro ao salvar formação. Tente novamente.";
       toast.error(msg);
+      throw err;
     } finally {
-      setUploadingPdf(false);
-      setPdfExtractProgress(0);
+      setSavingFormacao(false);
+    }
+  };
+
+  const handleSaveAreasCnpq = async (areas: CnpqAreaAtuacao[]) => {
+    if (!user) return;
+    setSavingAreasCnpq(true);
+    try {
+      const prev = (profile?.curriculumData && typeof profile.curriculumData === "object"
+        ? profile.curriculumData
+        : {}) as CurriculumData;
+      const next: CurriculumData = {
+        ...prev,
+        areasAtuacaoCnpq: areas,
+        areasAtuacao: cnpqAreasToLabels(areas),
+      };
+      await saveCurriculumToMetadata(next, user.id);
+      setAreasCnpqSaved(true);
+      setEditingAreasCnpq(false);
+      toast.success("Áreas de atuação salvas.");
+      await refetchProfile();
+      setStepCompletar("area");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar áreas. Tente novamente.";
+      toast.error(msg);
+      throw err;
+    } finally {
+      setSavingAreasCnpq(false);
     }
   };
 
@@ -220,8 +245,11 @@ export default function Onboarding() {
   }
 
   if (isOnboarding1) {
-    const steps: StepCompletarPerfil[] = ["telefone", "curriculo", "area", "concluido"];
-    const idx = steps.indexOf(stepCompletar);
+    const steps: StepCompletarPerfil[] =
+      onboardingVariant === "pesquisador"
+        ? ["telefone", "curriculo", "areasCnpq", "area", "concluido"]
+        : ["telefone", "curriculo", "area", "concluido"];
+    const idx = Math.max(0, steps.indexOf(stepCompletar));
     const progress = ((idx + 1) / steps.length) * 100;
 
     return (
@@ -285,75 +313,90 @@ export default function Onboarding() {
               {stepCompletar === "curriculo" && onboardingVariant === "pesquisador" && (
                 <>
                   <p className="text-gray-600 mb-4">
-                    Envie um PDF do currículo baixado pelo Lattes para análise de elegibilidade (formação, vínculo institucional e área). Os dados são necessários para o match com editais.
+                    Informe sua formação acadêmica para análise de elegibilidade e match com editais.
                   </p>
-                  <a
-                    href="https://www.lattes.cnpq.br/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 hover:underline mb-4"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Abrir Plataforma Lattes (CNPq) para baixar ou imprimir seu currículo em PDF
-                  </a>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="hidden"
-                    id="onb-pdf"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadCurriculo(f);
-                      e.target.value = "";
-                    }}
-                  />
-                  {!(curriculumExtracted || (profile?.curriculumData && typeof profile.curriculumData === "object")) && (
-                    <Button variant="outline" className="w-full" onClick={() => document.getElementById("onb-pdf")?.click()} disabled={uploadingPdf}>
-                      <FileText className="w-4 h-4 mr-2" />
-                      {uploadingPdf ? "Enviando e extraindo dados..." : "Enviar PDF do currículo"}
-                    </Button>
-                  )}
-                  {uploadingPdf && (
-                    <div className="w-full mt-4 space-y-2">
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>Extraindo dados do PDF...</span>
-                        <span>{Math.round(Math.min(pdfExtractProgress, 100))}%</span>
-                      </div>
-                      <Progress value={Math.min(pdfExtractProgress, 100)} className="h-2" />
-                    </div>
-                  )}
-                  {(curriculumExtracted || (profile?.curriculumData && typeof profile.curriculumData === "object")) && !uploadingPdf && (
-                    <div className="w-full mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
+                  {hasCurriculum ? (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg flex-1 min-w-0">
                           <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-                          <span className="text-sm font-medium text-green-800 truncate">
-                            {uploadedFileName ? uploadedFileName : "Currículo cadastrado"}
-                          </span>
+                          <span className="text-sm font-medium text-green-800">Formação acadêmica cadastrada</span>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-shrink-0 border-green-300 text-green-700 hover:bg-green-100"
-                          onClick={() => document.getElementById("onb-pdf")?.click()}
+                          className="shrink-0"
+                          onClick={() => {
+                            setEditingFormacao(true);
+                            setFormacaoFormKey((k) => k + 1);
+                          }}
                         >
-                          <RefreshCw className="w-4 h-4 mr-1.5" />
-                          Trocar arquivo
+                          Editar
                         </Button>
                       </div>
+                      <Button className="w-full" onClick={() => setStepCompletar("areasCnpq")}>
+                        Continuar <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
                     </div>
+                  ) : (
+                    <AcademicFormationForm
+                      key={formacaoFormKey}
+                      existing={profile?.curriculumData}
+                      saving={savingFormacao}
+                      onComplete={handleSaveFormacao}
+                    />
                   )}
-                  <Button
-                    className="w-full mt-3"
-                    onClick={() => setStepCompletar("area")}
-                    disabled={!curriculumExtracted && !(profile?.curriculumData && typeof profile.curriculumData === "object")}
-                  >
-                    Continuar <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                  {!curriculumExtracted && !(profile?.curriculumData && typeof profile.curriculumData === "object") && (
-                    <p className="text-sm text-amber-700 mt-2">
-                      Envie o PDF e aguarde a extração dos dados para continuar.
-                    </p>
+                </>
+              )}
+
+              {stepCompletar === "areasCnpq" && onboardingVariant === "pesquisador" && (
+                <>
+                  {hasAreasCnpq ? (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg flex-1 min-w-0">
+                          <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span className="text-sm font-medium text-green-800">Áreas de atuação cadastradas</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => {
+                            setEditingAreasCnpq(true);
+                            setAreasCnpqFormKey((k) => k + 1);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                      {existingAreasCnpq.length > 0 && (
+                        <ul className="text-sm text-gray-700 space-y-1 border border-border rounded-sm p-3 bg-secondary/30">
+                          {existingAreasCnpq.map((a, i) => (
+                            <li key={i}>
+                              {a.custom ? (
+                                <>
+                                  <span className="text-xs font-medium text-primary mr-1.5">Outra</span>
+                                  {formatCnpqAreaAtuacao(a)}
+                                </>
+                              ) : (
+                                formatCnpqAreaAtuacao(a)
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <Button className="w-full" onClick={() => setStepCompletar("area")}>
+                        Continuar <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <CnpqAreasAtuacaoForm
+                      key={areasCnpqFormKey}
+                      initial={existingAreasCnpq}
+                      saving={savingAreasCnpq}
+                      onComplete={handleSaveAreasCnpq}
+                    />
                   )}
                 </>
               )}
@@ -509,7 +552,7 @@ export default function Onboarding() {
                     <div className="text-xs text-gray-600">Na sua área</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-primary">{editaisStats ? formatValorMilhoes(editaisStats.valorTotal) : "—"}</div>
+                    <div className="text-2xl font-bold text-primary">{editaisStats ? formatBRLCompact(editaisStats.valorTotal) : "—"}</div>
                     <div className="text-xs text-gray-600">Valor total</div>
                   </div>
                   <div>
