@@ -23,6 +23,8 @@ export type Projeto = {
   publico_alvo: ProjetoPublicoAlvo;
   status: ProjetoStatus;
   conteudo?: ProjetoConteudo | Record<string, unknown>;
+  /** UFs onde o projeto pode ser executado; null/vazio = nacional. */
+  abrangencia_ufs?: string[] | null;
   criado_em?: string;
   atualizado_em?: string;
 };
@@ -30,7 +32,18 @@ export type Projeto = {
 export type ProjetoEditalMatch = {
   score: number;
   motivos: string[];
+  /** UFs onde o edital financia; null = nacional. */
+  abrangencia?: string[] | null;
   edital: DatabaseEdital;
+};
+
+/** Contagem de editais que o match escondeu, por motivo. */
+export type ProjetoEditalOcultos = {
+  total: number;
+  regiao: number;
+  prazo: number;
+  publico: number;
+  tema: number;
 };
 
 export async function fetchProjetos(empresaId?: string): Promise<Projeto[]> {
@@ -74,6 +87,7 @@ export async function updateProjeto(
     status: ProjetoStatus;
     empresa_id: string | null;
     conteudo: ProjetoConteudo | Record<string, unknown>;
+    abrangencia_ufs: string[] | null;
   }>,
 ): Promise<Projeto> {
   const data = await apiFetch<{ row: Projeto }>(`/api/projetos/${id}`, {
@@ -122,11 +136,18 @@ export async function deleteProjeto(id: string): Promise<void> {
   await apiFetch(`/api/projetos/${id}`, { method: "DELETE" });
 }
 
-export async function matchEditaisForProjeto(id: string, limit = 20): Promise<ProjetoEditalMatch[]> {
-  const data = await apiFetch<{ rows: ProjetoEditalMatch[] }>(
+export async function matchEditaisForProjetoDetalhado(
+  id: string,
+  limit = 20,
+): Promise<{ rows: ProjetoEditalMatch[]; ocultos: ProjetoEditalOcultos | null }> {
+  const data = await apiFetch<{ rows: ProjetoEditalMatch[]; ocultos?: ProjetoEditalOcultos }>(
     `/api/projetos/${id}/editais?limit=${encodeURIComponent(String(limit))}`,
   );
-  return Array.isArray(data?.rows) ? data.rows : [];
+  return { rows: Array.isArray(data?.rows) ? data.rows : [], ocultos: data?.ocultos ?? null };
+}
+
+export async function matchEditaisForProjeto(id: string, limit = 20): Promise<ProjetoEditalMatch[]> {
+  return (await matchEditaisForProjetoDetalhado(id, limit)).rows;
 }
 
 /** Cria Projeto a partir de uma Proposta existente (mapeamento estrutural). */

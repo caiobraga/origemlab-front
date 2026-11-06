@@ -200,6 +200,42 @@ export const PROJETO_ORIGEM_LABELS: Record<ProjetoOrigemTipo, string> = {
   outro: "Outro",
 };
 
+/** UFs para a abrangência do projeto (coluna `projetos.abrangencia_ufs`). */
+export const UF_LABELS: Record<string, string> = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapá",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceará",
+  DF: "Distrito Federal",
+  ES: "Espírito Santo",
+  GO: "Goiás",
+  MA: "Maranhão",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Pará",
+  PB: "Paraíba",
+  PR: "Paraná",
+  PE: "Pernambuco",
+  PI: "Piauí",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondônia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "São Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins",
+};
+
+/** Texto curto da abrangência: "Nacional" ou "ES, RJ". */
+export function formatAbrangencia(ufs: string[] | null | undefined): string {
+  return ufs?.length ? ufs.join(", ") : "Nacional";
+}
+
 /** Seções de texto longo — rótulos alinhados à chamada CNPq DT (itens 1–12). */
 export const PROJETO_SECTIONS: Array<{
   key: (typeof STRING_KEYS)[number];

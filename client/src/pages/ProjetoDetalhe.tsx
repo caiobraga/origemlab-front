@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { ArrowLeft, Loader2, Save, Search } from "lucide-react";
 import Header from "@/components/Header";
+import ProjetoAbrangenciaField from "@/components/ProjetoAbrangenciaField";
 import TextFieldWithAI from "@/components/TextFieldWithAI";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,9 @@ export default function ProjetoDetalhe() {
   const [publico, setPublico] = useState<ProjetoPublicoAlvo>("ambos");
   const [conteudo, setConteudo] = useState<ProjetoConteudo>(normalizeProjetoConteudo(null));
   const [keywords, setKeywords] = useState("");
+  const [abrangencia, setAbrangencia] = useState<string[]>([]);
+  /** Só envia `abrangencia_ufs` quando o usuário mexeu na região. */
+  const abrangenciaDirtyRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [candidatandoEditalId, setCandidatandoEditalId] = useState<string | null>(null);
@@ -88,6 +92,8 @@ export default function ProjetoDetalhe() {
         const c = normalizeProjetoConteudo(row.conteudo);
         setConteudo(c);
         setKeywords((c.palavras_chave || []).join(", "));
+        setAbrangencia(row.abrangencia_ufs || []);
+        abrangenciaDirtyRef.current = false;
         dirtyRef.current = false;
         loadedIdRef.current = id;
       } catch (e) {
@@ -146,8 +152,10 @@ export default function ProjetoDetalhe() {
         resumo,
         objetivos,
         conteudo: next,
+        ...(abrangenciaDirtyRef.current ? { abrangencia_ufs: abrangencia.length ? abrangencia : null } : {}),
       });
       setProjeto(row);
+      abrangenciaDirtyRef.current = false;
       setConteudo(normalizeProjetoConteudo(row.conteudo));
       dirtyRef.current = false;
       toast.success("Projeto salvo");
@@ -303,6 +311,14 @@ export default function ProjetoDetalhe() {
                     <option value="ambos">Ambos</option>
                   </select>
                 </div>
+                <ProjetoAbrangenciaField
+                  value={abrangencia}
+                  onChange={(ufs) => {
+                    markDirty();
+                    abrangenciaDirtyRef.current = true;
+                    setAbrangencia(ufs);
+                  }}
+                />
                 <div className="space-y-2">
                   <Label htmlFor="inicio">Início previsto</Label>
                   <Input

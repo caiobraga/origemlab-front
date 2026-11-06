@@ -6,6 +6,7 @@ import {
   FileEdit,
   FolderKanban,
   Loader2,
+  MapPin,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -19,10 +20,12 @@ import { subscriptionUpgradeMessage } from "@/lib/subscriptionEntitlements";
 import {
   fetchProjeto,
   gerarPropostaAdaptadaFromProjeto,
-  matchEditaisForProjeto,
+  matchEditaisForProjetoDetalhado,
   type Projeto,
   type ProjetoEditalMatch,
+  type ProjetoEditalOcultos,
 } from "@/lib/projetosApi";
+import { formatAbrangencia } from "@/lib/projetoFormFields";
 import { formatValorProjeto } from "@/lib/editalFormatters";
 import { getPrazoInscricaoDisplayPreferindoTimeline } from "@/lib/editalSubmissionDeadline";
 
@@ -35,6 +38,7 @@ export default function ProjetoEditais() {
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [matches, setMatches] = useState<ProjetoEditalMatch[]>([]);
+  const [ocultos, setOcultos] = useState<ProjetoEditalOcultos | null>(null);
   const [loading, setLoading] = useState(true);
   const [matching, setMatching] = useState(false);
   const [candidatandoEditalId, setCandidatandoEditalId] = useState<string | null>(null);
@@ -58,8 +62,9 @@ export default function ProjetoEditais() {
       try {
         const row = await fetchProjeto(id);
         setProjeto(row);
-        const found = await matchEditaisForProjeto(id, 40);
+        const { rows: found, ocultos: hidden } = await matchEditaisForProjetoDetalhado(id, 40);
         setMatches(found);
+        setOcultos(hidden);
         if (!found.length) {
           toast.message("Nenhum edital compatível encontrado com o texto deste projeto");
         }
@@ -76,8 +81,9 @@ export default function ProjetoEditais() {
     if (!id) return;
     setMatching(true);
     try {
-      const found = await matchEditaisForProjeto(id, 40);
+      const { rows: found, ocultos: hidden } = await matchEditaisForProjetoDetalhado(id, 40);
       setMatches(found);
+      setOcultos(hidden);
       if (!found.length) {
         toast.message("Nenhum edital compatível encontrado");
       } else {
@@ -184,6 +190,26 @@ export default function ProjetoEditais() {
                 Chamadas ranqueadas pelo texto deste projeto. Escolha um edital para escrever a proposta
                 adaptada com IA, ou filtre o catálogo do painel pelo mesmo projeto.
               </p>
+              <p className="mt-3 flex flex-wrap items-center gap-1 text-sm text-gray-700">
+                <MapPin className="h-3.5 w-3.5" />
+                Região de execução: <strong>{formatAbrangencia(projeto.abrangencia_ufs)}</strong>
+                <Link href={`/projetos/${id}`} className="ml-1 text-primary hover:underline">
+                  alterar
+                </Link>
+              </p>
+              {ocultos && ocultos.total > 0 && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {ocultos.total} editais ocultados:{" "}
+                  {[
+                    ocultos.regiao ? `${ocultos.regiao} de outra região` : "",
+                    ocultos.prazo ? `${ocultos.prazo} com prazo encerrado` : "",
+                    ocultos.publico ? `${ocultos.publico} para outro público` : "",
+                    ocultos.tema ? `${ocultos.tema} pouco relacionados ao tema` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
               <div className="mt-4">
                 <Button
                   type="button"
@@ -212,7 +238,7 @@ export default function ProjetoEditais() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {matches.map(({ score, motivos, edital }) => {
+                {matches.map(({ score, motivos, abrangencia, edital }) => {
                   const prazo = getPrazoInscricaoDisplayPreferindoTimeline(
                     edital.prazo_inscricao,
                     edital.timeline_estimada,
@@ -228,6 +254,11 @@ export default function ProjetoEditais() {
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                           {edital.orgao || "Órgão"}
+                          {abrangencia !== undefined && (
+                            <span className="ml-2 font-normal normal-case text-gray-400">
+                              · {formatAbrangencia(abrangencia)}
+                            </span>
+                          )}
                         </p>
                         <Badge className="bg-primary text-white">
                           <Sparkles className="h-3 w-3" />
@@ -241,7 +272,7 @@ export default function ProjetoEditais() {
                       </Link>
                       {motivos?.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {motivos.slice(0, 3).map((m) => (
+                          {motivos.slice(0, 4).map((m) => (
                             <Badge key={m} variant="outline" className="text-xs">
                               {m}
                             </Badge>
