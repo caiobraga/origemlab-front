@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { UF_LABELS } from "@/lib/projetoFormFields";
 
@@ -11,6 +11,11 @@ type Props = {
 export default function ProjetoAbrangenciaField({ value, onChange }: Props) {
   const [restrito, setRestrito] = useState(value.length > 0);
   const ufs = Object.keys(UF_LABELS);
+
+  // O valor salvo chega depois do primeiro render (carregamento do projeto).
+  useEffect(() => {
+    if (value.length > 0) setRestrito(true);
+  }, [value.length]);
 
   const toggle = (uf: string) => {
     const next = value.includes(uf) ? value.filter((u) => u !== uf) : [...value, uf];

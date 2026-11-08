@@ -13,6 +13,7 @@ import {
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import ProjetoAbrangenciaField from "@/components/ProjetoAbrangenciaField";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscriptionEntitlements } from "@/hooks/useSubscriptionEntitlements";
@@ -21,6 +22,7 @@ import {
   fetchProjeto,
   gerarPropostaAdaptadaFromProjeto,
   matchEditaisForProjetoDetalhado,
+  updateProjeto,
   type Projeto,
   type ProjetoEditalMatch,
   type ProjetoEditalOcultos,
@@ -41,6 +43,9 @@ export default function ProjetoEditais() {
   const [ocultos, setOcultos] = useState<ProjetoEditalOcultos | null>(null);
   const [loading, setLoading] = useState(true);
   const [matching, setMatching] = useState(false);
+  const [editandoRegiao, setEditandoRegiao] = useState(false);
+  const [regiaoDraft, setRegiaoDraft] = useState<string[]>([]);
+  const [salvandoRegiao, setSalvandoRegiao] = useState(false);
   const [candidatandoEditalId, setCandidatandoEditalId] = useState<string | null>(null);
   const [adaptProgress, setAdaptProgress] = useState<{
     current: number;
@@ -93,6 +98,26 @@ export default function ProjetoEditais() {
       toast.error(e instanceof Error ? e.message : "Erro na busca");
     } finally {
       setMatching(false);
+    }
+  };
+
+  const abrirEdicaoRegiao = () => {
+    setRegiaoDraft(projeto?.abrangencia_ufs || []);
+    setEditandoRegiao(true);
+  };
+
+  const aplicarRegiao = async () => {
+    if (!id) return;
+    setSalvandoRegiao(true);
+    try {
+      const row = await updateProjeto(id, { abrangencia_ufs: regiaoDraft.length ? regiaoDraft : null });
+      setProjeto(row);
+      setEditandoRegiao(false);
+      await refreshMatches();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar a região");
+    } finally {
+      setSalvandoRegiao(false);
     }
   };
 
@@ -193,10 +218,32 @@ export default function ProjetoEditais() {
               <p className="mt-3 flex flex-wrap items-center gap-1 text-sm text-gray-700">
                 <MapPin className="h-3.5 w-3.5" />
                 Região de execução: <strong>{formatAbrangencia(projeto.abrangencia_ufs)}</strong>
-                <Link href={`/projetos/${id}`} className="ml-1 text-primary hover:underline">
-                  alterar
-                </Link>
+                {!editandoRegiao && (
+                  <button type="button" onClick={abrirEdicaoRegiao} className="ml-1 text-primary hover:underline">
+                    filtrar por região
+                  </button>
+                )}
               </p>
+              {editandoRegiao && (
+                <div className="mt-3 max-w-2xl space-y-3 rounded-md border border-border bg-white p-3">
+                  <ProjetoAbrangenciaField value={regiaoDraft} onChange={setRegiaoDraft} />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" onClick={() => void aplicarRegiao()} disabled={salvandoRegiao}>
+                      {salvandoRegiao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Aplicar e buscar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditandoRegiao(false)}
+                      disabled={salvandoRegiao}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
               {ocultos && ocultos.total > 0 && (
                 <p className="mt-1 text-xs text-gray-500">
                   {ocultos.total} editais ocultados:{" "}

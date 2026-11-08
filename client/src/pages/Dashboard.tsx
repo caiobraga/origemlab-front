@@ -55,6 +55,7 @@ import {
   type Projeto,
   type ProjetoEditalMatch,
 } from "@/lib/projetosApi";
+import { formatAbrangencia } from "@/lib/projetoFormFields";
 
 interface EditalDisplay extends DatabaseEdital {
   prazo: string;
@@ -738,11 +739,12 @@ export default function Dashboard() {
                       {projetoMatchLoading
                         ? "Calculando compatibilidade…"
                         : `${editaisProjetoRaw.length} edital(is) compatível(is).`}{" "}
+                      Região: {formatAbrangencia(projetoSelecionado?.abrangencia_ufs)}.{" "}
                       <Link
                         href={`/projetos/${filtroProjetoId}/editais`}
                         className="font-medium text-primary underline underline-offset-2"
                       >
-                        Abrir tela do projeto
+                        Filtrar por região
                       </Link>
                     </p>
                   ) : projetos.length === 0 ? (
