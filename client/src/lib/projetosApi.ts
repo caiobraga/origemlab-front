@@ -32,6 +32,8 @@ export type Projeto = {
 export type ProjetoEditalMatch = {
   score: number;
   motivos: string[];
+  /** Pontos dos critérios de seleção a confirmar no edital (sem dado ou fora da recomendação). */
+  alertas?: string[];
   /** UFs onde o edital financia; null = nacional. */
   abrangencia?: string[] | null;
   edital: DatabaseEdital;
@@ -44,6 +46,16 @@ export type ProjetoEditalOcultos = {
   prazo: number;
   publico: number;
   tema: number;
+  /** Fora dos critérios de seleção (duração, valor, TransfereGov, obra, Lei 14.133). */
+  criterios?: number;
+};
+
+export type ProjetoEditaisResultado = {
+  rows: ProjetoEditalMatch[];
+  ocultos: ProjetoEditalOcultos | null;
+  /** Se os critérios de seleção foram aplicados nesta busca. */
+  criterios: boolean;
+  criteriosResumo: string[];
 };
 
 export async function fetchProjetos(empresaId?: string): Promise<Projeto[]> {
@@ -136,14 +148,26 @@ export async function deleteProjeto(id: string): Promise<void> {
   await apiFetch(`/api/projetos/${id}`, { method: "DELETE" });
 }
 
+/** Critérios de seleção da fundação ficam ligados por padrão; `criterios: false` mostra todos. */
 export async function matchEditaisForProjetoDetalhado(
   id: string,
   limit = 20,
-): Promise<{ rows: ProjetoEditalMatch[]; ocultos: ProjetoEditalOcultos | null }> {
-  const data = await apiFetch<{ rows: ProjetoEditalMatch[]; ocultos?: ProjetoEditalOcultos }>(
-    `/api/projetos/${id}/editais?limit=${encodeURIComponent(String(limit))}`,
-  );
-  return { rows: Array.isArray(data?.rows) ? data.rows : [], ocultos: data?.ocultos ?? null };
+  opts?: { criterios?: boolean },
+): Promise<ProjetoEditaisResultado> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (opts?.criterios === false) qs.set("criterios", "0");
+  const data = await apiFetch<{
+    rows: ProjetoEditalMatch[];
+    ocultos?: ProjetoEditalOcultos;
+    criterios?: boolean;
+    criterios_resumo?: string[];
+  }>(`/api/projetos/${id}/editais?${qs}`);
+  return {
+    rows: Array.isArray(data?.rows) ? data.rows : [],
+    ocultos: data?.ocultos ?? null,
+    criterios: data?.criterios ?? opts?.criterios !== false,
+    criteriosResumo: Array.isArray(data?.criterios_resumo) ? data.criterios_resumo : [],
+  };
 }
 
 export async function matchEditaisForProjeto(id: string, limit = 20): Promise<ProjetoEditalMatch[]> {

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   FileEdit,
   FolderKanban,
+  ListChecks,
   Loader2,
   MapPin,
   Sparkles,
@@ -13,6 +15,7 @@ import {
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import ProjetoAbrangenciaField from "@/components/ProjetoAbrangenciaField";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +34,25 @@ import { formatAbrangencia } from "@/lib/projetoFormFields";
 import { formatValorProjeto } from "@/lib/editalFormatters";
 import { getPrazoInscricaoDisplayPreferindoTimeline } from "@/lib/editalSubmissionDeadline";
 
+const CRITERIOS_STORAGE_KEY = "origemlab.projetoEditais.criterios";
+
+/** Preferência do filtro por navegador; padrão ligado. */
+function lerPreferenciaCriterios(): boolean {
+  try {
+    return window.localStorage.getItem(CRITERIOS_STORAGE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function salvarPreferenciaCriterios(on: boolean) {
+  try {
+    window.localStorage.setItem(CRITERIOS_STORAGE_KEY, on ? "1" : "0");
+  } catch {
+    /* sem storage: vale só nesta visita */
+  }
+}
+
 export default function ProjetoEditais() {
   const params = useParams<{ id: string }>();
   const id = String(params.id || "");
@@ -41,6 +63,8 @@ export default function ProjetoEditais() {
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [matches, setMatches] = useState<ProjetoEditalMatch[]>([]);
   const [ocultos, setOcultos] = useState<ProjetoEditalOcultos | null>(null);
+  const [criterios, setCriterios] = useState<boolean>(lerPreferenciaCriterios);
+  const [criteriosResumo, setCriteriosResumo] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [matching, setMatching] = useState(false);
   const [editandoRegiao, setEditandoRegiao] = useState(false);
@@ -67,9 +91,11 @@ export default function ProjetoEditais() {
       try {
         const row = await fetchProjeto(id);
         setProjeto(row);
-        const { rows: found, ocultos: hidden } = await matchEditaisForProjetoDetalhado(id, 40);
+        const res = await matchEditaisForProjetoDetalhado(id, 40, { criterios });
+        const found = res.rows;
         setMatches(found);
-        setOcultos(hidden);
+        setOcultos(res.ocultos);
+        if (res.criteriosResumo.length) setCriteriosResumo(res.criteriosResumo);
         if (!found.length) {
           toast.message("Nenhum edital compatível encontrado com o texto deste projeto");
         }
@@ -80,15 +106,19 @@ export default function ProjetoEditais() {
         setMatching(false);
       }
     })();
+    // Recarregar ao alternar os critérios fica a cargo de alternarCriterios.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, id, setLocation]);
 
-  const refreshMatches = async () => {
+  const refreshMatches = async (usarCriterios = criterios) => {
     if (!id) return;
     setMatching(true);
     try {
-      const { rows: found, ocultos: hidden } = await matchEditaisForProjetoDetalhado(id, 40);
+      const res = await matchEditaisForProjetoDetalhado(id, 40, { criterios: usarCriterios });
+      const found = res.rows;
       setMatches(found);
-      setOcultos(hidden);
+      setOcultos(res.ocultos);
+      if (res.criteriosResumo.length) setCriteriosResumo(res.criteriosResumo);
       if (!found.length) {
         toast.message("Nenhum edital compatível encontrado");
       } else {
@@ -99,6 +129,12 @@ export default function ProjetoEditais() {
     } finally {
       setMatching(false);
     }
+  };
+
+  const alternarCriterios = (on: boolean) => {
+    setCriterios(on);
+    salvarPreferenciaCriterios(on);
+    void refreshMatches(on);
   };
 
   const abrirEdicaoRegiao = () => {
@@ -244,10 +280,41 @@ export default function ProjetoEditais() {
                   </div>
                 </div>
               )}
+              <div className="mt-4 max-w-2xl rounded-md border border-border bg-white p-3">
+                <label className="flex cursor-pointer items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                    <ListChecks className="h-4 w-4 text-primary" />
+                    Critérios de seleção da fundação
+                  </span>
+                  <Switch
+                    checked={criterios}
+                    disabled={matching || !!candidatandoEditalId}
+                    onCheckedChange={alternarCriterios}
+                    aria-label="Aplicar critérios de seleção da fundação"
+                  />
+                </label>
+                {criterios ? (
+                  <ul className="mt-2 grid gap-x-4 gap-y-0.5 text-xs text-gray-600 sm:grid-cols-2">
+                    {criteriosResumo.map((c) => (
+                      <li key={c}>· {c}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-gray-600">
+                    Desligado: mostrando editais sem filtrar por duração, valor, TransfereGov, obra ou Lei 14.133.
+                  </p>
+                )}
+                {criterios && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Editais sem a informação no texto aparecem com o aviso “verificar”.
+                  </p>
+                )}
+              </div>
               {ocultos && ocultos.total > 0 && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-gray-500">
                   {ocultos.total} editais ocultados:{" "}
                   {[
+                    ocultos.criterios ? `${ocultos.criterios} fora dos critérios de seleção` : "",
                     ocultos.regiao ? `${ocultos.regiao} de outra região` : "",
                     ocultos.prazo ? `${ocultos.prazo} com prazo encerrado` : "",
                     ocultos.publico ? `${ocultos.publico} para outro público` : "",
@@ -281,11 +348,14 @@ export default function ProjetoEditais() {
               </div>
             ) : matches.length === 0 ? (
               <div className="rounded-md border border-border bg-white p-6 text-sm text-gray-600">
-                Nenhum edital compatível. Enriqueça o texto do projeto e atualize o ranking.
+                Nenhum edital compatível.{" "}
+                {criterios
+                  ? "Desligue os critérios de seleção para ver todos, ou enriqueça o texto do projeto."
+                  : "Enriqueça o texto do projeto e atualize o ranking."}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {matches.map(({ score, motivos, abrangencia, edital }) => {
+                {matches.map(({ score, motivos, alertas, abrangencia, edital }) => {
                   const prazo = getPrazoInscricaoDisplayPreferindoTimeline(
                     edital.prazo_inscricao,
                     edital.timeline_estimada,
@@ -319,12 +389,22 @@ export default function ProjetoEditais() {
                       </Link>
                       {motivos?.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {motivos.slice(0, 4).map((m) => (
+                          {motivos.slice(0, criterios ? 6 : 4).map((m) => (
                             <Badge key={m} variant="outline" className="text-xs">
                               {m}
                             </Badge>
                           ))}
                         </div>
+                      )}
+                      {alertas && alertas.length > 0 && (
+                        <ul className="mt-2 space-y-0.5 text-xs text-amber-700">
+                          {alertas.map((a) => (
+                            <li key={a} className="flex items-start gap-1">
+                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                              {a}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                       <div className="mt-3 space-y-1 text-sm text-gray-700">
                         {valor !== "Não informado" && <p>{valor}</p>}
